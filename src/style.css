@@ -388,7 +388,7 @@ a:hover {
 .diff-lines,
 .code-line {
   font-family: var(--app-font-family-mono);
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
   line-height: 1.5;
 }
 
@@ -428,7 +428,7 @@ a:hover {
   border-radius: var(--app-radius-full);
   background: var(--md-sys-color-surface-container-low);
   font-weight: 700;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   letter-spacing: 0.02em;
 }
 
@@ -851,7 +851,7 @@ body,
   padding: 14px 18px;
   color: var(--md-sys-color-on-surface);
   background: var(--md-sys-color-surface-container-low);
-  font-size: 14px;
+  font-size: var(--app-font-size-body);
 }
 
 .el-card__body {
@@ -883,7 +883,7 @@ body,
 .status-badge {
   min-height: 24px;
   border-radius: var(--app-radius-full);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   letter-spacing: .01em;
 }
 

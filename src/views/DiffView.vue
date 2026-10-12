@@ -537,13 +537,13 @@ watch(
   justify-content: space-between;
   padding: 8px 12px;
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-weight: 600;
   color: var(--el-text-color-secondary);
 }
 
 .sidebar-count {
-  font-size: 10px;
+  font-size: var(--app-font-size-2xs);
   color: var(--el-text-color-placeholder);
 }
 
@@ -565,7 +565,7 @@ watch(
   gap: 8px;
   padding: 6px 12px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   font-family: var(--app-font-family-mono);
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
   transition: background var(--app-transition-fast);

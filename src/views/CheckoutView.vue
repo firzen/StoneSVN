@@ -250,7 +250,7 @@ const resetForm = () => {
   align-items: center;
   gap: 6px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
   color: var(--el-text-color-regular);
 }
 

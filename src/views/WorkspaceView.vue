@@ -607,13 +607,13 @@ const handleFileAction = async (file: SvnStatus) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
 
 .panel-title .el-icon {
-  font-size: 14px;
+  font-size: var(--app-font-size-body);
 }
 
 .panel-content {
@@ -642,7 +642,7 @@ const handleFileAction = async (file: SvnStatus) => {
 }
 
 .info-label {
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-weight: 600;
   color: var(--el-text-color-secondary);
   text-transform: uppercase;
@@ -650,19 +650,19 @@ const handleFileAction = async (file: SvnStatus) => {
 }
 
 .info-value {
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
   color: var(--el-text-color-primary);
   word-break: break-all;
 }
 
 .path-text {
   font-family: var(--app-font-family-mono);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 
 .url-text {
   color: var(--md-sys-color-primary);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 
 .no-info {
@@ -702,7 +702,7 @@ const handleFileAction = async (file: SvnStatus) => {
   border: 1px solid transparent;
   cursor: pointer;
   transition: color var(--app-transition-fast), background-color var(--app-transition-fast), border-color var(--app-transition-fast);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 
 .status-badge:hover {
@@ -743,7 +743,7 @@ const handleFileAction = async (file: SvnStatus) => {
   padding: 8px 12px;
   color: var(--md-sys-color-on-surface-variant);
   background: var(--md-sys-color-surface-container);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
 }
 
@@ -791,7 +791,7 @@ const handleFileAction = async (file: SvnStatus) => {
   height: 20px;
   padding: 0 6px;
   border-radius: var(--app-radius-xs);
-  font-size: 10px;
+  font-size: var(--app-font-size-2xs);
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -910,7 +910,7 @@ const handleFileAction = async (file: SvnStatus) => {
   background: transparent;
   color: var(--el-text-color-primary);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
   text-align: left;
 }
 
@@ -1029,7 +1029,7 @@ const handleFileAction = async (file: SvnStatus) => {
   border-radius: 18px;
   color: var(--md-sys-color-on-primary-container);
   background: var(--md-sys-color-primary-container);
-  font-size: 30px;
+  font-size: var(--app-font-size-display);
 }
 
 .welcome-eyebrow {
@@ -1081,7 +1081,7 @@ const handleFileAction = async (file: SvnStatus) => {
   padding: 0 9px 0 12px;
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
   color: var(--md-sys-color-on-surface);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 
 .repository-name button {
@@ -1137,7 +1137,7 @@ const handleFileAction = async (file: SvnStatus) => {
 }
 
 .sidebar-row b {
-  font-size: 10px;
+  font-size: var(--app-font-size-2xs);
 }
 
 .repository-meta {
@@ -1165,7 +1165,7 @@ const handleFileAction = async (file: SvnStatus) => {
   overflow: hidden;
   margin-top: 2px;
   color: var(--md-sys-color-on-surface-variant);
-  font-size: 10px;
+  font-size: var(--app-font-size-2xs);
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;

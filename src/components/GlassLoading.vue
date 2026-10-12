@@ -68,7 +68,7 @@ defineProps<{ active: boolean; label: string }>()
 
 .glass-loading-label {
   color: var(--md-sys-color-on-surface);
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
   font-weight: 500;
 }
 

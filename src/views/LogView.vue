@@ -675,7 +675,7 @@ onUnmounted(() => {
 
 .loaded-count {
   color: var(--el-text-color-secondary);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
 }
 
 .no-workspace {
@@ -753,7 +753,7 @@ onUnmounted(() => {
   gap: var(--app-spacing-sm);
   margin: -4px 0 var(--app-spacing-sm);
   color: var(--el-text-color-secondary);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 
 .query-status {
@@ -781,7 +781,7 @@ onUnmounted(() => {
   gap: 12px;
   padding: 12px;
   color: var(--el-text-color-secondary);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   text-align: center;
 }
 
@@ -828,7 +828,7 @@ onUnmounted(() => {
 .author-cell .el-icon,
 .date-cell .el-icon {
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: var(--app-font-size-body);
   color: var(--el-text-color-secondary);
 }
 
@@ -881,7 +881,7 @@ onUnmounted(() => {
 
 .author-info .el-icon,
 .date-info .el-icon {
-  font-size: 14px;
+  font-size: var(--app-font-size-body);
   color: var(--el-text-color-secondary);
 }
 
@@ -904,7 +904,7 @@ onUnmounted(() => {
 }
 
 .message-title .el-icon {
-  font-size: 18px;
+  font-size: var(--app-font-size-title);
   color: var(--md-sys-color-primary);
 }
 
@@ -919,7 +919,7 @@ onUnmounted(() => {
 .commit-message pre {
   margin: 0;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--app-font-size-body);
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-all;
@@ -937,7 +937,7 @@ onUnmounted(() => {
 
 .file-path {
   font-family: var(--app-font-family-mono);
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
 }
 
 @media (max-width: 860px) {

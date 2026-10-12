@@ -509,7 +509,7 @@ watch(() => workspaceStore.currentPath, () => {
 .stash-entry-meta,
 .hunk-count {
   color: var(--el-text-color-secondary);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 
 .header-actions,
@@ -526,7 +526,7 @@ watch(() => workspaceStore.currentPath, () => {
   margin-right: 2px;
   border-right: 1px solid var(--md-sys-color-outline-variant);
   color: var(--md-sys-color-primary) !important;
-  font-size: 13px !important;
+  font-size: var(--app-font-size-label) !important;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -650,7 +650,7 @@ watch(() => workspaceStore.currentPath, () => {
 .section-heading span {
   margin-top: 2px;
   color: var(--el-text-color-secondary);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 
 .unversioned-section {
@@ -729,7 +729,7 @@ watch(() => workspaceStore.currentPath, () => {
 
 .diff-file-path {
   font-family: var(--app-font-family-mono);
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
   overflow-wrap: anywhere;
 }
 
@@ -775,7 +775,7 @@ watch(() => workspaceStore.currentPath, () => {
 .hunk-stats {
   gap: var(--app-spacing-sm);
   font-family: monospace;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 
 .added,
@@ -809,7 +809,7 @@ watch(() => workspaceStore.currentPath, () => {
 .stash-name-field label {
   color: var(--el-text-color-primary);
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
 }
 
 .stash-name-field :deep(.el-input__wrapper) {

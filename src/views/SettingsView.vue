@@ -294,7 +294,7 @@ onMounted(() => {
 
 .about-info h4 {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--app-font-size-title);
   font-weight: 800;
   color: var(--el-text-color-primary);
 }
@@ -302,7 +302,7 @@ onMounted(() => {
 .about-subtitle {
   margin: 2px 0 0;
   color: var(--el-text-color-secondary);
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
 }
 
 .about-details {

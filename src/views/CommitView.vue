@@ -466,13 +466,13 @@ const useRecentMessage = (message: string) => {
 .commit-scope { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; width: 100%; overflow-wrap: anywhere; margin-bottom: 12px; }
 .recent-messages { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--el-border-color-lighter); border-radius: var(--app-radius-md); background: var(--el-fill-color-lighter); }
 .recent-messages-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-.recent-messages-title { display: inline-flex; align-items: center; gap: 6px; color: var(--el-text-color-regular); font-size: 12px; font-weight: 600; }
+.recent-messages-title { display: inline-flex; align-items: center; gap: 6px; color: var(--el-text-color-regular); font-size: var(--app-font-size-sm); font-weight: 600; }
 .recent-message-list { display: flex; flex-direction: column; gap: 4px; }
 .recent-message-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--app-radius-sm); background: transparent; color: var(--el-text-color-primary); text-align: left; cursor: pointer; }
 .recent-message-item:hover { background: var(--el-fill-color); }
 .recent-message-revision { flex: 0 0 auto; color: var(--el-color-primary); font: 12px/1 var(--app-font-family-mono); }
-.recent-message-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.recent-messages-loading { color: var(--el-text-color-secondary); font-size: 12px; }
+.recent-message-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--app-font-size-label); }
+.recent-messages-loading { color: var(--el-text-color-secondary); font-size: var(--app-font-size-sm); }
 .commit-tree { width: 100%; max-height: 420px; overflow: auto; }
 .commit-tree-row { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding-right: 8px; }
 .tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
@@ -541,7 +541,7 @@ const useRecentMessage = (message: string) => {
 
 .path-text {
   font-family: var(--app-font-family-mono);
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
   word-break: break-all;
 }
 
@@ -562,7 +562,7 @@ const useRecentMessage = (message: string) => {
 
 .file-path {
   font-family: var(--app-font-family-mono);
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
 }
 
 .file-path-link {
@@ -572,7 +572,7 @@ const useRecentMessage = (message: string) => {
   background: transparent;
   color: var(--md-sys-color-primary);
   font-family: var(--app-font-family-mono);
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
   text-align: left;
   cursor: pointer;
 }
@@ -593,7 +593,7 @@ const useRecentMessage = (message: string) => {
   position: absolute;
   right: 12px;
   bottom: 8px;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   color: var(--el-text-color-secondary);
 }
 
@@ -625,7 +625,7 @@ const useRecentMessage = (message: string) => {
   align-items: center;
   gap: 6px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
   color: var(--el-text-color-regular);
 }
 
@@ -649,7 +649,7 @@ const useRecentMessage = (message: string) => {
   border-radius: var(--app-radius-full);
   background: var(--md-sys-color-surface-container-low);
   font-weight: 700;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 
 .status-added {

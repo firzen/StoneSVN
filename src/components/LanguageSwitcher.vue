@@ -62,7 +62,7 @@ const handleLanguageChange = (command: string) => {
   border-radius: var(--app-radius-md);
   color: var(--md-sys-color-on-surface-variant);
   background: transparent;
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   transition:
     color var(--app-transition-fast),
     background-color var(--app-transition-fast);

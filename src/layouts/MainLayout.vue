@@ -754,7 +754,7 @@ onUnmounted(() => {
   padding: 8px 10px 12px;
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
   color: var(--md-sys-color-on-surface);
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
 }
 
 .repository-icon {
@@ -783,7 +783,7 @@ onUnmounted(() => {
 
 .repository-copy small {
   color: var(--md-sys-color-on-surface-variant);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
 }
 
 .sidebar-section {
@@ -829,7 +829,7 @@ onUnmounted(() => {
 }
 
 .sidebar-section button b {
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
 }
 
 .route-workbench {
@@ -868,7 +868,7 @@ onUnmounted(() => {
 
 .route-repository {
   color: var(--md-sys-color-on-surface-variant);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
 }
 
 .route-content {
@@ -966,7 +966,7 @@ onUnmounted(() => {
   border-top: 1px solid var(--md-sys-color-outline-variant);
   background: var(--md-sys-color-surface-container);
   color: var(--md-sys-color-on-surface-variant);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
 }
 
 .fork-status div {

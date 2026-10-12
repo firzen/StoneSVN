@@ -182,14 +182,14 @@ onBeforeUnmount(() => {
 <style scoped>
 .diff-viewer { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; overflow: hidden; border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--app-radius-md); background: var(--md-sys-color-surface-container-lowest); }
 .diff-tools { display: flex; align-items: center; flex-shrink: 0; gap: 4px; padding: 5px 8px; border-bottom: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-low); }
-.diff-search { flex: 1; width: 0; min-width: 60px; height: 28px; padding: 0 8px; font-size: 12px; border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--app-radius-sm); background: var(--md-sys-color-surface-container-lowest); }
+.diff-search { flex: 1; width: 0; min-width: 60px; height: 28px; padding: 0 8px; font-size: var(--app-font-size-sm); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--app-radius-sm); background: var(--md-sys-color-surface-container-lowest); }
 .diff-tools button { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border: 0; border-radius: var(--app-radius-sm); background: transparent; cursor: pointer; }
 .diff-tools button:hover:enabled { background: var(--md-sys-state-hover); }
 .diff-tools button:disabled { opacity: .4; cursor: default; }
-.search-status { font-size: 11px; color: var(--md-sys-color-on-surface-variant); }
+.search-status { font-size: var(--app-font-size-xs); color: var(--md-sys-color-on-surface-variant); }
 .indexing-diff { padding: 16px; color: var(--md-sys-color-on-surface-variant); }
 .diff-lines { font-family: var(--app-font-family-mono); font-size: var(--app-font-size-label); line-height: 20px; }
-.compact .diff-lines { font-size: 12px; }
+.compact .diff-lines { font-size: var(--app-font-size-sm); }
 .diff-row { display: grid; grid-template-columns: 64px 34px minmax(0, 1fr); border-bottom: 1px solid var(--md-sys-color-outline-variant); }
 .compact .diff-row { grid-template-columns: 46px 24px minmax(0, 1fr); }
 .diff-line-number, .diff-marker { user-select: none; padding: 3px 8px; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container-low); text-align: right; }

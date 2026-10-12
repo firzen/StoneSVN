@@ -304,7 +304,7 @@ watch(() => route.query.path, (path) => {
 
 .line-number {
   font-family: var(--app-font-family-mono);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   color: var(--el-text-color-secondary);
 }
 
@@ -315,7 +315,7 @@ watch(() => route.query.path, (path) => {
 }
 
 .author-cell .el-icon {
-  font-size: 14px;
+  font-size: var(--app-font-size-body);
   color: var(--el-text-color-secondary);
 }
 
@@ -324,7 +324,7 @@ watch(() => route.query.path, (path) => {
   min-width: max-content;
   font-family: var(--app-font-family-mono);
   white-space: pre;
-  font-size: 13px;
+  font-size: var(--app-font-size-label);
   line-height: 1.5;
   color: var(--el-text-color-primary);
 }

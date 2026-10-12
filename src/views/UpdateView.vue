@@ -306,7 +306,7 @@ watch(
 .revision-strip div {
   padding: 10px 12px;
   border: 1px solid var(--md-sys-color-outline-variant);
-  border-radius: 6px;
+  border-radius: var(--app-radius-md);
   background: var(--el-fill-color-light);
 }
 
@@ -314,14 +314,14 @@ watch(
 .section-header span {
   display: block;
   color: var(--el-text-color-secondary);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
 }
 
 .revision-strip strong {
   display: block;
   margin-top: 4px;
   color: var(--el-text-color-primary);
-  font-size: 18px;
+  font-size: var(--app-font-size-title);
 }
 
 :global(.theme-dark) .revision-strip div,
@@ -360,7 +360,7 @@ watch(
 }
 
 .update-table {
-  border-radius: 6px;
+  border-radius: var(--app-radius-md);
   overflow: hidden;
 }
 
@@ -397,7 +397,7 @@ watch(
 .empty-line {
   padding: 12px;
   color: var(--el-text-color-secondary);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   text-align: center;
 }
 
@@ -409,7 +409,7 @@ watch(
   height: 24px;
   padding: 0 8px;
   border-radius: var(--app-radius-full);
-  font-size: 11px;
+  font-size: var(--app-font-size-xs);
   font-weight: 700;
 }
 
@@ -420,7 +420,7 @@ watch(
   background: transparent;
   color: var(--md-sys-color-primary);
   font-family: var(--app-font-family-mono);
-  font-size: 12px;
+  font-size: var(--app-font-size-sm);
   text-align: left;
   cursor: pointer;
 }
