@@ -203,7 +203,18 @@
       <div>
         <span v-if="workspaceStore.hasChanges">{{ $t('workspace.changeCount', { count: workspaceStore.statusList.length }) }}</span>
         <span v-if="workspaceStore.svnInfo">r{{ workspaceStore.svnInfo.revision }}</span>
-        <span>v{{ appVersion }}</span>
+        <button
+          v-if="updateState === 'available'"
+          type="button"
+          class="version-update"
+          :title="$t('appUpdate.viewRelease')"
+          @click="openReleasePage"
+        >
+          v{{ appVersion }}
+          <span class="update-dot" aria-hidden="true"></span>
+          {{ $t('appUpdate.available', { version: latestVersion }) }}
+        </button>
+        <span v-else>v{{ appVersion }}</span>
       </div>
     </footer>
   </div>
@@ -214,10 +225,11 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus/es/components/message/index'
-import { openWorkspaceTarget, type OpenWorkspaceTarget } from '@/api/svn'
+import { launchWorkspacePath, openWorkspaceTarget, type OpenWorkspaceTarget } from '@/api/svn'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useStashStore } from '@/stores/stash'
 import { useWorkspace } from '@/composables/useWorkspace'
+import { useUpdateCheck } from '@/composables/useUpdateCheck'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import {
   Archive,
@@ -225,7 +237,6 @@ import {
   FolderOpened as FolderOpenedIcon,
   Terminal,
 } from '@/components/icons/materialIcons'
-import packageInfo from '../../package.json'
 
 const router = useRouter()
 const route = useRoute()
@@ -233,7 +244,13 @@ const { t } = useI18n()
 const workspaceStore = useWorkspaceStore()
 const stashStore = useStashStore()
 const { loadWorkspace, openWorkspace, refreshStatus, refreshStatusIfStale, restoreLastWorkspace } = useWorkspace()
-const appVersion = packageInfo.version
+const {
+  currentVersion: appVersion,
+  state: updateState,
+  latestVersion,
+  checkForUpdates,
+  openReleasePage,
+} = useUpdateCheck()
 const cachedViews = ref(['WorkspaceView', 'LogView', 'UpdateView'])
 const statusRefreshIntervalMs = 60_000
 let statusRefreshTimer: number | undefined
@@ -292,7 +309,11 @@ const refreshStatusSilently = async () => {
 }
 
 onMounted(async () => {
-  await restoreLastWorkspace()
+  void checkForUpdates()
+  const launchPath = await launchWorkspacePath().catch(() => null)
+  if (!launchPath || !(await loadWorkspace(launchPath))) {
+    await restoreLastWorkspace()
+  }
   statusRefreshTimer = window.setInterval(refreshStatusSilently, statusRefreshIntervalMs)
 })
 
@@ -973,6 +994,29 @@ onUnmounted(() => {
   display: flex;
   gap: 14px;
   flex-shrink: 0;
+}
+
+.version-update {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--md-sys-color-primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.version-update:hover {
+  text-decoration: underline;
+}
+
+.update-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--md-sys-color-primary);
 }
 
 .fork-status > span {

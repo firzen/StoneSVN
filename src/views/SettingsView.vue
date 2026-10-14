@@ -109,6 +109,26 @@
             <div class="detail-item">
               <span class="detail-label">{{ $t('common.version') }}：</span>
               <el-tag size="small" type="primary">{{ appVersion }}</el-tag>
+              <el-button
+                v-if="updateState === 'available'"
+                size="small"
+                type="primary"
+                link
+                @click="openReleasePage"
+              >
+                {{ $t('appUpdate.available', { version: latestVersion }) }}
+              </el-button>
+              <span v-else-if="updateState !== 'idle'" class="update-status">
+                {{ $t(`appUpdate.${updateState}`) }}
+              </span>
+              <el-button
+                v-if="updateState !== 'checking'"
+                size="small"
+                link
+                @click="checkForUpdates"
+              >
+                {{ $t('appUpdate.check') }}
+              </el-button>
             </div>
           </div>
         </div>
@@ -126,13 +146,13 @@ import { useLocale } from '@/composables/useLocale'
 import { useSettings } from '@/composables/useSettings'
 import { applyTheme } from '@/composables/useTheme'
 import { useWorkspace } from '@/composables/useWorkspace'
-import packageInfo from '../../package.json'
+import { useUpdateCheck } from '@/composables/useUpdateCheck'
 
 const { t } = useI18n()
 const { setLocale } = useLocale()
 const { settings } = useSettings()
 const { refreshStatusAfterMutation } = useWorkspace()
-const appVersion = packageInfo.version
+const { currentVersion: appVersion, state: updateState, latestVersion, checkForUpdates, openReleasePage } = useUpdateCheck()
 
 const languages = computed(() => [
   { label: t('language.zhCN'), value: 'zh-CN' },
@@ -315,6 +335,11 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: var(--app-spacing-sm);
+}
+
+.update-status {
+  color: var(--el-text-color-secondary);
+  font-size: var(--app-font-size-xs);
 }
 
 .detail-label {

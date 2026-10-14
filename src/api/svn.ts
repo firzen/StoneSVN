@@ -155,3 +155,7 @@ export async function openWorkspaceTarget(
 export async function revealWorkspaceFile(path: string, file: string): Promise<void> {
   return invoke<void>('reveal_workspace_file', { path, file })
 }
+
+export async function launchWorkspacePath(): Promise<string | null> {
+  return invoke<string | null>('launch_workspace_path')
+}

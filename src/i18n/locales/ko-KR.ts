@@ -326,4 +326,12 @@ export default {
     vscode: 'VS Code',
     terminal: '터미널',
   },
+  appUpdate: {
+    available: '새 버전 v{version}',
+    check: '업데이트 확인',
+    checking: '확인 중…',
+    upToDate: '최신 버전입니다',
+    failed: '확인하지 못했습니다. 나중에 다시 시도하세요',
+    viewRelease: '새 버전 보기',
+  },
 }

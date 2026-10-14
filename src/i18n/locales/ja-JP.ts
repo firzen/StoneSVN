@@ -326,4 +326,12 @@ export default {
     vscode: 'VS Code',
     terminal: 'ターミナル',
   },
+  appUpdate: {
+    available: '新しいバージョン v{version}',
+    check: '更新を確認',
+    checking: '確認中…',
+    upToDate: '最新バージョンです',
+    failed: '確認に失敗しました。後でもう一度お試しください',
+    viewRelease: '新しいバージョンを表示',
+  },
 }

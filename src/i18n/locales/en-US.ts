@@ -326,4 +326,12 @@ export default {
     vscode: 'VS Code',
     terminal: 'Terminal',
   },
+  appUpdate: {
+    available: 'Update available: v{version}',
+    check: 'Check for updates',
+    checking: 'Checking…',
+    upToDate: 'You\'re up to date',
+    failed: 'Update check failed. Try again later',
+    viewRelease: 'View new release',
+  },
 }

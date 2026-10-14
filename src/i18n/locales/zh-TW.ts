@@ -326,4 +326,12 @@ export default {
     vscode: 'VS Code',
     terminal: '終端機',
   },
+  appUpdate: {
+    available: '有新版本 v{version}',
+    check: '檢查更新',
+    checking: '正在檢查…',
+    upToDate: '已是最新版本',
+    failed: '檢查失敗，請稍後重試',
+    viewRelease: '查看新版本',
+  },
 }

@@ -25,6 +25,31 @@ enum OpenTarget {
     Terminal,
 }
 
+/// Workspace directory passed on the command line, e.g. `orcasvn <path>`.
+#[tauri::command]
+fn launch_workspace_path() -> Option<String> {
+    launch_workspace_arg(
+        env::args_os().skip(1).map(PathBuf::from),
+        &env::current_dir().ok()?,
+    )
+}
+
+fn launch_workspace_arg(args: impl Iterator<Item = PathBuf>, cwd: &Path) -> Option<String> {
+    let arg = args
+        .into_iter()
+        .find(|arg| !arg.to_string_lossy().starts_with('-'))?;
+    let path = fs::canonicalize(cwd.join(arg)).ok()?;
+    if !path.is_dir() {
+        return None;
+    }
+    let path = path.to_string_lossy().into_owned();
+    Some(
+        path.strip_prefix(r"\\?\")
+            .map(str::to_string)
+            .unwrap_or(path),
+    )
+}
+
 #[tauri::command]
 async fn configure_svn_executable(executable: Option<String>) -> Result<String, String> {
     svn::configure_svn_executable(executable.as_deref())
@@ -811,6 +836,26 @@ mod unversioned_stash_tests {
     }
 }
 
+#[cfg(test)]
+mod launch_arg_tests {
+    use super::launch_workspace_arg;
+    use std::path::PathBuf;
+
+    #[test]
+    fn resolves_first_directory_argument_and_skips_flags() {
+        let cwd = std::env::temp_dir();
+        let expected = std::fs::canonicalize(&cwd).unwrap();
+        let args = vec![PathBuf::from("-psn_0_123"), PathBuf::from(".")];
+        let resolved = launch_workspace_arg(args.into_iter(), &cwd).unwrap();
+        assert!(expected.to_string_lossy().ends_with(&resolved));
+        assert!(launch_workspace_arg(std::iter::empty(), &cwd).is_none());
+        assert!(
+            launch_workspace_arg(vec![PathBuf::from("missing-orcasvn-dir")].into_iter(), &cwd)
+                .is_none()
+        );
+    }
+}
+
 fn main() {
     tracing_subscriber::fmt::init();
 
@@ -820,6 +865,7 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             configure_svn_executable,
+            launch_workspace_path,
             svn_checkout,
             svn_update,
             svn_commit,

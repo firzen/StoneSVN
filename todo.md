@@ -91,3 +91,21 @@
 - 验证大目录联动勾选、搜索隐藏项统计、刷新后状态保留，以及删除或替换目录完整选择约束。
 
 相关文件：src/views/CommitView.vue、src/utils/changeTree.ts。
+
+## P2 - 命令行启动入口与更新检测机制
+
+状态：已实现，待各平台安装包实机验收。
+
+### 已实现
+
+- 命令行：支持 `orcasvn` 与 `orcasvn <path>`；第一个非 `-` 开头且存在的目录参数会作为工作区打开，否则回退到上次工作区（`launch_workspace_path`）。
+- Windows：NSIS `installerHooks`（`src-tauri/installer/hooks.nsh`）安装时把安装目录写入用户 PATH，卸载时移除；Windows 不区分大小写，`orcasvn` 即可调用 `OrcaSVN.exe`。
+- Linux：deb/rpm 安装后创建 `/usr/bin/orcasvn -> /usr/bin/OrcaSVN`，卸载后清理（升级时不删除）。
+- 更新检测：启动时异步请求 GitHub `releases/latest`（10 秒超时，仅比较稳定版 `x.y.z`），有新版本时状态栏和设置页版本号旁显示提示，点击打开发布页；失败静默，设置页可手动“检查更新”。版本号来源仍为 `package.json`。
+- 获取方式采用跳转发布页，未接入 Tauri updater（需签名密钥与发布产物改造）。
+
+### 待验收 / 遗留
+
+- Windows 安装后新开终端执行 `orcasvn`，卸载后 PATH 不残留；Linux deb/rpm 同样验证。
+- macOS 的 `.app`/dmg 无安装脚本，需用户手动 `ln -s /Applications/OrcaSVN.app/Contents/MacOS/OrcaSVN /usr/local/bin/orcasvn`，可考虑在设置页提供“安装命令行工具”。
+- 程序已运行时再次执行 `orcasvn <path>` 会启动第二个实例；如需复用窗口可接入 single-instance 插件。
