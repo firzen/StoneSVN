@@ -78,7 +78,7 @@ import {
 import router from './router'
 import i18n from './i18n'
 import App from './App.vue'
-import { configureSvnExecutable } from './api/svn'
+import { configureSvnExecutable, configureSvnServerSecurity } from './api/svn'
 import { useSettings } from './composables/useSettings'
 import { initializeTheme } from './composables/useTheme'
 import './style.css'
@@ -186,6 +186,13 @@ app.use(ElLoading)
 
 async function bootstrap() {
   const { settings } = useSettings()
+  for (const [server, policy] of Object.entries(settings.svnServerSecurity)) {
+    try {
+      await configureSvnServerSecurity(server, policy.legacyTls, policy.trustInvalidCertificates)
+    } catch (error) {
+      console.error('Failed to restore SVN server security settings.', error)
+    }
+  }
   try {
     await configureSvnExecutable(settings.svnPath)
   } catch (error) {

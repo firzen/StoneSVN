@@ -181,7 +181,7 @@ import { deleteUnversioned, readUnversionedFiles, restoreUnversionedFiles, svnAp
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useStashStore } from '@/stores/stash'
 import { useWorkspace } from '@/composables/useWorkspace'
-import { buildPatch, createStashId, parseUnifiedDiff } from '@/utils/stash'
+import { buildPatch, createStashId, parseUnifiedDiffFiles } from '@/utils/stash'
 import type { StashEntry, StashFile, StashUnversionedEntry } from '@/types'
 import { Archive, CopyDocument, Delete, Document, Download, List, MoreFilled, Plus, Refresh } from '@/components/icons/materialIcons'
 
@@ -238,12 +238,13 @@ const openCreateDialog = async () => {
   try {
     const [parsed, preview] = await Promise.all([Promise.all(stashableFiles.value.map(async file => {
       const result = await svnDiff(workspacePath, file.path)
-      return parseUnifiedDiff(file.path, result.diff)
+      return parseUnifiedDiffFiles(file.path, result.diff)
     })), unversionedFiles.value.length
       ? readUnversionedFiles(workspacePath, unversionedFiles.value.map(file => file.path))
       : Promise.resolve([])])
     if (workspaceStore.currentPath !== workspacePath || !createDialogVisible.value) return
-    diffFiles.value = parsed.filter((file): file is StashFile => file !== null)
+    // A changed directory and its children may both return the same file diff.
+    diffFiles.value = [...new Map(parsed.flat().map(file => [file.path, file])).values()]
     unversionedPreview.value = preview
     selectAllHunks()
     selectedUnversioned.value = unversionedFiles.value.map(file => file.path)

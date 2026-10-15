@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core'
+import { invokeWithConnectionPrompt } from './connection'
 import type { CommandResult, SvnStatus, SvnLogEntry, SvnInfo, SvnAuthUser, DiffResult, BlameLine, StashUnversionedEntry } from '@/types'
 
 export async function configureSvnExecutable(executable?: string): Promise<string> {
@@ -7,16 +8,25 @@ export async function configureSvnExecutable(executable?: string): Promise<strin
   })
 }
 
+export async function configureSvnServerSecurity(server: string, legacyTls: boolean, trustInvalidCertificates: boolean): Promise<string> {
+  return invoke<string>('configure_svn_server_security', { server, legacyTls, trustInvalidCertificates })
+}
+
+async function checkConnection(target: string): Promise<void> {
+  await invokeWithConnectionPrompt('svn_connection_info', { target })
+}
+
 export async function svnCheckout(
   url: string,
   path: string,
   revision?: number
 ): Promise<CommandResult> {
+  await checkConnection(url)
   return invoke<CommandResult>('svn_checkout', { url, path, revision })
 }
 
 export async function svnUpdate(path: string, revision?: number): Promise<CommandResult> {
-  return invoke<CommandResult>('svn_update', { path, revision })
+  return invokeWithConnectionPrompt<CommandResult>('svn_update', { path, revision })
 }
 
 export async function svnCommit(
@@ -24,6 +34,7 @@ export async function svnCommit(
   message: string,
   files?: string[]
 ): Promise<CommandResult> {
+  await checkConnection(path)
   return invoke<CommandResult>('svn_commit', { path, message, files })
 }
 
@@ -41,7 +52,7 @@ export async function svnLog(
   dateFrom?: string,
   dateTo?: string
 ): Promise<SvnLogEntry[]> {
-  return invoke<SvnLogEntry[]>('svn_log', { path, limit, startRev, endRev, keyword, author, dateFrom, dateTo })
+  return invokeWithConnectionPrompt<SvnLogEntry[]>('svn_log', { path, limit, startRev, endRev, keyword, author, dateFrom, dateTo })
 }
 
 export async function svnCurrentUser(path: string): Promise<SvnAuthUser | null> {
@@ -57,7 +68,7 @@ export async function svnLocalRevision(path: string): Promise<number> {
 }
 
 export async function svnRemoteInfo(path: string): Promise<SvnInfo> {
-  return invoke<SvnInfo>('svn_remote_info', { path })
+  return invokeWithConnectionPrompt<SvnInfo>('svn_remote_info', { path })
 }
 
 export async function svnDiff(
@@ -66,7 +77,7 @@ export async function svnDiff(
   oldRev?: number,
   newRev?: number
 ): Promise<DiffResult> {
-  return invoke<DiffResult>('svn_diff', { workspacePath, file, oldRev, newRev })
+  return invokeWithConnectionPrompt<DiffResult>('svn_diff', { workspacePath, file, oldRev, newRev })
 }
 
 export async function svnApplyPatch(
@@ -78,7 +89,7 @@ export async function svnApplyPatch(
 }
 
 export async function svnBlame(workspacePath: string, file: string): Promise<BlameLine[]> {
-  return invoke<BlameLine[]>('svn_blame', { workspacePath, file })
+  return invokeWithConnectionPrompt<BlameLine[]>('svn_blame', { workspacePath, file })
 }
 
 export async function svnAdd(path: string, files: string[]): Promise<CommandResult> {
@@ -122,6 +133,7 @@ export async function svnCleanup(path: string): Promise<CommandResult> {
 }
 
 export async function svnSwitch(path: string, url: string): Promise<CommandResult> {
+  await checkConnection(url.includes('://') ? url : path)
   return invoke<CommandResult>('svn_switch', { path, url })
 }
 
@@ -140,6 +152,7 @@ export async function svnMerge(
   revStart: number,
   revEnd: number
 ): Promise<CommandResult> {
+  await checkConnection(source.includes('://') ? source : path)
   return invoke<CommandResult>('svn_merge', { path, source, revStart, revEnd })
 }
 

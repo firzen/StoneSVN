@@ -13,11 +13,11 @@ fn append_targets(args: &mut Vec<String>, targets: &[String]) {
         return;
     }
     args.push("--".to_string());
-    args.extend(targets.iter().cloned());
+    args.extend(targets.iter().map(|target| normalize_svn_target(target)));
 }
 
-fn normalize_diff_target(file: &str) -> String {
-    if file.contains("://") || !file.contains('@') || file.ends_with('@') {
+fn normalize_svn_target(file: &str) -> String {
+    if file.contains("://") || !file.contains('@') {
         file.to_string()
     } else {
         format!("{}@", file)
@@ -82,7 +82,13 @@ fn build_diff_args(
         (None, None) => {}
     }
 
-    append_targets(&mut args, &[normalize_diff_target(file)]);
+    if old_rev.is_none() && new_rev.is_none() {
+        // Working-copy diff treats @ literally, unlike revision-based diff
+        // and the other target-taking SVN commands.
+        args.extend(["--".to_string(), file.to_string()]);
+    } else {
+        append_targets(&mut args, &[file.to_string()]);
+    }
     Ok(args)
 }
 
@@ -154,7 +160,7 @@ fn build_unversioned_file_diff(file: &str, content: &str) -> String {
 }
 
 async fn is_unversioned_file(workspace: &str, file: &str) -> Result<bool, SvnError> {
-    let target = normalize_diff_target(file);
+    let target = normalize_svn_target(file);
     let args = vec!["status", "--xml", "--", target.as_str()];
     let output = execute_svn(&args, Some(workspace)).await?;
     let statuses = parse_status_xml(&output)?;
@@ -168,6 +174,15 @@ pub async fn remote_info(path: &str) -> Result<SvnInfo, SvnError> {
     let args = vec!["info", "-r", "HEAD", "--xml"];
     let output = execute_svn(&args, Some(path)).await?;
     parse_info_xml(&output)
+}
+
+pub async fn connection_info(target: &str) -> Result<SvnInfo, SvnError> {
+    if target.contains("://") {
+        let output = execute_svn(&["info", "-r", "HEAD", "--xml", "--", target], None).await?;
+        parse_info_xml(&output)
+    } else {
+        remote_info(target).await
+    }
 }
 
 pub async fn commit(
@@ -234,7 +249,7 @@ pub async fn status(path: &str) -> Result<Vec<SvnStatus>, SvnError> {
     let targets: Vec<_> = entries
         .iter()
         .filter(|entry| matches!(entry.status_code.as_str(), "deleted" | "replaced"))
-        .map(|entry| normalize_diff_target(&entry.path))
+        .map(|entry| normalize_svn_target(&entry.path))
         .collect();
     for group in targets.chunks(16) {
         let mut args: Vec<String> = ["status", "--xml", "--verbose", "--"]
@@ -271,7 +286,7 @@ pub(super) async fn status_for_paths(
             .iter()
             .map(|arg| arg.to_string())
             .collect();
-        args.extend(group.iter().map(|target| normalize_diff_target(target)));
+        args.extend(group.iter().map(|target| normalize_svn_target(target)));
         let refs: Vec<&str> = args.iter().map(String::as_str).collect();
         let output = execute_svn(&refs, Some(path)).await?;
         entries.extend(parse_status_xml(&output)?);
@@ -565,7 +580,8 @@ pub struct BlameLine {
 }
 
 pub async fn blame(workspace: &str, file: &str) -> Result<Vec<BlameLine>, SvnError> {
-    let args = vec!["blame", "--", file];
+    let target = normalize_svn_target(file);
+    let args = vec!["blame", "--", &target];
     let output = execute_svn(&args, Some(workspace)).await?;
     parse_blame_text(&output)
 }
@@ -745,7 +761,7 @@ mod tests {
     use super::{
         append_targets, append_unique_log_matches, build_diff_args, build_log_args,
         build_unversioned_file_diff, commit, log_entry_matches, log_entry_matches_dates,
-        normalize_diff_target, normalize_svn_path, patch_output_has_conflicts,
+        normalize_svn_path, normalize_svn_target, patch_output_has_conflicts,
     };
     use crate::svn::executor::SvnError;
     use crate::{SvnLogEntry, SvnLogPath};
@@ -914,6 +930,71 @@ mod tests {
             Err(SvnError::InvalidArguments(_))
         ));
         assert!(!run(&["list", "-r", "HEAD", &url]).contains("C/"));
+        // Exercise raw UI paths through every operation, including a literal
+        // trailing @ and a similarly named file that must remain untouched.
+        std::fs::write(wc.join("trailing"), "keep\n").unwrap();
+        for name in ["report@2026.txt", "trailing@"] {
+            std::fs::write(wc.join(name), "original\n").unwrap();
+            runtime
+                .block_on(super::add(wc.to_str().unwrap(), &[name.into()]))
+                .unwrap();
+            runtime
+                .block_on(commit(
+                    wc.to_str().unwrap(),
+                    "at filename",
+                    Some(&[name.into()]),
+                ))
+                .unwrap();
+            let lines = runtime
+                .block_on(super::blame(wc.to_str().unwrap(), name))
+                .unwrap();
+            assert_eq!(lines.len(), 1);
+            let revision = run(&[
+                "info",
+                "--show-item",
+                "last-changed-revision",
+                "--",
+                &format!("{name}@"),
+            ])
+            .trim()
+            .parse()
+            .unwrap();
+            let historical_diff = runtime
+                .block_on(super::diff(
+                    wc.to_str().unwrap(),
+                    name,
+                    Some(revision),
+                    None,
+                ))
+                .unwrap();
+            assert!(historical_diff.diff.contains("+original"));
+            std::fs::write(wc.join(name), "modified\n").unwrap();
+            let diff = runtime
+                .block_on(super::diff(wc.to_str().unwrap(), name, None, None))
+                .unwrap();
+            assert!(diff.diff.contains("+modified"));
+            runtime
+                .block_on(super::revert(wc.to_str().unwrap(), &[name.into()]))
+                .unwrap();
+            assert_eq!(
+                std::fs::read_to_string(wc.join(name)).unwrap(),
+                "original\n"
+            );
+            runtime
+                .block_on(super::delete(wc.to_str().unwrap(), &[name.into()]))
+                .unwrap();
+            runtime
+                .block_on(commit(
+                    wc.to_str().unwrap(),
+                    "delete at filename",
+                    Some(&[name.into()]),
+                ))
+                .unwrap();
+        }
+        assert_eq!(
+            std::fs::read_to_string(wc.join("trailing")).unwrap(),
+            "keep\n"
+        );
         std::fs::remove_dir_all(&directory).unwrap();
     }
 
@@ -958,19 +1039,27 @@ mod tests {
     #[test]
     fn diff_escapes_peg_revision_marker_in_local_path() {
         assert_eq!(
-            normalize_diff_target("src/name@domain.txt"),
+            build_diff_args("src/name@domain.txt", None, None).unwrap(),
+            ["diff", "--", "src/name@domain.txt"]
+        );
+        assert_eq!(
+            build_diff_args("src/name@domain.txt@", Some(1), None).unwrap(),
+            ["diff", "-c", "1", "--", "src/name@domain.txt@@"]
+        );
+        assert_eq!(
+            normalize_svn_target("src/name@domain.txt"),
             "src/name@domain.txt@"
         );
         assert_eq!(
-            normalize_diff_target("src/name@domain.txt@"),
-            "src/name@domain.txt@"
+            normalize_svn_target("src/name@domain.txt@"),
+            "src/name@domain.txt@@"
         );
     }
 
     #[test]
     fn diff_keeps_url_peg_revision() {
         assert_eq!(
-            normalize_diff_target("https://example.test/repo/file@12"),
+            normalize_svn_target("https://example.test/repo/file@12"),
             "https://example.test/repo/file@12"
         );
     }

@@ -251,6 +251,10 @@ mod tests {
     use std::process::Command;
     use std::time::{SystemTime, UNIX_EPOCH};
 
+    // Fixtures inspect and evict entries from the same bounded process cache.
+    // Keep their lifetimes separate so another test cannot evict a live fixture.
+    static CACHE_TEST_LOCK: Mutex<()> = Mutex::new(());
+
     async fn cached_status(path: &str, force: bool) -> Result<Vec<SvnStatus>, SvnError> {
         super::cached_status(path, force, None).await
     }
@@ -471,6 +475,7 @@ mod tests {
     struct Fixture {
         root: PathBuf,
         wc: PathBuf,
+        _cache_guard: std::sync::MutexGuard<'static, ()>,
     }
     impl Drop for Fixture {
         fn drop(&mut self) {
@@ -479,6 +484,7 @@ mod tests {
     }
     impl Fixture {
         fn new() -> Option<Self> {
+            let cache_guard = CACHE_TEST_LOCK.lock().unwrap();
             if Command::new("svnadmin").arg("--version").output().is_err() {
                 eprintln!("Skipping real SVN fixture: svnadmin not available");
                 return None;
@@ -503,6 +509,7 @@ mod tests {
             let fixture = Self {
                 wc: root.join("wc"),
                 root,
+                _cache_guard: cache_guard,
             };
             let url = format!(
                 "file:///{}",
@@ -736,6 +743,7 @@ mod tests {
             .expect("set ORCASVN_BENCH_WORKSPACE to a real SVN working copy");
         let root = fs::canonicalize(&path).unwrap();
         let temporary = Fixture {
+            _cache_guard: CACHE_TEST_LOCK.lock().unwrap(),
             wc: root.clone(),
             root: std::env::temp_dir().join(format!(
                 "orcasvn-startup-bench-{}-{}",

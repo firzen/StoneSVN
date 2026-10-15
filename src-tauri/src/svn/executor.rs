@@ -1,3 +1,4 @@
+use super::ssl_compat::{self, SslCompatibility};
 use std::path::PathBuf;
 use std::process::Stdio;
 use std::sync::{OnceLock, RwLock};
@@ -25,7 +26,66 @@ pub enum SvnError {
 
 pub async fn execute_svn(args: &[&str], path: Option<&str>) -> Result<String, SvnError> {
     let executable = current_svn_executable()?;
-    execute_svn_inner(executable, args, path).await
+    execute_svn_with_configurations(
+        executable,
+        args,
+        path,
+        ssl_compat::current_configurations()?,
+    )
+    .await
+}
+
+#[cfg(test)]
+async fn execute_svn_with_configuration(
+    executable: PathBuf,
+    args: &[&str],
+    path: Option<&str>,
+    compatibility: Option<SslCompatibility>,
+) -> Result<String, SvnError> {
+    execute_svn_with_configurations(executable, args, path, compatibility.into_iter().collect())
+        .await
+}
+
+async fn execute_svn_with_configurations(
+    executable: PathBuf,
+    args: &[&str],
+    path: Option<&str>,
+    mut configurations: Vec<SslCompatibility>,
+) -> Result<String, SvnError> {
+    // Local mutations and status scans do not establish TLS connections and
+    // should not pay for an additional workspace metadata query.
+    if matches!(
+        args.first(),
+        Some(&"status" | &"add" | &"revert" | &"resolve" | &"cleanup" | &"auth")
+    ) {
+        configurations.clear();
+    }
+    let compatibility = if configurations.is_empty() {
+        None
+    } else {
+        let urls = ssl_compat::explicit_urls(args);
+        if !urls.is_empty() {
+            configurations
+                .into_iter()
+                .find(|config| urls.iter().all(|url| config.matches(url)))
+        } else if let Some(path) = path {
+            // This metadata query is local, so even an old HTTPS server can be
+            // identified before performing its first network request.
+            let url = execute_svn_inner(
+                executable.clone(),
+                &["info", "--show-item", "repos-root-url", "--", "."],
+                Some(path),
+            )
+            .await
+            .ok();
+            configurations
+                .into_iter()
+                .find(|config| url.as_ref().is_some_and(|url| config.matches(url.trim())))
+        } else {
+            None
+        }
+    };
+    execute_svn_with_compatibility(executable, args, path, compatibility.as_ref()).await
 }
 
 pub async fn configure_svn_executable(executable: Option<&str>) -> Result<String, SvnError> {
@@ -70,8 +130,20 @@ async fn execute_svn_inner(
     args: &[&str],
     path: Option<&str>,
 ) -> Result<String, SvnError> {
+    execute_svn_with_compatibility(executable, args, path, None).await
+}
+
+async fn execute_svn_with_compatibility(
+    executable: PathBuf,
+    args: &[&str],
+    path: Option<&str>,
+    compatibility: Option<&SslCompatibility>,
+) -> Result<String, SvnError> {
     let args_vec: Vec<String> = args.iter().map(|s| s.to_string()).collect();
     let mut cmd = Command::new(&executable);
+    if let Some(config) = compatibility {
+        config.apply(&mut cmd);
+    }
     cmd.args(build_command_args(&args_vec));
     // SVN converts paths and messages using the process locale. Desktop launches
     // may inherit no locale, an ASCII locale, or a non-UTF-8 locale even though
@@ -129,6 +201,108 @@ async fn collect_command_output(cmd: &mut Command, deadline: Duration) -> Result
 mod tests {
     use super::*;
     use std::path::Path;
+
+    #[cfg(unix)]
+    #[test]
+    fn ssl_settings_are_scoped_to_matching_commands_and_do_not_change_parent_environment() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = std::env::temp_dir().join(format!(
+            "orcasvn-ssl-scope-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let executable = root.join("svn");
+        std::fs::write(&executable, "#!/bin/sh\nfor arg in \"$@\"; do\nif [ \"$arg\" = --show-item ]; then echo https://legacy.example:8443/svn/repo; exit 0; fi\ndone\nprintf '%s\\n' \"${OPENSSL_CONF-unset}\" \"$@\"\n").unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let config = SslCompatibility::new("legacy.example:8443", true, &root).unwrap();
+        let parent_env = std::env::var_os("OPENSSL_CONF");
+        let normal_env = parent_env
+            .as_ref()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "unset".into());
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            for args in [
+                vec!["checkout", "https://legacy.example:8443/svn/repo", "wc"],
+                vec!["log", "--xml"],
+            ] {
+                let output = execute_svn_with_configuration(
+                    executable.clone(),
+                    &args,
+                    Some(root.to_str().unwrap()),
+                    Some(config.clone()),
+                )
+                .await
+                .unwrap();
+                assert_eq!(
+                    output.lines().next().unwrap(),
+                    root.join("legacy-tls.cnf").to_str().unwrap()
+                );
+                assert!(
+                    output.contains("--trust-server-cert-failures=unknown-ca,cn-mismatch,expired")
+                );
+            }
+            for (args, cwd, options) in [
+                (
+                    vec!["checkout", "https://other.example/svn/repo", "wc"],
+                    Some(root.to_str().unwrap()),
+                    Some(config.clone()),
+                ),
+                (
+                    vec![
+                        "diff",
+                        "--",
+                        "https://legacy.example:8443/repo",
+                        "https://other.example/repo",
+                    ],
+                    None,
+                    Some(config.clone()),
+                ),
+                (
+                    vec![
+                        "commit",
+                        "-m",
+                        "https://legacy.example:8443/repo",
+                        "--",
+                        "file.txt",
+                    ],
+                    None,
+                    Some(config.clone()),
+                ),
+                (vec!["log"], Some(root.to_str().unwrap()), None),
+            ] {
+                let output =
+                    execute_svn_with_configuration(executable.clone(), &args, cwd, options)
+                        .await
+                        .unwrap();
+                assert_eq!(output.lines().next().unwrap(), normal_env);
+                assert!(!output.contains("--trust-server-cert-failures"));
+            }
+            let config = SslCompatibility::new("legacy.example:8443", false, &root).unwrap();
+            let output = execute_svn_with_configuration(
+                executable.clone(),
+                &["log"],
+                Some(root.to_str().unwrap()),
+                Some(config),
+            )
+            .await
+            .unwrap();
+            assert!(output.contains("legacy-tls.cnf"));
+            assert!(!output.contains("--trust-server-cert-failures"));
+        });
+        assert_eq!(std::env::var_os("OPENSSL_CONF"), parent_env);
+        assert!(std::fs::read_to_string(root.join("legacy-tls.cnf"))
+            .unwrap()
+            .contains("MinProtocol = TLSv1"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
 
     #[cfg(unix)]
     #[test]

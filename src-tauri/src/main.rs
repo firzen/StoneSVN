@@ -58,6 +58,25 @@ async fn configure_svn_executable(executable: Option<String>) -> Result<String, 
 }
 
 #[tauri::command]
+async fn configure_svn_server_security(
+    app: tauri::AppHandle,
+    server: String,
+    legacy_tls: bool,
+    trust_invalid_certificates: bool,
+) -> Result<String, String> {
+    let directory = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    svn::configure_server_security(&server, legacy_tls, trust_invalid_certificates, &directory)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn svn_connection_info(target: String) -> Result<SvnInfo, String> {
+    svn::connection_info(&target)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn open_workspace_target(path: String, target: OpenTarget) -> Result<(), String> {
     match target {
         OpenTarget::Explorer => open_file_manager(&path),
@@ -162,8 +181,31 @@ async fn delete_unversioned(path: String, files: Vec<String>) -> Result<CommandR
 
     for file in files {
         let target = resolve_workspace_child(&workspace, &file)?;
-        if !target.exists() {
-            return Err(format!("file does not exist: {file}"));
+        // Validate the parent without following the selected link. This also
+        // permits deleting dangling links and links pointing outside the WC.
+        let parent = fs::canonicalize(target.parent().ok_or("invalid delete path")?)
+            .map_err(|e| format!("failed to resolve parent for '{file}': {e}"))?;
+        if !parent.starts_with(&workspace) || target == workspace {
+            return Err(format!("refusing to delete outside workspace: {file}"));
+        }
+        let metadata = fs::symlink_metadata(&target)
+            .map_err(|e| format!("failed to inspect file '{file}': {e}"))?;
+        if metadata.file_type().is_symlink() {
+            // Windows directory links must be removed with remove_dir.
+            #[cfg(windows)]
+            let result = {
+                use std::os::windows::fs::FileTypeExt;
+                if metadata.file_type().is_symlink_dir() {
+                    fs::remove_dir(&target)
+                } else {
+                    fs::remove_file(&target)
+                }
+            };
+            #[cfg(not(windows))]
+            let result = fs::remove_file(&target);
+            result.map_err(|e| format!("failed to delete link '{file}': {e}"))?;
+            removed.push(file);
+            continue;
         }
 
         let canonical_target = fs::canonicalize(&target)
@@ -265,6 +307,13 @@ async fn read_unversioned_files(
             return Err(format!("path is not unversioned: {file}"));
         }
         let target = resolve_workspace_child(&workspace, &file)?;
+        if fs::symlink_metadata(&target)
+            .map_err(|e| e.to_string())?
+            .file_type()
+            .is_symlink()
+        {
+            return Err(format!("symbolic links are not supported: {file}"));
+        }
         let canonical = fs::canonicalize(&target).map_err(|e| e.to_string())?;
         if !canonical.starts_with(&workspace) {
             return Err(format!("refusing to read outside workspace: {file}"));
@@ -837,6 +886,81 @@ mod unversioned_stash_tests {
 }
 
 #[cfg(test)]
+#[cfg(unix)]
+mod delete_link_tests {
+    use super::*;
+    use std::os::unix::fs::symlink;
+
+    #[test]
+    fn deletes_only_selected_links_and_rejects_paths_through_outside_parents() {
+        let root = env::temp_dir().join(format!(
+            "orcasvn-delete-links-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(root.join("wc/important-dir")).unwrap();
+        fs::write(root.join("wc/important.txt"), "unsaved work").unwrap();
+        fs::write(root.join("wc/important-dir/keep.txt"), "keep").unwrap();
+        fs::write(root.join("outside.txt"), "outside").unwrap();
+        let wc = root.join("wc");
+        for (name, destination) in [
+            ("file-link", "important.txt"),
+            ("dir-link", "important-dir"),
+            ("root-link", "."),
+            ("dangling-link", "missing"),
+            ("outside-link", "../outside.txt"),
+        ] {
+            symlink(destination, wc.join(name)).unwrap();
+        }
+        symlink("..", wc.join("outside-parent")).unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let path = wc.to_string_lossy().into_owned();
+            for name in [
+                "file-link",
+                "dir-link",
+                "root-link",
+                "dangling-link",
+                "outside-link",
+            ] {
+                delete_unversioned(path.clone(), vec![name.into()])
+                    .await
+                    .unwrap();
+                assert!(fs::symlink_metadata(wc.join(name)).is_err());
+            }
+            assert!(
+                delete_unversioned(path.clone(), vec!["outside-parent/outside.txt".into()])
+                    .await
+                    .is_err()
+            );
+            for name in ["", ".", "../outside.txt"] {
+                assert!(delete_unversioned(path.clone(), vec![name.into()])
+                    .await
+                    .is_err());
+            }
+        });
+        assert_eq!(
+            fs::read_to_string(wc.join("important.txt")).unwrap(),
+            "unsaved work"
+        );
+        assert_eq!(
+            fs::read_to_string(wc.join("important-dir/keep.txt")).unwrap(),
+            "keep"
+        );
+        assert_eq!(
+            fs::read_to_string(root.join("outside.txt")).unwrap(),
+            "outside"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[cfg(test)]
 mod launch_arg_tests {
     use super::launch_workspace_arg;
     use std::path::PathBuf;
@@ -865,6 +989,8 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
             configure_svn_executable,
+            configure_svn_server_security,
+            svn_connection_info,
             launch_workspace_path,
             svn_checkout,
             svn_update,

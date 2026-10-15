@@ -1,8 +1,14 @@
 import { reactive, watch } from 'vue'
 import { detectSystemLocale } from '@/i18n'
 
+export interface ServerSecurity {
+  legacyTls: boolean
+  trustInvalidCertificates: boolean
+}
+
 export interface AppSettings {
   svnPath: string
+  svnServerSecurity: Record<string, ServerSecurity>
   encoding: string
   logLimit: number
   theme: 'light' | 'dark' | 'auto'
@@ -14,6 +20,7 @@ const STORAGE_KEY = 'orcasvn-settings'
 
 const defaults: AppSettings = {
   svnPath: '',
+  svnServerSecurity: {},
   encoding: 'utf-8',
   logLimit: 50,
   theme: 'auto',
@@ -21,11 +28,35 @@ const defaults: AppSettings = {
   gitignoreEnabled: false,
 }
 
+function httpsOrigin(value: string): string | null {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' ? url.origin : null
+  } catch {
+    return null
+  }
+}
+
 function loadSettings(): AppSettings {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
-      return { ...defaults, ...JSON.parse(stored) }
+      const { svnLegacyTlsEnabled, svnLegacyTlsServer, svnLegacyTlsTrustInvalidCertificates, ...saved } = JSON.parse(stored)
+      const servers: Record<string, ServerSecurity> = {}
+      for (const [server, policy] of Object.entries(saved.svnServerSecurity || {})) {
+        const entry = policy as Partial<ServerSecurity> | null
+        if (entry && typeof entry.legacyTls === 'boolean' && typeof entry.trustInvalidCertificates === 'boolean') {
+          const origin = httpsOrigin(server)
+          if (origin) servers[origin] = { legacyTls: entry.legacyTls, trustInvalidCertificates: entry.trustInvalidCertificates }
+        }
+      }
+      if (svnLegacyTlsEnabled && typeof svnLegacyTlsServer === 'string') {
+        const origin = httpsOrigin(svnLegacyTlsServer)
+        if (origin && !servers[origin]) {
+          servers[origin] = { legacyTls: true, trustInvalidCertificates: svnLegacyTlsTrustInvalidCertificates === true }
+        }
+      }
+      return { ...defaults, ...saved, svnServerSecurity: servers }
     }
   } catch {
     // ignore parse errors

@@ -69,6 +69,17 @@
             </el-input>
           </el-form-item>
 
+          <el-form-item v-if="Object.keys(settings.svnServerSecurity).length" :label="$t('connectionSecurity.savedServers')" class="form-item">
+            <div class="ssl-settings">
+              <div v-for="(policy, server) in settings.svnServerSecurity" :key="server" class="saved-server">
+                <code>{{ server }}</code>
+                <span v-if="policy.legacyTls">{{ $t('settings.legacyTls') }}</span>
+                <span v-if="policy.trustInvalidCertificates">{{ $t('settings.legacyTlsTrustCertificates') }}</span>
+                <el-button size="small" :disabled="removingServer !== null" :loading="removingServer === server" @click="handleForgetServer(server)">{{ $t('connectionSecurity.forget') }}</el-button>
+              </div>
+            </div>
+          </el-form-item>
+
           <el-form-item :label="$t('settings.encoding')" class="form-item">
             <el-select
               v-model="settings.encoding"
@@ -138,10 +149,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus/es/components/message/index'
-import { configureSvnExecutable } from '@/api/svn'
+import { configureSvnExecutable, configureSvnServerSecurity } from '@/api/svn'
 import { useLocale } from '@/composables/useLocale'
 import { useSettings } from '@/composables/useSettings'
 import { applyTheme } from '@/composables/useTheme'
@@ -150,7 +161,8 @@ import { useUpdateCheck } from '@/composables/useUpdateCheck'
 
 const { t } = useI18n()
 const { setLocale } = useLocale()
-const { settings } = useSettings()
+const { settings, updateSettings } = useSettings()
+const removingServer = ref<string | null>(null)
 const { refreshStatusAfterMutation } = useWorkspace()
 const { currentVersion: appVersion, state: updateState, latestVersion, checkForUpdates, openReleasePage } = useUpdateCheck()
 
@@ -177,6 +189,22 @@ const handleSvnPathChange = async (value: string) => {
     ElMessage.success(t('settings.svnPathApplied', { version }))
   } catch (err) {
     ElMessage.error(t('settings.svnPathInvalid', { error: String(err) }))
+  }
+}
+
+const handleForgetServer = async (server: string) => {
+  if (removingServer.value !== null) return
+  removingServer.value = server
+  try {
+    await configureSvnServerSecurity(server, false, false)
+    const remembered = { ...settings.svnServerSecurity }
+    delete remembered[server]
+    updateSettings({ svnServerSecurity: remembered })
+    ElMessage.success(t('connectionSecurity.forgotten'))
+  } catch (err) {
+    ElMessage.error(String(err))
+  } finally {
+    removingServer.value = null
   }
 }
 
@@ -245,6 +273,22 @@ onMounted(() => {
 
 .settings-path-input {
   width: 260px;
+}
+
+.ssl-settings {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+
+.saved-server {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
 }
 
 .theme-group {
