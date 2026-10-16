@@ -124,6 +124,9 @@
           </div>
           <span class="route-repository">{{ workspaceStore.operationBusy ? $t('workspace.operationRunning') : repositoryRevision }}</span>
         </header>
+        <div class="workspace-feedback">
+          <el-alert v-if="workspaceStore.error" :title="workspaceStore.error" type="error" show-icon :closable="false" />
+        </div>
         <div class="route-content">
           <router-view v-slot="{ Component, route }">
             <keep-alive :include="cachedViews">
@@ -630,7 +633,7 @@ onUnmounted(() => {
 
 .route-workbench {
   display: grid;
-  grid-template-rows: var(--app-size-page-header) minmax(0, 1fr);
+  grid-template-rows: var(--app-size-page-header) auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   margin: 6px;
@@ -670,6 +673,10 @@ onUnmounted(() => {
   color: var(--md-sys-color-on-surface-variant);
   font-size: var(--app-font-size-sm);
 }
+
+.workspace-feedback { min-width: 0; max-height: 160px; overflow: auto; }
+.workspace-feedback :deep(.el-alert) { border-radius: 0; }
+.workspace-feedback :deep(.el-alert__title) { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .route-content {
   min-width: 0;

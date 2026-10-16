@@ -92,15 +92,33 @@ async fn execute_svn_with_configurations(
 }
 
 pub async fn configure_svn_executable(executable: Option<&str>) -> Result<String, SvnError> {
-    let executable = normalize_svn_executable(executable);
-
-    let version = execute_svn_inner(executable.clone(), &["--version", "--quiet"], None).await?;
-
-    let mut configured = svn_executable_lock()
-        .write()
-        .map_err(|_| SvnError::CommandFailed("SVN 可执行文件配置锁已损坏".to_string()))?;
-    *configured = executable;
-    Ok(version.trim().to_string())
+    let explicit = executable.map(str::trim).filter(|value| !value.is_empty());
+    #[allow(unused_mut)]
+    let mut candidates = vec![normalize_svn_executable(explicit)];
+    #[cfg(target_os = "macos")]
+    if explicit.is_none() {
+        // Finder launches do not inherit Homebrew/MacPorts paths from a shell.
+        // Probe known locations without sourcing shell profiles or changing PATH.
+        candidates.extend([
+            PathBuf::from("/opt/homebrew/bin/svn"),
+            PathBuf::from("/usr/local/bin/svn"),
+            PathBuf::from("/opt/local/bin/svn"),
+        ]);
+    }
+    let mut failure = SvnError::SvnNotFound;
+    for candidate in candidates {
+        match execute_svn_inner(candidate.clone(), &["--version", "--quiet"], None).await {
+            Ok(version) => {
+                let mut configured = svn_executable_lock().write().map_err(|_| {
+                    SvnError::CommandFailed("SVN 可执行文件配置锁已损坏".to_string())
+                })?;
+                *configured = candidate;
+                return Ok(version.trim().to_string());
+            }
+            Err(error) => failure = error,
+        }
+    }
+    Err(failure)
 }
 
 fn normalize_svn_executable(executable: Option<&str>) -> PathBuf {
@@ -482,6 +500,83 @@ mod tests {
             }
             panic!("timed-out child is still alive");
         });
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn finder_path_discovers_svn_and_opens_a_real_working_copy() {
+        const MARKER: &str = "STONESVN_FINDER_PATH_TEST_CHILD";
+        if std::env::var_os(MARKER).is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "svn::executor::tests::finder_path_discovers_svn_and_opens_a_real_working_copy",
+                    "--nocapture",
+                ])
+                .env(MARKER, "1")
+                .env("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
+        let root =
+            std::env::temp_dir().join(format!("stonesvn-finder-path-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        struct Cleanup(PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(root.clone());
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                assert!(!configure_svn_executable(None).await.unwrap().is_empty());
+                let executable = current_svn_executable().unwrap();
+                let repository = root.join("repo");
+                let working_copy = root.join("wc");
+                let admin = if executable.is_absolute() {
+                    executable.with_file_name("svnadmin")
+                } else {
+                    PathBuf::from("svnadmin")
+                };
+                assert!(std::process::Command::new(admin)
+                    .arg("create")
+                    .arg(&repository)
+                    .status()
+                    .unwrap()
+                    .success());
+                let url = format!("file://{}", repository.display());
+                execute_svn(
+                    &["checkout", "--", &url, working_copy.to_str().unwrap()],
+                    None,
+                )
+                .await
+                .unwrap();
+                let status = execute_svn(&["status", "--xml"], working_copy.to_str())
+                    .await
+                    .unwrap();
+                assert!(status.contains("<status>"));
+                let info = execute_svn(&["info", "--xml"], working_copy.to_str())
+                    .await
+                    .unwrap();
+                assert!(info.contains("<info>"));
+                assert!(
+                    configure_svn_executable(Some("/nonexistent/stonesvn-explicit-svn"))
+                        .await
+                        .is_err()
+                );
+                assert_eq!(current_svn_executable().unwrap(), executable);
+            });
     }
 
     #[test]

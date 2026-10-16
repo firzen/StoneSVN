@@ -1,6 +1,6 @@
 {
   "name": "stonesvn",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "StoneSVN 客户端 - 基于 Tauri",
   "scripts": {
     "dev": "vite",
