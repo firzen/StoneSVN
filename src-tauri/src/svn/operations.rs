@@ -28,7 +28,10 @@ fn normalize_svn_path(path: &str) -> String {
     path.replace('\\', "/")
 }
 
-fn normalize_workspace_diff_file(workspace: &str, file: &str) -> Result<String, SvnError> {
+pub(super) fn normalize_workspace_diff_file(
+    workspace: &str,
+    file: &str,
+) -> Result<String, SvnError> {
     if file.contains("://") {
         return Ok(file.to_string());
     }
@@ -116,7 +119,10 @@ pub async fn update(path: &str, revision: Option<u64>) -> Result<String, SvnErro
     execute_svn(&args_refs, Some(path)).await
 }
 
-fn resolve_workspace_file_path(workspace: &str, file: &str) -> Result<PathBuf, SvnError> {
+pub(super) fn resolve_workspace_file_path(
+    workspace: &str,
+    file: &str,
+) -> Result<PathBuf, SvnError> {
     let workspace_path = Path::new(workspace)
         .canonicalize()
         .map_err(|e| SvnError::CommandFailed(format!("无法访问工作副本目录：{}", e)))?;
@@ -160,14 +166,38 @@ fn build_unversioned_file_diff(file: &str, content: &str) -> String {
 }
 
 async fn is_unversioned_file(workspace: &str, file: &str) -> Result<bool, SvnError> {
-    let target = normalize_svn_target(file);
-    let args = vec!["status", "--xml", "--", target.as_str()];
-    let output = execute_svn(&args, Some(workspace)).await?;
-    let statuses = parse_status_xml(&output)?;
     let normalized_file = normalize_svn_path(file);
-    Ok(statuses.iter().any(|status| {
-        status.status_code == "unversioned" && normalize_svn_path(&status.path) == normalized_file
-    }) || (statuses.len() == 1 && statuses[0].status_code == "unversioned"))
+    let mut candidate = Path::new(&normalized_file);
+    loop {
+        let target = normalize_svn_target(&candidate.to_string_lossy());
+        let output = execute_svn(
+            &[
+                "status",
+                "--xml",
+                "--verbose",
+                "--depth",
+                "empty",
+                "--",
+                &target,
+            ],
+            Some(workspace),
+        )
+        .await?;
+        let statuses = parse_status_xml(&output)?;
+        if !statuses.is_empty() {
+            return Ok(statuses
+                .iter()
+                .any(|status| status.status_code == "unversioned"));
+        }
+        // SVN reports no entry for a file below an unversioned directory.
+        // Inspect ancestors without recursively scanning their contents.
+        match candidate.parent() {
+            Some(parent) if !parent.as_os_str().is_empty() && parent != candidate => {
+                candidate = parent;
+            }
+            _ => return Ok(false),
+        }
+    }
 }
 
 pub async fn remote_info(path: &str) -> Result<SvnInfo, SvnError> {
@@ -593,23 +623,32 @@ pub async fn diff(
     new_rev: Option<u64>,
 ) -> Result<DiffResult, SvnError> {
     let diff_file = normalize_workspace_diff_file(workspace, file)?;
-
-    if old_rev.is_none() && new_rev.is_none() && is_unversioned_file(workspace, &diff_file).await? {
-        let file_path = resolve_workspace_file_path(workspace, &diff_file)?;
-        let content = fs::read(&file_path)
-            .map_err(|e| SvnError::CommandFailed(format!("无法读取未版本文件：{}", e)))?;
-        let content = String::from_utf8_lossy(&content);
-        return Ok(DiffResult {
-            path: diff_file.clone(),
-            diff: build_unversioned_file_diff(&diff_file, content.as_ref()),
-            old_revision: 0,
-            new_revision: 0,
-        });
-    }
-
     let args = build_diff_args(&diff_file, old_rev, new_rev)?;
     let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-    let output = execute_svn(&args_refs, Some(workspace)).await?;
+    // Most previews are tracked changes. Ask for their diff directly instead
+    // of launching an extra status process for every selected file.
+    let output = match execute_svn(&args_refs, Some(workspace)).await {
+        Ok(output) => output,
+        Err(error)
+            if old_rev.is_none()
+                && new_rev.is_none()
+                && error.to_string().contains("E155010")
+                && is_unversioned_file(workspace, &diff_file).await? =>
+        {
+            let file_path = resolve_workspace_file_path(workspace, &diff_file)?;
+            let content = fs::read(&file_path)
+                .map_err(|e| SvnError::CommandFailed(format!("无法读取未版本文件：{}", e)))?;
+            let content = String::from_utf8_lossy(&content);
+            return Ok(DiffResult {
+                path: diff_file.clone(),
+                diff: build_unversioned_file_diff(&diff_file, content.as_ref()),
+                old_revision: 0,
+                new_revision: 0,
+            });
+        }
+        Err(error) => return Err(error),
+    };
+
     let (result_old_rev, result_new_rev) = match (old_rev, new_rev) {
         (Some(old), Some(new)) => (old, new),
         (Some(change), None) => (change.saturating_sub(1), change),
@@ -870,6 +909,33 @@ mod tests {
         runtime
             .block_on(commit(
                 wc.to_str().unwrap(),
+                "directory properties only",
+                Some(&["A".into()]),
+            ))
+            .unwrap();
+        assert_eq!(
+            run(&["propget", "-r", "HEAD", "test:property", "A"]).trim(),
+            "changed"
+        );
+        assert_eq!(run(&["cat", "-r", "HEAD", "A/selected.txt"]), "before");
+        assert!(run(&["status"]).contains("selected.txt"));
+        run(&["update", "--depth", "empty", "."]);
+        run(&["propset", "test:root", "root value", "."]);
+        runtime
+            .block_on(commit(
+                wc.to_str().unwrap(),
+                "root properties only",
+                Some(&[".".into()]),
+            ))
+            .unwrap();
+        assert_eq!(
+            run(&["propget", "-r", "HEAD", "test:root", "."]).trim(),
+            "root value"
+        );
+        assert_eq!(run(&["cat", "-r", "HEAD", "A/selected.txt"]), "before");
+        runtime
+            .block_on(commit(
+                wc.to_str().unwrap(),
                 "selected",
                 Some(&["A".into(), "A/selected.txt".into()]),
             ))
@@ -893,6 +959,18 @@ mod tests {
             .unwrap();
         assert!(run(&["status"]).contains("excluded.txt"));
         assert!(!run(&["list", "-r", "HEAD", "A/new"]).contains("excluded.txt"));
+        std::fs::create_dir(wc.join("A/only-folder")).unwrap();
+        std::fs::write(wc.join("A/only-folder/keep.txt"), "keep local").unwrap();
+        run(&["add", "A/only-folder"]);
+        runtime
+            .block_on(commit(
+                wc.to_str().unwrap(),
+                "new directory only",
+                Some(&["A/only-folder".into()]),
+            ))
+            .unwrap();
+        assert!(run(&["list", "-r", "HEAD", "A/only-folder"]).is_empty());
+        assert!(run(&["status", "A/only-folder"]).contains("keep.txt"));
         run(&["update"]);
         run(&["delete", "--force", "A"]);
         let partial_delete = runtime.block_on(commit(
@@ -1086,6 +1164,86 @@ mod tests {
         assert!(diff.contains("+++ src/new.txt\t(working copy)\n"));
         assert!(diff.contains("@@ -0,0 +1,2 @@\n"));
         assert!(diff.contains("+hello\n+world\n"));
+    }
+
+    #[test]
+    fn working_diff_reads_unversioned_files_inside_unversioned_directories() {
+        use std::process::Command;
+        let directory = std::env::temp_dir().join(format!(
+            "orcasvn-unversioned-diff-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        let repository = directory.join("repository");
+        let wc = directory.join("wc");
+        let output = Command::new("svnadmin")
+            .arg("create")
+            .arg(&repository)
+            .output()
+            .expect("svnadmin is required for this integration test");
+        assert!(output.status.success());
+        let url = format!(
+            "file:///{}",
+            repository
+                .to_string_lossy()
+                .replace('\\', "/")
+                .trim_start_matches('/')
+        );
+        let run = |args: &[&str]| {
+            let output = Command::new("svn").args(args).output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        };
+        run(&["checkout", &url, wc.to_str().unwrap()]);
+        let tracked = wc.join("tracked.txt");
+        std::fs::write(&tracked, "base\n").unwrap();
+        run(&["add", tracked.to_str().unwrap()]);
+        run(&["commit", wc.to_str().unwrap(), "-m", "initial"]);
+        std::fs::create_dir_all(wc.join("new@dir/nested")).unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let workspace = wc.to_str().unwrap();
+            for file in ["new.txt", "new@dir/nested/新文件.txt"] {
+                std::fs::write(wc.join(file), "hello\n完整内容\n").unwrap();
+                let result = super::diff(workspace, file, None, None).await.unwrap();
+                assert!(
+                    result.diff.contains("+hello\n+完整内容\n"),
+                    "{}",
+                    result.diff
+                );
+                assert!(result.diff.contains("@@ -0,0 +1,2 @@"));
+                let preview = crate::svn::file_preview(workspace, file, None, None)
+                    .await
+                    .unwrap();
+                assert_eq!(preview.preview_kind, "text");
+                assert_eq!(preview.result.diff, result.diff);
+            }
+            assert!(super::diff(workspace, "tracked.txt", None, None)
+                .await
+                .unwrap()
+                .diff
+                .is_empty());
+            std::fs::write(&tracked, "changed\n").unwrap();
+            let changed = super::diff(workspace, "tracked.txt", None, None)
+                .await
+                .unwrap();
+            assert!(changed.diff.contains("-base\n+changed\n"));
+            let historical = super::diff(workspace, "tracked.txt", Some(1), Some(1))
+                .await
+                .unwrap();
+            assert!(historical.diff.is_empty());
+        });
+        std::fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

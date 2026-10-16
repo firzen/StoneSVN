@@ -138,7 +138,7 @@
                   {{ $t('common.version') }}：{{ diffResult?.old_revision }} → {{ diffResult?.new_revision }}
                 </el-tag>
               </div>
-              <div class="diff-stats">
+              <div v-if="diffResult?.preview_kind === 'text'" class="diff-stats">
                 <el-tag type="success" effect="plain" class="stat-tag">
                   <el-icon><Plus /></el-icon>
                   {{ diffStats.added }}
@@ -150,7 +150,7 @@
               </div>
             </div>
 
-            <DiffViewer :text="diffResult?.diff || ''" @stats="diffStats = $event" />
+            <FilePreview v-if="diffResult" :result="diffResult" :workspace-path="workspaceStore.currentPath || ''" @stats="diffStats = $event" />
           </div>
         </div>
       </div>
@@ -163,13 +163,13 @@ import { ref, computed, nextTick, watch, onMounted } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { open } from '@tauri-apps/plugin-dialog'
 import { ElMessage } from 'element-plus/es/components/message/index'
-import { svnDiff } from '@/api/svn'
+import { svnFilePreview } from '@/api/svn'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useI18n } from 'vue-i18n'
 import { toWorkspaceRelativePath } from '@/utils/workspacePath'
-import DiffViewer from '@/components/DiffViewer.vue'
+import FilePreview from '@/components/FilePreview.vue'
 import VirtualViewport from '@/components/VirtualViewport.vue'
-import type { DiffResult, SvnStatus } from '@/types'
+import type { FilePreviewResult, SvnStatus } from '@/types'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -185,7 +185,7 @@ const oldRev = ref<number>()
 const newRev = ref<number>()
 const changeRev = ref<number>()
 const loading = ref(false)
-const diffResult = ref<DiffResult | null>(null)
+const diffResult = ref<FilePreviewResult | null>(null)
 let requestGeneration = 0
 
 const fileList = ref<string[]>([])
@@ -265,7 +265,7 @@ const loadDiff = async () => {
     const old = diffType.value === 'revision' ? oldRev.value : changeRev.value
     const new_ = diffType.value === 'revision' ? newRev.value : undefined
 
-    const result = await svnDiff(workspaceStore.currentPath, file, old, new_)
+    const result = await svnFilePreview(workspaceStore.currentPath, file, old, new_)
     if (generation === requestGeneration) diffResult.value = result
   } catch (err) {
     if (generation === requestGeneration) {

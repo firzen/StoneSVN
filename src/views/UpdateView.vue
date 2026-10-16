@@ -250,9 +250,10 @@ const loadUpdateState = async (force = false) => {
 }
 
 const doUpdate = async () => {
-  if (!workspaceStore.currentPath) return
+  if (!workspaceStore.currentPath || workspaceStore.operationBusy) return
   const requestedPath = workspaceStore.currentPath
   updating.value = true
+  workspaceStore.setOperationBusy(true)
   try {
     await svnUpdate(requestedPath)
     if (workspaceStore.currentPath !== requestedPath) return
@@ -265,6 +266,7 @@ const doUpdate = async () => {
     workspaceStore.setError(String(err))
     ElMessage.error(`${t('common.error')}：${err}`)
   } finally {
+    workspaceStore.setOperationBusy(false)
     updating.value = false
   }
 }

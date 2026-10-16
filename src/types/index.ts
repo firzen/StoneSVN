@@ -48,6 +48,12 @@ export interface DiffResult {
   new_revision: number
 }
 
+export interface FilePreviewResult extends DiffResult {
+  preview_kind: 'text' | 'image' | 'binary' | 'directory'
+  image_data: string | null
+  can_open: boolean
+}
+
 export interface BlameLine {
   revision: number
   author: string

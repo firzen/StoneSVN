@@ -81,6 +81,14 @@ export default {
     aboutSubtitle: 'SVN ワークベンチ',
   },
   workspace: {
+    projects: 'プロジェクト',
+    addWorkingCopy: '作業コピーを追加',
+    moveUp: '上へ移動',
+    moveDown: '下へ移動',
+    lastScanned: '最終スキャン',
+    resizeProjects: 'プロジェクト欄の幅を調整',
+    operationRunning: '操作を実行中',
+
     title: 'ワークスペース',
     emptyWorkspace: 'ワークスペースがありません',
     emptyDescription: '既存の SVN 作業コピーを開くか、新しい作業コピーをチェックアウトします。',
@@ -175,6 +183,7 @@ export default {
     actionUnknown: '不明',
   },
   commit: {
+    selectWithChildren: '子項目も選択',
     expandDirectory: '{path} を展開',
     collapseDirectory: '{path} を折りたたむ',
     changes: '変更',
@@ -231,6 +240,10 @@ export default {
     selectDirectory: 'ディレクトリを選択',
   },
   diff: {
+    directoryHint: 'このディレクトリはファイルマネージャーで開けます',
+    openDirectory: 'ディレクトリを開く',
+    binaryHint: 'このファイルのテキストプレビューは利用できません。他のアプリで開いてください。',
+    openInOtherApp: '他のアプリで開く',
     title: 'コード差分',
     filePath: 'ファイルパス',
     compare: '比較',

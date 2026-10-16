@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { invokeWithConnectionPrompt } from './connection'
-import type { CommandResult, SvnStatus, SvnLogEntry, SvnInfo, SvnAuthUser, DiffResult, BlameLine, StashUnversionedEntry } from '@/types'
+import type { CommandResult, SvnStatus, SvnLogEntry, SvnInfo, SvnAuthUser, DiffResult, FilePreviewResult, BlameLine, StashUnversionedEntry } from '@/types'
 
 export async function configureSvnExecutable(executable?: string): Promise<string> {
   return invoke<string>('configure_svn_executable', {
@@ -87,6 +87,19 @@ export async function svnApplyPatch(
   reverse = false
 ): Promise<CommandResult> {
   return invoke<CommandResult>('svn_apply_patch', { workspacePath, patch, reverse })
+}
+
+export async function svnFilePreview(
+  workspacePath: string,
+  file: string,
+  oldRev?: number,
+  newRev?: number,
+): Promise<FilePreviewResult> {
+  return invokeWithConnectionPrompt<FilePreviewResult>('svn_file_preview', { workspacePath, file, oldRev, newRev })
+}
+
+export async function openWorkspaceFile(path: string, file: string): Promise<void> {
+  return invoke<void>('open_workspace_file', { path, file })
 }
 
 export async function svnBlame(workspacePath: string, file: string): Promise<BlameLine[]> {

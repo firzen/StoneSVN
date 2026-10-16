@@ -54,10 +54,13 @@ async fn execute_svn_with_configurations(
 ) -> Result<String, SvnError> {
     // Local mutations and status scans do not establish TLS connections and
     // should not pay for an additional workspace metadata query.
-    if matches!(
-        args.first(),
-        Some(&"status" | &"add" | &"revert" | &"resolve" | &"cleanup" | &"auth")
-    ) {
+    let local_working_diff = matches!(args, ["diff", "--", target] if !target.contains("://"));
+    if local_working_diff
+        || matches!(
+            args.first(),
+            Some(&"status" | &"add" | &"revert" | &"resolve" | &"cleanup" | &"auth")
+        )
+    {
         configurations.clear();
     }
     let compatibility = if configurations.is_empty() {

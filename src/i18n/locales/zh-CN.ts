@@ -81,6 +81,14 @@ export default {
     aboutSubtitle: 'SVN 工作台',
   },
   workspace: {
+    projects: '项目',
+    addWorkingCopy: '添加工作副本',
+    moveUp: '上移',
+    moveDown: '下移',
+    lastScanned: '最近扫描',
+    resizeProjects: '调整项目栏宽度',
+    operationRunning: '操作执行中',
+
     title: '工作区',
     emptyWorkspace: '尚未打开工作区',
     emptyDescription: '打开已有 SVN 工作副本，或从仓库检出一个新工作副本。',
@@ -175,6 +183,7 @@ export default {
     actionUnknown: '未知',
   },
   commit: {
+    selectWithChildren: '连同子项',
     expandDirectory: '展开 {path}',
     collapseDirectory: '收起 {path}',
     changes: '变更',
@@ -231,6 +240,10 @@ export default {
     selectDirectory: '选择目录',
   },
   diff: {
+    directoryHint: '此目录可在文件管理器中打开',
+    openDirectory: '打开目录',
+    binaryHint: '此文件不支持文本预览，请使用其他应用打开',
+    openInOtherApp: '用其他应用打开',
     title: '代码差异',
     filePath: '文件路径',
     compare: '对比',

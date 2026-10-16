@@ -81,6 +81,14 @@ export default {
     aboutSubtitle: 'SVN 워크벤치',
   },
   workspace: {
+    projects: '프로젝트',
+    addWorkingCopy: '작업 복사본 추가',
+    moveUp: '위로 이동',
+    moveDown: '아래로 이동',
+    lastScanned: '최근 검사',
+    resizeProjects: '프로젝트 사이드바 크기 조정',
+    operationRunning: '작업 진행 중',
+
     title: '작업 공간',
     emptyWorkspace: '작업 공간 없음',
     emptyDescription: '기존 SVN 작업 복사본을 열거나 새 작업 복사본을 체크아웃하세요.',
@@ -175,6 +183,7 @@ export default {
     actionUnknown: '알 수 없음',
   },
   commit: {
+    selectWithChildren: '하위 항목 포함',
     expandDirectory: '{path} 펼치기',
     collapseDirectory: '{path} 접기',
     changes: '변경 사항',
@@ -231,6 +240,10 @@ export default {
     selectDirectory: '디렉터리 선택',
   },
   diff: {
+    directoryHint: '파일 관리자에서 이 디렉터리를 열 수 있습니다',
+    openDirectory: '디렉터리 열기',
+    binaryHint: '이 파일은 텍스트 미리보기를 지원하지 않습니다. 다른 앱에서 여세요.',
+    openInOtherApp: '다른 앱에서 열기',
     title: '코드 비교',
     filePath: '파일 경로',
     compare: '비교',

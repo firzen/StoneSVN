@@ -167,6 +167,17 @@ async fn reveal_workspace_file(path: String, file: String) -> Result<(), String>
     }
 }
 
+#[tauri::command]
+async fn open_workspace_file(path: String, file: String) -> Result<(), String> {
+    let workspace = fs::canonicalize(&path).map_err(|e| e.to_string())?;
+    let target = resolve_workspace_child(&workspace, &file)?;
+    let target = fs::canonicalize(target).map_err(|e| e.to_string())?;
+    if !target.starts_with(&workspace) {
+        return Err("file must be inside the workspace".to_string());
+    }
+    open_file_manager(target.to_str().ok_or("invalid file path")?)
+}
+
 fn spawn_command(mut command: Command) -> Result<(), String> {
     command
         .spawn()
@@ -675,6 +686,18 @@ async fn svn_remote_info(path: String) -> Result<SvnInfo, String> {
 }
 
 #[tauri::command]
+async fn svn_file_preview(
+    workspace_path: String,
+    file: String,
+    old_rev: Option<u64>,
+    new_rev: Option<u64>,
+) -> Result<svn::FilePreviewResult, String> {
+    svn::file_preview(&workspace_path, &file, old_rev, new_rev)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn svn_diff(
     workspace_path: String,
     file: String,
@@ -1135,6 +1158,7 @@ fn main() {
             svn_local_revision,
             svn_remote_info,
             svn_diff,
+            svn_file_preview,
             svn_apply_patch,
             svn_blame,
             svn_add,
@@ -1146,6 +1170,7 @@ fn main() {
             svn_merge,
             open_workspace_target,
             reveal_workspace_file,
+            open_workspace_file,
             delete_unversioned,
             read_unversioned_files,
             restore_unversioned_files,

@@ -7,13 +7,26 @@ import { sameStatusSnapshot } from '@/utils/statusSnapshot'
 
 const LAST_WORKSPACE_KEY = 'orcasvn-last-workspace'
 const RECENT_WORKSPACES_KEY = 'orcasvn-recent-workspaces'
-const MAX_RECENT_WORKSPACES = 10
+const PROJECT_SUMMARIES_KEY = 'orcasvn-project-summaries'
+type ProjectSummary = { count: number; scannedAt: number }
+
+function readProjectSummaries(): Record<string, ProjectSummary> {
+  try {
+    const stored = JSON.parse(localStorage.getItem(PROJECT_SUMMARIES_KEY) || '{}')
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return {}
+    return Object.fromEntries(Object.entries(stored).filter((entry): entry is [string, ProjectSummary] => {
+      const value = entry[1] as ProjectSummary | null
+      return !!value && Number.isInteger(value.count) && value.count >= 0
+        && Number.isFinite(value.scannedAt) && value.scannedAt > 0
+    }))
+  } catch { return {} }
+}
 
 function readRecentWorkspaces(): string[] {
   try {
     const stored = JSON.parse(localStorage.getItem(RECENT_WORKSPACES_KEY) || '[]')
     if (Array.isArray(stored)) {
-      return stored.filter((path): path is string => typeof path === 'string' && path.length > 0)
+      return [...new Set(stored.filter((path): path is string => typeof path === 'string' && path.length > 0))]
     }
   } catch {
     // Ignore malformed data from older/manual installations.
@@ -30,6 +43,9 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const statusIsStale = ref(false)
   const error = ref<string | null>(null)
   const gitignorePatterns = ref<GitignorePattern[]>([])
+  const operationBusy = ref(false)
+  const projectSummaries = ref<Record<string, ProjectSummary>>(readProjectSummaries())
+  const commitDrafts = ref<Record<string, { message: string; files: string[]; search: string; filter: 'all' | 'committable' | 'unversioned'; scroll?: number; collapsed?: string[]; activeRow?: string }>>({})
 
   const hasChanges = computed(() => {
     return statusList.value.some(s => s.status_code !== 'normal' && s.status_code !== '')
@@ -65,8 +81,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   })
 
   function rememberWorkspace(path: string) {
-    recentWorkspaces.value = [path, ...recentWorkspaces.value.filter(item => item !== path)]
-      .slice(0, MAX_RECENT_WORKSPACES)
+    if (!recentWorkspaces.value.includes(path)) recentWorkspaces.value.push(path)
     localStorage.setItem(RECENT_WORKSPACES_KEY, JSON.stringify(recentWorkspaces.value))
     localStorage.setItem(LAST_WORKSPACE_KEY, path)
   }
@@ -90,6 +105,31 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   function setStatusIsStale(value: boolean) {
     statusIsStale.value = value
+    if (!value && currentPath.value) {
+      projectSummaries.value[currentPath.value] = {
+        count: statusList.value.filter(file => !['normal', 'none', ''].includes(file.status_code)
+          || ['modified', 'conflicted'].includes(file.prop_status)).length,
+        scannedAt: Date.now(),
+      }
+      saveProjectSummaries()
+    }
+  }
+
+  function saveProjectSummaries() {
+    try { localStorage.setItem(PROJECT_SUMMARIES_KEY, JSON.stringify(projectSummaries.value)) }
+    catch { /* A cached count must not fail a successful SVN scan. */ }
+  }
+
+  function setOperationBusy(value: boolean) { operationBusy.value = value }
+
+  function moveProject(path: string, target: string) {
+    const paths = [...recentWorkspaces.value]
+    const from = paths.indexOf(path), to = paths.indexOf(target)
+    if (from < 0 || to < 0 || from === to) return
+    paths.splice(from, 1)
+    paths.splice(to, 0, path)
+    recentWorkspaces.value = paths
+    localStorage.setItem(RECENT_WORKSPACES_KEY, JSON.stringify(paths))
   }
 
   function setLoading(value: boolean) {
@@ -117,6 +157,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   function removeRecentWorkspace(path: string) {
     invalidateWorkspaceSnapshot(path)
     recentWorkspaces.value = recentWorkspaces.value.filter(item => item !== path)
+    delete projectSummaries.value[path]
+    saveProjectSummaries()
     localStorage.setItem(RECENT_WORKSPACES_KEY, JSON.stringify(recentWorkspaces.value))
     if (currentPath.value === path) clearWorkspace()
   }
@@ -124,6 +166,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   return {
     currentPath,
     recentWorkspaces,
+    projectSummaries,
+    commitDrafts,
+    operationBusy,
+    setOperationBusy,
+    moveProject,
     svnInfo,
     statusList,
     isLoading,

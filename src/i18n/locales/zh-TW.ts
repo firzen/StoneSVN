@@ -81,6 +81,14 @@ export default {
     aboutSubtitle: 'SVN 工作台',
   },
   workspace: {
+    projects: '專案',
+    addWorkingCopy: '新增工作副本',
+    moveUp: '上移',
+    moveDown: '下移',
+    lastScanned: '最近掃描',
+    resizeProjects: '調整專案欄寬度',
+    operationRunning: '操作執行中',
+
     title: '工作區',
     emptyWorkspace: '尚未開啟工作區',
     emptyDescription: '開啟現有 SVN 工作副本，或從儲存庫簽出新的工作副本。',
@@ -175,6 +183,7 @@ export default {
     actionUnknown: '未知',
   },
   commit: {
+    selectWithChildren: '連同子項',
     expandDirectory: '展開 {path}',
     collapseDirectory: '收合 {path}',
     changes: '變更',
@@ -231,6 +240,10 @@ export default {
     selectDirectory: '選擇目錄',
   },
   diff: {
+    directoryHint: '此目錄可在檔案管理員中開啟',
+    openDirectory: '開啟目錄',
+    binaryHint: '此檔案不支援文字預覽，請使用其他應用程式開啟',
+    openInOtherApp: '用其他應用程式開啟',
     title: '程式碼比對',
     filePath: '檔案路徑',
     compare: '比對',

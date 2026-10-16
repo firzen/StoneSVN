@@ -483,6 +483,7 @@ const changePage = (index: number) => {
 }
 
 const scheduleFilterReload = () => {
+  if (restoringProjectFilters) return
   if (!workspaceStore.currentPath) return
   if (filterReloadTimer !== undefined) {
     window.clearTimeout(filterReloadTimer)
@@ -585,23 +586,34 @@ const formatDate = (dateStr: string): string => {
   return date.toLocaleString(locale.value)
 }
 
+const projectLogStates = new Map<string, { filters: ReturnType<typeof getDefaultFilters>; logs: SvnLogEntry[]; page: number; cursors: (number | undefined)[]; more: boolean; scroll: number }>()
+let restoringProjectFilters = false
 watch(
   () => workspaceStore.currentPath,
   (path, oldPath) => {
-    if (path && path !== oldPath) {
-      currentAuthor.value = ''
+    if (oldPath) projectLogStates.set(oldPath, { filters: { ...filters }, logs: [...logs.value], page: pageIndex.value, cursors: [...pageCursors.value], more: hasMore.value, scroll: logScroller.value?.scrollTop || 0 })
+    requestGeneration += 1
+    authorRequestGeneration += 1
+    if (filterReloadTimer !== undefined) window.clearTimeout(filterReloadTimer)
+    filterReloadTimer = undefined
+    loading.value = false
+    dialogVisible.value = false
+    selectedLog.value = null
+    currentAuthor.value = ''
+    const saved = path ? projectLogStates.get(path) : undefined
+    restoringProjectFilters = true
+    Object.assign(filters, saved?.filters || getDefaultFilters())
+    logs.value = saved?.logs || []
+    pageIndex.value = saved?.page || 0
+    pageCursors.value = saved?.cursors || [undefined]
+    hasMore.value = saved?.more ?? true
+    void nextTick(() => {
+      restoringProjectFilters = false
+      if (workspaceStore.currentPath === path && logScroller.value) logScroller.value.scrollTop = saved?.scroll || 0
+    })
+    if (path) {
       loadCurrentAuthor(path)
-      reloadLogs(true)
-    }
-    if (!path) {
-      requestGeneration += 1
-      authorRequestGeneration += 1
-      logs.value = []
-      currentAuthor.value = ''
-      hasMore.value = true
-      loading.value = false
-      pageIndex.value = 0
-      pageCursors.value = [undefined]
+      if (!saved?.logs.length) void reloadLogs(false, true)
     }
   },
   { immediate: true }

@@ -1,14 +1,13 @@
 <template>
   <el-dropdown popper-class="language-dropdown" @command="handleLanguageChange">
-    <el-button text class="language-switcher-button">
+    <el-button text class="language-switcher-button" :aria-label="`${$t('language.label')}: ${currentLanguageLabel}`">
       <svg class="language-icon" viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="12" cy="12" r="9" />
         <path d="M3 12h18" />
         <path d="M12 3c2.4 2.5 3.6 5.5 3.6 9s-1.2 6.5-3.6 9" />
         <path d="M12 3c-2.4 2.5-3.6 5.5-3.6 9s1.2 6.5 3.6 9" />
       </svg>
-      {{ currentLanguageLabel }}
-      <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+      <span>{{ currentLanguageLabel }}</span>
     </el-button>
     <template #dropdown>
       <el-dropdown-menu>
@@ -53,11 +52,12 @@ const handleLanguageChange = (command: string) => {
 <style scoped>
 .language-switcher-button {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 52px;
-  gap: 5px;
-  padding: 0 10px;
+  height: 56px;
+  gap: 7px;
+  padding: 8px 10px;
   border: 0;
   border-radius: var(--app-radius-md);
   color: var(--md-sys-color-on-surface-variant);
@@ -74,19 +74,22 @@ const handleLanguageChange = (command: string) => {
   background: var(--md-sys-state-hover);
 }
 
+.language-switcher-button :deep(> span) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
 .language-icon {
-  width: 17px;
-  height: 17px;
+  width: 20px;
+  height: 20px;
   color: currentColor;
   fill: none;
   stroke: currentColor;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
-}
-
-.language-switcher-button :deep(.el-icon--right) {
-  margin-left: 0;
 }
 
 :global(.theme-dark) .language-switcher-button,

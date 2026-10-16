@@ -102,6 +102,9 @@
                     {{ row.node.path === '.' ? workspaceName : row.node.label }}
                   </span>
                   <small v-if="row.node.children.length" class="tree-count">{{ row.node.targets.length }}</small>
+                  <button v-if="row.node.entry && row.node.children.length" type="button" class="subtree-select-button"
+                    :disabled="loading || workspaceStore.statusIsStale" :aria-pressed="isSubtreeChecked(row.node)"
+                    @click.stop="toggleSubtree(row.node, !isSubtreeChecked(row.node))">{{ $t('commit.selectWithChildren') }}</button>
                 </span>
                 <span class="status-cell" role="gridcell">
                   <span v-if="row.node.entry" class="status-badge" :class="getStatusClass(displayStatus(row.node.entry))"
@@ -145,7 +148,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { svnAdd, svnCommit } from '@/api/svn'
@@ -169,6 +172,8 @@ interface RecentCommitMessage {
   message: string
 }
 
+interface CommitDraft { message: string; files: string[]; search: string; filter: 'all' | 'committable' | 'unversioned'; scroll?: number; collapsed?: string[]; activeRow?: string }
+const drafts = workspaceStore.commitDrafts
 const selectedFiles = ref<string[]>([])
 const commitMessage = ref('')
 const loading = ref(false)
@@ -270,14 +275,19 @@ const handleRowKey = (event: KeyboardEvent, index: number) => {
     toggleNode(row.node, !isChecked(row.node))
   }
 }
-watch(() => workspaceStore.currentPath, () => {
-  collapsedPaths.value = new Set()
-  activeRowPath.value = ''
-})
 const selectedSet = computed(() => new Set(selectedFiles.value))
-const isChecked = (node: ChangeNode) => node.targets.every(path => selectedSet.value.has(path))
-const isPartial = (node: ChangeNode) => !isChecked(node) && node.targets.some(path => selectedSet.value.has(path))
+const isSubtreeChecked = (node: ChangeNode) => node.targets.every(path => selectedSet.value.has(path))
+const isChecked = (node: ChangeNode) => node.entry ? selectedSet.value.has(node.entry.path) : isSubtreeChecked(node)
+const isPartial = (node: ChangeNode) => !node.entry && !isChecked(node) && node.targets.some(path => selectedSet.value.has(path))
 const toggleNode = (node: ChangeNode, checked: boolean) => {
+  if (loading.value || workspaceStore.statusIsStale) return
+  const selection = new Set(selectedFiles.value)
+  const targets = node.entry ? [node.entry.path] : node.targets
+  targets.forEach(path => checked ? selection.add(path) : selection.delete(path))
+  selectedFiles.value = [...selection]
+}
+const toggleSubtree = (node: ChangeNode, checked: boolean) => {
+  if (loading.value || workspaceStore.statusIsStale) return
   const selection = new Set(selectedFiles.value)
   node.targets.forEach(path => checked ? selection.add(path) : selection.delete(path))
   selectedFiles.value = [...selection]
@@ -312,24 +322,52 @@ const routeSelectedFiles = computed(() => {
 
 const applyRouteSelection = () => {
   const requested = new Set(routeSelectedFiles.value)
+  if (!scope.value && requested.size === 0) return
   selectedFiles.value = allChangedFiles.value
     .filter(file => scope.value ? file.status_code !== 'unversioned' : requested.has(file.path))
     .map(file => file.path)
 }
 watch([scope, () => route.query.files], applyRouteSelection, { immediate: true })
 watch(allChangedFiles, () => {
+  if (workspaceStore.statusIsStale) return
   const available = new Set(allChangedFiles.value.map(file => file.path))
   selectedFiles.value = selectedFiles.value.filter(path => available.has(path))
 })
-watch(() => workspaceStore.currentPath, () => {
-  selectedFiles.value = []
-  commitMessage.value = ''
+const saveDraft = (path = workspaceStore.currentPath) => {
+  if (path) drafts[path] = { message: commitMessage.value, files: [...selectedFiles.value], search: searchQuery.value, filter: filterMode.value, scroll: fileViewport.value?.element?.scrollTop || 0, collapsed: [...collapsedPaths.value], activeRow: activeRowPath.value }
+}
+let pendingDraftScroll: number | null = null
+const restoreDraftScroll = async (path: string | null) => {
+  await nextTick()
+  if (workspaceStore.currentPath !== path || workspaceStore.statusIsStale || pendingDraftScroll === null || !fileViewport.value?.element) return
+  fileViewport.value.element.scrollTop = pendingDraftScroll
+  pendingDraftScroll = null
+}
+watch(() => workspaceStore.statusIsStale, stale => { if (!stale) void restoreDraftScroll(workspaceStore.currentPath) })
+const restoreDraft = (path: string | null) => {
+  const draft: CommitDraft | undefined = path ? drafts[path] : undefined
+  selectedFiles.value = draft?.files || []
+  commitMessage.value = draft?.message || ''
+  searchQuery.value = draft?.search || ''
+  filterMode.value = draft?.filter || 'all'
+  collapsedPaths.value = new Set(draft?.collapsed || [])
+  activeRowPath.value = draft?.activeRow || ''
+  pendingDraftScroll = draft?.scroll || 0
+  void restoreDraftScroll(path)
+  output.value = ''
+}
+watch(() => workspaceStore.currentPath, (path, previousPath) => {
+  saveDraft(previousPath)
+  restoreDraft(path)
   recentMessages.value = []
   sessionStorage.removeItem('orca_commit_form')
-  setScope('')
   void loadRecentMessages()
-})
+}, { flush: 'sync' })
+onBeforeUnmount(() => saveDraft())
+
 onMounted(() => {
+  restoreDraft(workspaceStore.currentPath)
+  if (scope.value || routeSelectedFiles.value.length) applyRouteSelection()
   const saved = sessionStorage.getItem('orca_commit_form')
   if (saved) {
     try {
@@ -347,6 +385,7 @@ onMounted(() => {
 })
 onBeforeRouteLeave((to) => {
   if (loading.value) return false
+  saveDraft()
   if (to.name !== 'diff') sessionStorage.removeItem('orca_commit_form')
 })
 
@@ -358,11 +397,13 @@ const openWorkspace = async () => {
 }
 
 const doCommit = async () => {
-  if (!workspaceStore.currentPath || workspaceStore.statusIsStale || !commitMessage.value || selectedFiles.value.length === 0) {
+  if (!workspaceStore.currentPath || workspaceStore.operationBusy || workspaceStore.statusIsStale || !commitMessage.value || selectedFiles.value.length === 0) {
     return
   }
 
   loading.value = true
+  const committedPath = workspaceStore.currentPath
+  workspaceStore.setOperationBusy(true)
   output.value = ''
 
   try {
@@ -393,11 +434,12 @@ const doCommit = async () => {
     await refreshStatusAfterMutation()
 
     setTimeout(() => {
-      router.push({ name: 'workspace' })
+      if (workspaceStore.currentPath === committedPath) router.push({ name: 'workspace' })
     }, 1500)
   } catch (err) {
     output.value = `${t('common.error')}：${err}`
   } finally {
+    workspaceStore.setOperationBusy(false)
     loading.value = false
   }
 }
@@ -521,7 +563,7 @@ const useRecentMessage = (message: string) => {
 .expand-button, .expand-spacer { flex: 0 0 16px; width: 16px; height: 22px; }
 .expand-button { display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 3px; background: transparent; color: var(--el-text-color-secondary); cursor: pointer; }
 .expand-button:hover { color: var(--el-color-primary); background: var(--el-fill-color); }
-.expand-button:focus-visible, .diff-link:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 1px; }
+.expand-button:focus-visible, .diff-link:focus-visible, .subtree-select-button:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 1px; }
 .tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .directory-name { color: var(--el-text-color-secondary); }
 .file-icon { flex-shrink: 0; color: var(--el-text-color-secondary); font-size: 15px; }
@@ -530,6 +572,9 @@ const useRecentMessage = (message: string) => {
 .status-cell { display: flex; align-items: center; justify-content: center; }
 .file-location { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--el-text-color-secondary); font-size: 11px; }
 .diff-cell { text-align: center; }
+.subtree-select-button { flex-shrink: 0; padding: 2px 4px; border: 0; border-radius: 3px; background: transparent; color: var(--el-color-primary); font: inherit; font-size: 11px; cursor: pointer; }
+.subtree-select-button:hover { text-decoration: underline; }
+.subtree-select-button:disabled { opacity: .5; cursor: default; }
 .diff-link { padding: 2px 4px; border: 0; border-radius: 3px; background: transparent; color: var(--el-text-color-regular); font: inherit; font-size: 11px; cursor: pointer; }
 .diff-link:hover { color: var(--el-color-primary); text-decoration: underline; }
 .diff-link:disabled { opacity: .5; cursor: default; }

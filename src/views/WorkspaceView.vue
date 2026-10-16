@@ -46,7 +46,7 @@
           <button class="sidebar-row active" @click="setFilter('all')">
             <el-icon><Document /></el-icon>
             <span>{{ $t('workspace.fileStatus') }}</span>
-            <b>{{ workspaceStore.statusList.length }}</b>
+            <b>{{ workspaceFiles.length }}</b>
           </button>
           <button class="sidebar-row" @click="doCommit">
             <el-icon><Upload /></el-icon>
@@ -90,7 +90,7 @@
         <!-- 文件状态统计 -->
         <div class="status-summary">
           <button type="button" class="status-badge modified" :class="{ active: filter === 'modified' }" :aria-pressed="filter === 'modified'" @click="setFilter('modified')">
-            <span class="badge-count">{{ workspaceStore.changedCount }}</span>
+            <span class="badge-count">{{ changedFileCount }}</span>
             <span class="badge-label">{{ $t('workspace.statusChanged') }}</span>
           </button>
           <button type="button" class="status-badge unversioned" :class="{ active: filter === 'added' }" :aria-pressed="filter === 'added'" @click="setFilter('added')">
@@ -106,7 +106,7 @@
             <span class="badge-label">{{ $t('status.missing') }}</span>
           </button>
           <button type="button" class="status-badge all" :class="{ active: filter === 'all' }" :aria-pressed="filter === 'all'" @click="setFilter('all')">
-            <span class="badge-count">{{ workspaceStore.statusList.length }}</span>
+            <span class="badge-count">{{ workspaceFiles.length }}</span>
             <span class="badge-label">{{ $t('common.all') }}</span>
           </button>
         </div>
@@ -117,8 +117,8 @@
 
         <!-- 文件列表 -->
         <div class="file-list" :aria-busy="workspaceStore.isLoading">
-          <GlassLoading :active="workspaceStore.isLoading && !workspaceStore.statusIsStale && workspaceStore.statusList.length === 0" :label="$t('common.loading')" />
-          <div v-if="workspaceStore.isLoading && !workspaceStore.statusIsStale && workspaceStore.statusList.length === 0" class="loading-files">
+          <GlassLoading :active="workspaceStore.isLoading && !workspaceStore.statusIsStale && workspaceFiles.length === 0" :label="$t('common.loading')" />
+          <div v-if="workspaceStore.isLoading && !workspaceStore.statusIsStale && workspaceFiles.length === 0" class="loading-files">
             <el-skeleton :rows="6" />
           </div>
           <VirtualViewport v-else-if="filteredFiles.length" ref="fileViewport" class="workspace-files"
@@ -175,7 +175,7 @@
           </VirtualViewport>
           <div v-if="!workspaceStore.isLoading && filteredFiles.length === 0" class="empty-files">
             <el-icon><CircleCheck /></el-icon>
-            <span>{{ workspaceStore.statusList.length === 0 ? $t('workspace.noChanges') : $t('workspace.noMatchingFiles') }}</span>
+            <span>{{ workspaceFiles.length === 0 ? $t('workspace.noChanges') : $t('workspace.noMatchingFiles') }}</span>
           </div>
         </div>
         <div
@@ -209,23 +209,23 @@
           </span>
         </div>
         <div class="panel-content" :aria-busy="isLoadingDiff">
-          <GlassLoading :active="isLoadingDiff" :label="$t('common.loading')" />
+          <GlassLoading v-if="showDiffLoading" :active="true" :label="$t('common.loading')" />
           <div v-if="!selectedFile" class="empty-diff">
             <el-icon><Document /></el-icon>
             <span>{{ $t('diff.selectFile') }}</span>
           </div>
           <div v-else-if="isLoadingDiff" class="loading-diff">
-            <el-skeleton :rows="10" />
+            <el-skeleton v-if="showDiffLoading" :rows="10" />
           </div>
           <div v-else-if="diffResult" class="diff-content">
             <div class="diff-header">
               <el-tag class="diff-path-tag" type="primary" size="small" :title="selectedFile">{{ selectedFile }}</el-tag>
-              <div class="diff-stats">
+              <div v-if="diffResult?.preview_kind === 'text'" class="diff-stats">
                 <el-tag type="success" size="small">+{{ diffStats.added }}</el-tag>
                 <el-tag type="danger" size="small">-{{ diffStats.removed }}</el-tag>
               </div>
             </div>
-            <DiffViewer :text="diffResult.diff" compact @stats="diffStats = $event" />
+            <FilePreview :result="diffResult" :workspace-path="workspaceStore.currentPath || ''" compact @stats="diffStats = $event" />
           </div>
           <div v-else class="empty-diff">
             <el-icon><Document /></el-icon>
@@ -241,28 +241,38 @@
 import { h, ref, computed, nextTick, onBeforeUnmount, onMounted, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { deleteUnversioned, revealWorkspaceFile, svnCleanup, svnRevert, svnDiff } from '@/api/svn'
+import { deleteUnversioned, revealWorkspaceFile, svnCleanup, svnRevert, svnFilePreview } from '@/api/svn'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import { getStatusClass, getStatusLabelKey } from '@/composables/useSvnStatus'
 import { useWorkspace } from '@/composables/useWorkspace'
 import VirtualViewport from '@/components/VirtualViewport.vue'
-import DiffViewer from '@/components/DiffViewer.vue'
+import FilePreview from '@/components/FilePreview.vue'
 import GlassLoading from '@/components/GlassLoading.vue'
 import { writeClipboardText } from '@/utils/clipboard'
-import type { SvnStatus, DiffResult } from '@/types'
+import type { SvnStatus, FilePreviewResult } from '@/types'
 
 const { t } = useI18n()
 const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 const { openWorkspace: openWorkspaceDialog, refreshStatus, refreshStatusAfterMutation } = useWorkspace()
 
+const projectViewStates = new Map<string, { filter: 'all' | 'modified' | 'added' | 'conflicted' | 'missing'; selected: string | null; scroll: number }>()
 const filter = ref<'all' | 'modified' | 'added' | 'conflicted' | 'missing'>('all')
 const selectedFile = ref<string | null>(null)
 const isLoadingDiff = ref(false)
-const diffResult = ref<DiffResult | null>(null)
+const showDiffLoading = ref(false)
+let diffLoadingTimer: ReturnType<typeof setTimeout> | undefined
+watch(isLoadingDiff, (loading) => {
+  clearTimeout(diffLoadingTimer)
+  showDiffLoading.value = false
+  if (loading) diffLoadingTimer = setTimeout(() => { showDiffLoading.value = true }, 120)
+}, { flush: 'sync' })
+const diffResult = ref<FilePreviewResult | null>(null)
 let diffRequestGeneration = 0
+let pendingDiff: { workspacePath: string; path: string; generation: number } | null = null
+let diffRequestRunning = false
 let fileActionWorkspaceGeneration = 0
 const pendingFileAction = ref<string | null>(null)
 const fileContextMenu = reactive({
@@ -280,9 +290,16 @@ const fileViewport = ref<InstanceType<typeof VirtualViewport> | null>(null)
 const fileRowHeight = 48
 const diffStats = ref({ added: 0, removed: 0 })
 
+// The workspace lists content changes. Keep property-only changes in the
+// shared SVN snapshot for commit/revert, but do not show them as empty files.
+const workspaceFiles = computed(() => workspaceStore.statusList.filter(file =>
+  !['normal', 'none', ''].includes(file.status_code) || file.prop_status === 'conflicted'))
+const changedFileCount = computed(() => workspaceFiles.value.filter(file =>
+  ['modified', 'added', 'deleted', 'replaced'].includes(file.status_code)).length)
+
 const filteredFiles = computed(() => {
-  if (filter.value === 'all') return workspaceStore.statusList
-  return workspaceStore.statusList.filter(f => {
+  if (filter.value === 'all') return workspaceFiles.value
+  return workspaceFiles.value.filter(f => {
     if (filter.value === 'modified') return ['modified', 'added', 'deleted', 'replaced'].includes(f.status_code)
     if (filter.value === 'added') return f.status_code === 'unversioned'
     if (filter.value === 'conflicted') return f.status_code === 'conflicted' || f.prop_status === 'conflicted'
@@ -306,6 +323,7 @@ const setFilter = (f: typeof filter.value) => {
 
 const selectFile = async (file: SvnStatus) => {
   hideFileContextMenu()
+  if (selectedFile.value === file.path && isLoadingDiff.value) return
   selectedFile.value = file.path
   await loadDiff(file.path)
 }
@@ -314,18 +332,31 @@ const loadDiff = async (path: string) => {
   const workspacePath = workspaceStore.currentPath
   if (!workspacePath) return
   const generation = ++diffRequestGeneration
-  const isCurrent = () => generation === diffRequestGeneration
-    && workspaceStore.currentPath === workspacePath
-    && selectedFile.value === path
   isLoadingDiff.value = true
   diffResult.value = null
+  pendingDiff = { workspacePath, path, generation }
+  if (diffRequestRunning) return
+  diffRequestRunning = true
   try {
-    const result = await svnDiff(workspacePath, path)
-    if (isCurrent()) diffResult.value = result
-  } catch {
-    if (isCurrent()) diffResult.value = null
+    // One active request plus the latest selection avoids starting SVN for
+    // intermediate files when navigating rapidly with the mouse or keyboard.
+    while (pendingDiff) {
+      const request = pendingDiff
+      pendingDiff = null
+      const isCurrent = () => request.generation === diffRequestGeneration
+        && workspaceStore.currentPath === request.workspacePath
+        && selectedFile.value === request.path
+      try {
+        const result = await svnFilePreview(request.workspacePath, request.path)
+        if (isCurrent()) diffResult.value = result
+      } catch {
+        if (isCurrent()) diffResult.value = null
+      } finally {
+        if (isCurrent()) isLoadingDiff.value = false
+      }
+    }
   } finally {
-    if (isCurrent()) isLoadingDiff.value = false
+    diffRequestRunning = false
   }
 }
 
@@ -423,14 +454,29 @@ const handleDocumentKeydown = (event: KeyboardEvent) => {
   if (event.key === 'Escape') hideFileContextMenu()
 }
 
-watch(() => workspaceStore.currentPath, () => {
+watch(() => workspaceStore.currentPath, (path, previousPath) => {
+  if (previousPath) projectViewStates.set(previousPath, { filter: filter.value, selected: selectedFile.value, scroll: fileViewport.value?.element?.scrollTop || 0 })
+  filter.value = path ? projectViewStates.get(path)?.filter || 'all' : 'all'
   fileActionWorkspaceGeneration += 1
   diffRequestGeneration += 1
+  pendingDiff = null
   selectedFile.value = null
   diffResult.value = null
   isLoadingDiff.value = false
   hideFileContextMenu()
 }, { flush: 'sync' })
+
+watch(() => workspaceStore.statusIsStale, async (stale) => {
+  if (stale || !workspaceStore.currentPath) return
+  const path = workspaceStore.currentPath
+  const state = projectViewStates.get(path)
+  if (!state) return
+  projectViewStates.delete(path)
+  const file = workspaceStore.statusList.find(file => file.path === state.selected)
+  if (file) void selectFile(file)
+  await nextTick()
+  if (workspaceStore.currentPath === path && fileViewport.value?.element) fileViewport.value.element.scrollTop = state.scroll
+})
 
 onMounted(() => {
   document.addEventListener('click', hideFileContextMenu)
@@ -440,6 +486,9 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  diffRequestGeneration += 1
+  pendingDiff = null
+  clearTimeout(diffLoadingTimer)
   fileActionWorkspaceGeneration += 1
   document.removeEventListener('click', hideFileContextMenu)
   document.removeEventListener('contextmenu', hideFileContextMenu)

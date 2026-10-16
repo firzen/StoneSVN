@@ -16,6 +16,7 @@ function harness() {
   const store = {
     currentPath: '/wc', svnInfo: { revision: 1 }, statusList: [],
     setError(error) { this.error = error },
+    setOperationBusy(value) { this.operationBusy = value },
   }
   const mocks = {
     vue: {
@@ -61,6 +62,7 @@ test('leaving during an update still refreshes the shared revision and conflict 
   const h = harness()
   h.lifecycle.activate()
   const pending = h.doUpdate()
+  assert.equal(h.store.operationBusy, true)
   h.lifecycle.deactivate()
   assert.equal(h.timers.size, 0)
   h.update.resolve()
@@ -70,6 +72,7 @@ test('leaving during an update still refreshes the shared revision and conflict 
   assert.equal(h.store.svnInfo.revision, 2)
   assert.equal(h.store.statusList[0].status_code, 'conflicted')
   assert.equal(h.updating.value, false)
+  assert.equal(h.store.operationBusy, false)
 })
 
 test('deactivation during the post-update refresh suppresses remote requests', async () => {

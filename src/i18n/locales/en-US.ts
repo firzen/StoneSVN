@@ -81,6 +81,14 @@ export default {
     aboutSubtitle: 'SVN Workbench',
   },
   workspace: {
+    projects: 'Projects',
+    addWorkingCopy: 'Add Working Copy',
+    moveUp: 'Move Up',
+    moveDown: 'Move Down',
+    lastScanned: 'Last scanned',
+    resizeProjects: 'Resize project sidebar',
+    operationRunning: 'Operation in progress',
+
     title: 'Workspace',
     emptyWorkspace: 'No Workspace',
     emptyDescription: 'Open an existing SVN working copy or check out a new one.',
@@ -175,6 +183,7 @@ export default {
     actionUnknown: 'Unknown',
   },
   commit: {
+    selectWithChildren: 'Include children',
     expandDirectory: 'Expand {path}',
     collapseDirectory: 'Collapse {path}',
     changes: 'Changes',
@@ -231,6 +240,10 @@ export default {
     selectDirectory: 'Select Directory',
   },
   diff: {
+    directoryHint: 'Open this directory in the file manager',
+    openDirectory: 'Open Directory',
+    binaryHint: 'Text preview is unavailable for this file. Open it in another app.',
+    openInOtherApp: 'Open in Another App',
     title: 'Code Diff',
     filePath: 'File Path',
     compare: 'Compare',
