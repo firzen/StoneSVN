@@ -31,6 +31,8 @@ Switch, 일반 Merge 및 충돌 Resolve는 현재 다른 SVN 클라이언트나 
 
 [GitHub Releases](https://github.com/firzen/StoneSVN/releases)에서 Windows, macOS 및 Linux용 설치 파일을 다운로드하세요.
 
+macOS에서는 Intel Mac용 `x64` DMG 또는 Apple Silicon용 `aarch64` DMG를 선택하세요. 이 Mac에 관하여에서 칩 종류를 확인할 수 있습니다.
+
 설치 후 SVN CLI를 사용할 수 있는지 확인하세요.
 
 ```bash

@@ -82,7 +82,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-22.04, windows-latest, macos-latest]
+        platform: [ubuntu-22.04, windows-latest, macos-15, macos-15-intel]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -154,8 +154,14 @@ jobs:
           & $svn --version --quiet
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Install SVN on macOS
-        if: matrix.platform == 'macos-latest'
+        if: startsWith(matrix.platform, 'macos-')
         run: brew install subversion
+      - name: Verify macOS runner architecture
+        if: startsWith(matrix.platform, 'macos-')
+        run: |
+          expected_arch=arm64
+          if [[ "${{ matrix.platform }}" == "macos-15-intel" ]]; then expected_arch=x86_64; fi
+          test "$(uname -m)" = "$expected_arch"
       - run: npm ci
       - name: Generate app icons
         run: npm run icons
@@ -172,7 +178,7 @@ jobs:
         with:
           releaseId: ${{ needs.prepare.outputs.release-id }}
           # Stable versions support both Windows NSIS and MSI installers.
-          args: ""
+          args: ${{ matrix.platform == 'macos-15-intel' && '--target x86_64-apple-darwin' || matrix.platform == 'macos-15' && '--target aarch64-apple-darwin' || '' }}
 
   publish:
     name: Publish complete release

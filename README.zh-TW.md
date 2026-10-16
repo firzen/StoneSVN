@@ -31,6 +31,8 @@ Switch、一般 Merge 與衝突 Resolve 目前需使用其他 SVN 用戶端或�
 
 從 [GitHub Releases](https://github.com/firzen/StoneSVN/releases) 下載 Windows、macOS 或 Linux 安裝程式。
 
+macOS 安裝包依晶片區分：Intel Mac 選擇檔名含 `x64` 的 DMG；M 系列 Mac 選擇 `aarch64`。可在「關於這台 Mac」確認晶片類型。
+
 安裝後，請確認 SVN CLI 可以使用：
 
 ```bash

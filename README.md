@@ -29,6 +29,8 @@ Switch、通用 Merge 和冲突 Resolve 目前需使用其他 SVN 客户端或�
 
 从 [GitHub Releases](https://github.com/firzen/StoneSVN/releases) 下载 Windows、macOS 或 Linux 安装包。
 
+macOS 安装包按芯片类型区分：Intel Mac 选择文件名含 `x64` 的 DMG；M 系列 Mac 选择 `aarch64`。可在「关于本机」确认芯片类型。
+
 应用使用外部 SVN CLI。Windows 上的中文路径与属性值处理取决于所用 SVN 的 Unicode／代码页支持；若出现字符替换，需使用支持相应字符的 SVN 命令行环境。
 
 安装后请确认 SVN CLI 可用：

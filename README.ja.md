@@ -31,6 +31,8 @@ Switch、汎用的な Merge、競合の Resolve は、現在、他の SVN クラ
 
 [GitHub Releases](https://github.com/firzen/StoneSVN/releases) から Windows、macOS、Linux 用のインストーラーをダウンロードできます。
 
+macOS は Intel Mac 用の `x64` DMG と、Apple Silicon 用の `aarch64` DMG を提供します。「この Mac について」でチップを確認してください。
+
 インストール後、SVN CLI が利用できることを確認してください。
 
 ```bash

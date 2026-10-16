@@ -36,7 +36,7 @@ StoneSVN 是独立项目，正式仓库为 `firzen/StoneSVN`，安装包通过�
 2. Windows、macOS、Linux 安装 SVN 测试工具，运行 `npm run check`，打包并将安装包上传至同一个草稿。
 3. 所有平台成功后才公开为正式版并标记 Latest。
 
-Windows 固定使用 SlikSVN 1.14.5，核验 svn 与 svnadmin 后加入 PATH；正式版本生成 NSIS EXE 和 MSI。英文 Windows CI 环境会按 [Microsoft 的进程 UTF-8 配置](https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page)为临时 SlikSVN 工具启用 UTF-8 清单，保留中文文件名及属性值回归测试；该工具不打包到 StoneSVN 安装包中。macOS 使用 `macos-latest` 的原生架构，当前为 Apple Silicon；Linux 使用 Ubuntu x64。
+Windows 固定使用 SlikSVN 1.14.5，核验 svn 与 svnadmin 后加入 PATH；正式版本生成 NSIS EXE 和 MSI。英文 Windows CI 环境会按 [Microsoft 的进程 UTF-8 配置](https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page)为临时 SlikSVN 工具启用 UTF-8 清单，保留中文文件名及属性值回归测试；该工具不打包到 StoneSVN 安装包中。macOS 分别使用 `macos-15`（Apple Silicon）与 `macos-15-intel`（Intel），先校验运行器架构，再显式指定 Rust 构建目标；Linux 使用 Ubuntu x64。Mac 安装包的 `aarch64` 适用于 M 系列芯片，`x64` 适用于 Intel，发布前必须核对两种架构的产物。
 
 任一平台失败时，Release 保持草稿，Latest 不变。在 Actions 中重跑失败任务；流程代码修改不会应用到旧标签上的重跑。需要新的源码或流程修复时使用新的版本标签，不强制移动已发布标签。
 
