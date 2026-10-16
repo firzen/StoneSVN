@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod svn;
+mod system_icons;
 
 use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use serde::{Deserialize, Serialize};
@@ -676,6 +677,37 @@ async fn svn_info(path: String) -> Result<SvnInfo, String> {
 }
 
 #[tauri::command]
+async fn workspace_children(
+    path: String,
+    directory: String,
+) -> Result<Vec<svn::WorkspaceChild>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        svn::workspace_children(&path, &directory).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+async fn svn_property_details(path: String, file: String) -> Result<svn::PropertyDetails, String> {
+    svn::property_details(&path, &file)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn svn_set_property(
+    path: String,
+    file: String,
+    name: String,
+    value: Option<String>,
+) -> Result<(), String> {
+    svn::set_property(&path, &file, &name, value.as_deref())
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn svn_local_revision(path: String) -> Result<u64, String> {
     svn::local_revision(&path).await.map_err(|e| e.to_string())
 }
@@ -1144,6 +1176,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
+            system_icons::file_type_icon,
             configure_svn_executable,
             configure_svn_server_security,
             svn_connection_info,
@@ -1155,6 +1188,9 @@ fn main() {
             svn_log,
             svn_current_user,
             svn_info,
+            workspace_children,
+            svn_property_details,
+            svn_set_property,
             svn_local_revision,
             svn_remote_info,
             svn_diff,

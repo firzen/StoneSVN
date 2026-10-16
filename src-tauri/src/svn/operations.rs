@@ -16,7 +16,7 @@ fn append_targets(args: &mut Vec<String>, targets: &[String]) {
     args.extend(targets.iter().map(|target| normalize_svn_target(target)));
 }
 
-fn normalize_svn_target(file: &str) -> String {
+pub(super) fn normalize_svn_target(file: &str) -> String {
     if file.contains("://") || !file.contains('@') {
         file.to_string()
     } else {

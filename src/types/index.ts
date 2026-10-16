@@ -90,3 +90,24 @@ export interface StashUnversionedEntry {
   kind: 'file' | 'directory'
   contentBase64?: string
 }
+
+export interface SvnProperty {
+  name: string
+  value: string
+  binary: boolean
+}
+
+export interface PropertyDetails {
+  info: SvnInfo | null
+  directory: boolean
+  size: number | null
+  modified: string | null
+  editable: boolean
+  properties: SvnProperty[]
+}
+
+export interface WorkspaceChild {
+  path: string
+  name: string
+  directory: boolean
+}

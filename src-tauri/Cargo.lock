@@ -8,6 +8,10 @@ version = "0.6.4"
 dependencies = [
  "base64 0.22.1",
  "chrono",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "png",
  "quick-xml 0.37.5",
  "regex",
  "serde",

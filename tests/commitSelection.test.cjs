@@ -26,7 +26,7 @@ function harness(entries) {
   }
   const script = fs.readFileSync('src/views/CommitView.vue', 'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   const context = { exports: {}, setTimeout() {}, require: name => { assert.ok(name in mocks, name); return mocks[name] } }
-  vm.runInNewContext(ts.transpileModule(script + '\nexports.actions = { fullTree, selectedFiles, isChecked, isPartial, toggleSubtree, toggleNode, commitMessage, doCommit };', {
+  vm.runInNewContext(ts.transpileModule(script + '\nexports.actions = { fullTree, selectedFiles, isChecked, isPartial, toggleSubtree, toggleNode, toggleSelection, collapsedPaths, flatRows, searchQuery, commitMessage, doCommit };', {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText, context)
   return { ...context.exports.actions, store, commits }
@@ -74,4 +74,55 @@ test('include children explicitly selects descendants; synthetic groups never be
   const grouped = harness([entry('group/a.txt'), entry('group/b.txt')])
   grouped.toggleNode(grouped.fullTree.value[0], true)
   assert.deepEqual(Array.from(grouped.selectedFiles.value).sort(), ['group/a.txt', 'group/b.txt'])
+})
+
+
+test('shift ranges select and deselect in both directions while retaining selections outside the range', () => {
+  const h = harness(['a', 'b', 'c', 'd', 'e'].map(path => entry(path)))
+  const node = path => h.flatRows.value.find(row => row.node.path === path).node
+  h.selectedFiles.value = ['e']
+  h.toggleSelection(node('b'), true)
+  h.toggleSelection(node('d'), true, true)
+  assert.deepEqual([...h.selectedFiles.value].sort(), ['b', 'c', 'd', 'e'])
+  h.toggleSelection(node('c'), false, true)
+  assert.deepEqual([...h.selectedFiles.value].sort(), ['d', 'e'])
+  h.toggleSelection(node('d'), false)
+  h.toggleSelection(node('b'), false, true)
+  assert.deepEqual([...h.selectedFiles.value], ['e'])
+})
+
+test('shift selection spans virtual offscreen rows and skips collapsed or filtered descendants', async () => {
+  const entries = [entry('group/visible'), entry('group/hidden'), ...Array.from({ length: 200 }, (_, i) => entry(`file-${String(i).padStart(3, '0')}`))]
+  const h = harness(entries)
+  const node = path => h.flatRows.value.find(row => row.node.path === path).node
+  h.collapsedPaths.value = new Set(['group'])
+  h.toggleSelection(node('group'), false)
+  h.toggleSelection(node('file-199'), true, true)
+  assert.equal(h.selectedFiles.value.length, 200)
+  assert.ok(!h.selectedFiles.value.includes('group/hidden'))
+  h.selectedFiles.value = ['group/hidden']
+  h.searchQuery.value = 'file-'
+  await vue.nextTick()
+  h.toggleSelection(node('file-000'), true)
+  h.toggleSelection(node('file-199'), true, true)
+  assert.equal(h.selectedFiles.value.length, 201)
+  assert.ok(h.selectedFiles.value.includes('group/hidden'))
+})
+
+test('changing filters or hiding the anchor resets a shift range; stale status blocks changes', async () => {
+  const h = harness([entry('folder/a'), entry('folder/b'), entry('folder/c'), entry('other')])
+  const node = path => h.flatRows.value.find(row => row.node.path === path).node
+  h.toggleSelection(node('folder/a'), true)
+  h.collapsedPaths.value = new Set(['folder'])
+  h.toggleSelection(node('other'), true, true)
+  assert.deepEqual([...h.selectedFiles.value].sort(), ['folder/a', 'other'])
+  h.collapsedPaths.value = new Set()
+  h.toggleSelection(node('folder/a'), true)
+  h.searchQuery.value = 'folder'
+  await vue.nextTick()
+  h.toggleSelection(node('folder/c'), true, true)
+  assert.deepEqual([...h.selectedFiles.value].sort(), ['folder/a', 'folder/c', 'other'])
+  h.store.statusIsStale = true
+  h.toggleSelection(node('folder/a'), false, true)
+  assert.equal(h.selectedFiles.value.length, 3)
 })

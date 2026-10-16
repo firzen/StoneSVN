@@ -177,3 +177,15 @@ export async function revealWorkspaceFile(path: string, file: string): Promise<v
 export async function launchWorkspacePath(): Promise<string | null> {
   return invoke<string | null>('launch_workspace_path')
 }
+
+export async function svnPropertyDetails(path: string, file: string): Promise<import('@/types').PropertyDetails> {
+  return invoke('svn_property_details', { path, file })
+}
+
+export async function svnSetProperty(path: string, file: string, name: string, value: string | null): Promise<void> {
+  return invoke('svn_set_property', { path, file, name, value })
+}
+
+export async function workspaceChildren(path: string, directory: string): Promise<import('@/types').WorkspaceChild[]> {
+  return invoke('workspace_children', { path, directory })
+}

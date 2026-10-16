@@ -77,17 +77,16 @@
             @scroll="tableScrollLeft = ($event.target as HTMLElement).scrollLeft" @keydown.self="handleRowKey($event, -1)">
             <template #default="{ start, end }">
               <div v-for="(row, index) in flatRows.slice(start, end)" :key="row.node.path"
-                class="commit-columns commit-file-row" :class="{ striped: (start + index) % 2 }" role="row"
+                class="commit-columns commit-file-row" :class="{ striped: (start + index) % 2, selected: isChecked(row.node) }" role="row"
                 :aria-rowindex="start + index + 2" :aria-level="row.depth + 1" :aria-selected="isChecked(row.node)"
                 :aria-expanded="row.node.children.length ? !collapsedPaths.has(row.node.path) : undefined"
                 :tabindex="(activeRowPath || flatRows[0]?.node.path) === row.node.path ? 0 : -1"
-                :data-row-index="start + index" @focus="activeRowPath = row.node.path"
+                :data-row-index="start + index" @focusin="activeRowPath = row.node.path"
                 @keydown="handleRowKey($event, start + index)" @click="handleRowClick($event, row.node)">
                 <span class="checkbox-cell" role="gridcell">
                   <input type="checkbox" class="commit-checkbox" :checked="isChecked(row.node)" :indeterminate="isPartial(row.node)"
                     :disabled="loading || workspaceStore.statusIsStale" :aria-label="row.node.path"
-                    @click.stop
-                    @change="toggleNode(row.node, ($event.target as HTMLInputElement).checked)" />
+                    @click.stop="toggleSelection(row.node, ($event.target as HTMLInputElement).checked, $event.shiftKey)" />
                 </span>
                 <span class="name-cell" role="gridcell" :style="{ paddingLeft: `${row.depth * 16 + 8}px` }">
                   <button v-if="row.node.children.length" type="button" class="expand-button" :disabled="loading"
@@ -95,10 +94,8 @@
                     :aria-label="$t(collapsedPaths.has(row.node.path) ? 'commit.expandDirectory' : 'commit.collapseDirectory', { path: row.node.path })"
                     @click.stop="toggleExpanded(row.node.path)"><el-icon><ArrowRight v-if="collapsedPaths.has(row.node.path)" /><ArrowDown v-else /></el-icon></button>
                   <span v-else class="expand-spacer"></span>
-                  <el-icon class="file-icon" :class="{ 'folder-icon': row.node.children.length || !row.node.entry }">
-                    <Folder v-if="row.node.children.length || !row.node.entry" /><Document v-else />
-                  </el-icon>
-                  <span class="tree-name" :class="{ 'directory-name': row.node.children.length || !row.node.entry }" :title="row.node.path">
+                  <FileTypeIcon :path="row.node.path" :directory="!!row.node.children.length || !row.node.entry" :muted="!row.node.entry" />
+                  <span class="tree-name" :class="{ 'directory-name': row.node.children.length || !row.node.entry, 'context-directory-name': !row.node.entry }" :title="row.node.path">
                     {{ row.node.path === '.' ? workspaceName : row.node.label }}
                   </span>
                   <small v-if="row.node.children.length" class="tree-count">{{ row.node.targets.length }}</small>
@@ -158,6 +155,7 @@ import { useWorkspace } from '@/composables/useWorkspace'
 import { useSettings } from '@/composables/useSettings'
 import type { SvnStatus } from '@/types'
 import VirtualViewport from '@/components/VirtualViewport.vue'
+import FileTypeIcon from '@/components/FileTypeIcon.vue'
 import { buildChangeTree, filterChangeTree, flattenChangeTree, isWithinDirectory, normalizePath, type ChangeNode } from '@/utils/changeTree'
 
 const { t } = useI18n()
@@ -187,6 +185,7 @@ const filterMode = ref<'all' | 'committable' | 'unversioned'>('all')
 const fileViewport = ref<InstanceType<typeof VirtualViewport> | null>(null)
 const collapsedPaths = ref(new Set<string>())
 const activeRowPath = ref('')
+const selectionAnchorPath = ref('')
 const tableScrollLeft = ref(0)
 const fileFilters = [
   { value: 'all', label: 'common.all' },
@@ -272,7 +271,7 @@ const handleRowKey = (event: KeyboardEvent, index: number) => {
     }
   } else if (row && event.key === ' ' && event.target === event.currentTarget && !loading.value && !workspaceStore.statusIsStale) {
     event.preventDefault()
-    toggleNode(row.node, !isChecked(row.node))
+    toggleSelection(row.node, !isChecked(row.node), event.shiftKey)
   }
 }
 const selectedSet = computed(() => new Set(selectedFiles.value))
@@ -286,6 +285,28 @@ const toggleNode = (node: ChangeNode, checked: boolean) => {
   targets.forEach(path => checked ? selection.add(path) : selection.delete(path))
   selectedFiles.value = [...selection]
 }
+const toggleSelection = (node: ChangeNode, checked: boolean, range = false) => {
+  if (loading.value || workspaceStore.statusIsStale) return
+  const anchor = flatRows.value.findIndex(row => row.node.path === selectionAnchorPath.value)
+  const target = flatRows.value.findIndex(row => row.node.path === node.path)
+  if (range && anchor >= 0 && target >= 0) {
+    const selection = new Set(selectedFiles.value)
+    // Range selection follows visible rows, including offscreen virtual rows.
+    // Synthetic folder headings must not select their hidden descendants.
+    for (const row of flatRows.value.slice(Math.min(anchor, target), Math.max(anchor, target) + 1)) {
+      if (row.node.entry) {
+        const path = row.node.entry.path
+        if (checked) selection.add(path)
+        else selection.delete(path)
+      }
+    }
+    selectedFiles.value = [...selection]
+  } else {
+    toggleNode(node, checked)
+    selectionAnchorPath.value = node.path
+  }
+}
+watch([() => workspaceStore.currentPath, scope, searchQuery, filterMode], () => { selectionAnchorPath.value = '' }, { flush: 'sync' })
 const toggleSubtree = (node: ChangeNode, checked: boolean) => {
   if (loading.value || workspaceStore.statusIsStale) return
   const selection = new Set(selectedFiles.value)
@@ -295,7 +316,7 @@ const toggleSubtree = (node: ChangeNode, checked: boolean) => {
 const handleRowClick = (event: MouseEvent, node: ChangeNode) => {
   if (loading.value || workspaceStore.statusIsStale) return
   if (event.target instanceof Element && event.target.closest('input, button, a, label')) return
-  toggleNode(node, !isChecked(node))
+  toggleSelection(node, !isChecked(node), event.shiftKey)
   const element = event.currentTarget as HTMLElement
   element.focus({ preventScroll: true })
 }
@@ -304,6 +325,7 @@ const hiddenSelectedCount = computed(() => selectedFiles.value.filter(path => !v
 const allSelected = computed(() => allChangedFiles.value.length > 0
   && allChangedFiles.value.every(file => selectedSet.value.has(file.path)))
 const toggleAll = (checked: boolean) => {
+  selectionAnchorPath.value = ''
   selectedFiles.value = checked ? allChangedFiles.value.map(file => file.path) : []
 }
 const setScope = (directory: string) => {
@@ -465,6 +487,7 @@ const viewDiff = (path: string) => {
 }
 
 const resetForm = () => {
+  selectionAnchorPath.value = ''
   selectedFiles.value = []
   commitMessage.value = ''
   output.value = ''
@@ -513,6 +536,18 @@ const useRecentMessage = (message: string) => {
 
 <style scoped>
 .commit-view.compact-commit {
+  --commit-text: #1c2938;
+  --commit-muted: #4d5c6c;
+  --commit-directory-context: #84909d;
+  --commit-border: #b8c5d2;
+  --commit-toolbar: #e9eef4;
+  --commit-heading: #e0e8f0;
+  --commit-stripe: #f4f7fa;
+  --commit-hover: #e7f0fa;
+  --commit-selected: #dcecff;
+  --commit-selected-hover: #cce3fc;
+  --commit-accent: #125b96;
+  color: var(--commit-text);
   height: 100%;
   min-width: 0;
   overflow: hidden;
@@ -520,72 +555,90 @@ const useRecentMessage = (message: string) => {
   background: var(--el-bg-color);
 }
 
+/* Keep the higher contrast palette local to the commit page. */
+:global(html.theme-dark .commit-view.compact-commit) {
+  --commit-text: #e7eef6;
+  --commit-muted: #b5c3d1;
+  --commit-directory-context: #8e9dac;
+  --commit-border: #536779;
+  --commit-toolbar: #233341;
+  --commit-heading: #2c4052;
+  --commit-stripe: #1c2a36;
+  --commit-hover: #2a3e50;
+  --commit-selected: #244969;
+  --commit-selected-hover: #2b557b;
+  --commit-accent: #a3d3ff;
+}
+
 .no-workspace { display: grid; place-items: center; flex: 1; }
 .commit-content { display: flex; flex: 1; flex-direction: column; min-height: 0; min-width: 0; }
 .commit-warning { flex-shrink: 0; border-radius: 0; }
-.message-panel { flex-shrink: 0; border-bottom: 1px solid var(--el-border-color-light); }
-.section-toolbar { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 14px; background: var(--el-fill-color-light); }
-.section-toolbar h2 { margin: 0; color: var(--el-text-color-regular); font-size: 12px; font-weight: 600; white-space: nowrap; }
-.character-count { margin-left: auto; color: var(--el-text-color-secondary); font-size: 11px; font-variant-numeric: tabular-nums; }
+.message-panel { flex-shrink: 0; border-bottom: 1px solid var(--commit-border); }
+.section-toolbar { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 14px; background: var(--commit-toolbar); }
+.section-toolbar h2 { margin: 0; color: var(--commit-text); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.character-count { margin-left: auto; color: var(--commit-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .section-toolbar :deep(.el-button) { height: 28px; min-height: 28px; padding: 0 6px; font-size: 12px; font-weight: 400; }
 .recent-arrow { margin-left: 6px; }
 .recent-message-text { display: block; max-width: min(420px, 65vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.commit-textarea :deep(.el-textarea__inner) { min-height: 100px; padding: 10px 14px; border-radius: 0; box-shadow: none; background: var(--el-bg-color); font-size: 13px; line-height: 1.55; }
+.commit-textarea :deep(.el-textarea__inner) { min-height: 100px; padding: 10px 14px; border-radius: 0; box-shadow: none; background: var(--el-bg-color); color: var(--commit-text); font-size: 13px; line-height: 1.55; }
+.commit-textarea :deep(.el-textarea__inner::placeholder) { color: var(--commit-muted); }
+.search-input :deep(.el-input__inner::placeholder) { color: var(--commit-muted); }
 .commit-textarea :deep(.el-textarea__inner:focus) { box-shadow: inset 3px 0 var(--el-color-primary); }
-.changes-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.changes-toolbar { min-height: 42px; flex-wrap: wrap; padding-top: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--el-border-color-light); }
+.changes-panel { min-width: 0; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.changes-toolbar { min-height: 42px; flex-wrap: wrap; padding-top: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--commit-border); }
 .selection-count { color: var(--el-text-color-primary); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.selection-count span { color: var(--el-text-color-secondary); font-weight: 400; }
+.selection-count span { color: var(--commit-muted); font-weight: 400; }
 .search-input :deep(.el-input__wrapper) { min-height: 28px; height: 28px; border-radius: 5px; }
 .search-input { width: 210px; max-width: 40%; margin-left: auto; }
-.filter-buttons { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--el-border-color-light); border-radius: 5px; background: var(--el-bg-color); }
-.filter-buttons button { min-height: 23px; padding: 0 9px; border: 0; border-radius: 3px; background: transparent; color: var(--el-text-color-regular); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
-.filter-buttons button.active { color: var(--el-color-primary); background: var(--el-color-primary-light-9); font-weight: 600; }
+.filter-buttons { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--commit-border); border-radius: 5px; background: var(--el-bg-color); }
+.filter-buttons button { min-height: 23px; padding: 0 9px; border: 0; border-radius: 3px; background: transparent; color: var(--commit-text); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.filter-buttons button.active { color: var(--md-sys-color-on-primary); background: var(--el-color-primary); font-weight: 600; }
 .filter-buttons button:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 1px; }
 .filter-buttons button:disabled { opacity: .5; cursor: default; }
-.scope-bar { display: flex; align-items: center; flex-shrink: 0; gap: 8px; padding: 4px 14px; color: var(--el-text-color-secondary); font-size: 12px; border-bottom: 1px solid var(--el-border-color-lighter); }
+.scope-bar { display: flex; align-items: center; flex-shrink: 0; gap: 8px; padding: 4px 14px; color: var(--commit-muted); font-size: 12px; border-bottom: 1px solid var(--commit-border); }
 .scope-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .scope-bar .el-button { margin-left: auto; }
 .file-table-container { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; font-size: 12px; }
-.file-table-heading { flex-shrink: 0; overflow: hidden; border-bottom: 1px solid var(--el-border-color-light); background: var(--el-bg-color); color: var(--el-text-color-secondary); }
+.file-table-heading { flex-shrink: 0; overflow: hidden; border-bottom: 1px solid var(--commit-border); background: var(--commit-heading); color: var(--commit-text); font-weight: 600; }
 .commit-columns { display: grid; grid-template-columns: 42px minmax(230px, 1.2fr) 76px minmax(200px, 1fr) 60px; align-items: center; min-width: 640px; }
 .file-table-heading .commit-columns { height: 30px; }
 .commit-columns > [role="columnheader"], .commit-columns > [role="gridcell"] { min-width: 0; padding: 0 8px; }
 .commit-files { background: var(--el-bg-color); }
-.commit-file-row { height: 29px; color: var(--el-text-color-regular); cursor: pointer; }
-.commit-file-row.striped { background: rgba(127, 127, 127, .07); }
-.commit-file-row:hover { background: var(--el-color-primary-light-9); }
+.commit-file-row { user-select: none; height: 29px; color: var(--commit-text); cursor: pointer; }
+.commit-file-row.striped { background: var(--commit-stripe); }
+.commit-file-row:hover { background: var(--commit-hover); }
+.commit-file-row.selected { background: var(--commit-selected); box-shadow: inset 3px 0 var(--commit-accent); }
+.commit-file-row.selected:hover { background: var(--commit-selected-hover); }
 .commit-file-row:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: -2px; }
 .commit-columns > .checkbox-cell { display: flex; align-items: center; justify-content: center; }
 .commit-checkbox { width: 14px; height: 14px; margin: 0; accent-color: var(--el-color-primary); cursor: pointer; }
 .commit-checkbox:disabled { cursor: default; }
 .name-cell { display: flex; align-items: center; gap: 6px; overflow: hidden; }
 .expand-button, .expand-spacer { flex: 0 0 16px; width: 16px; height: 22px; }
-.expand-button { display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 3px; background: transparent; color: var(--el-text-color-secondary); cursor: pointer; }
+.expand-button { display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 3px; background: transparent; color: var(--commit-muted); cursor: pointer; }
 .expand-button:hover { color: var(--el-color-primary); background: var(--el-fill-color); }
 .expand-button:focus-visible, .diff-link:focus-visible, .subtree-select-button:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 1px; }
 .tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.directory-name { color: var(--el-text-color-secondary); }
-.file-icon { flex-shrink: 0; color: var(--el-text-color-secondary); font-size: 15px; }
-.folder-icon { color: var(--el-color-primary-light-3); }
-.tree-count { flex-shrink: 0; margin-left: 2px; color: var(--el-text-color-placeholder); font-size: 10px; }
+.directory-name { color: var(--commit-text); font-weight: 500; }
+.context-directory-name { color: var(--commit-directory-context); font-weight: 400; }
+.tree-count { flex-shrink: 0; margin-left: 2px; color: var(--commit-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .status-cell { display: flex; align-items: center; justify-content: center; }
-.file-location { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--el-text-color-secondary); font-size: 11px; }
+.file-location { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--commit-muted); font-size: 12px; }
 .diff-cell { text-align: center; }
 .subtree-select-button { flex-shrink: 0; padding: 2px 4px; border: 0; border-radius: 3px; background: transparent; color: var(--el-color-primary); font: inherit; font-size: 11px; cursor: pointer; }
 .subtree-select-button:hover { text-decoration: underline; }
 .subtree-select-button:disabled { opacity: .5; cursor: default; }
-.diff-link { padding: 2px 4px; border: 0; border-radius: 3px; background: transparent; color: var(--el-text-color-regular); font: inherit; font-size: 11px; cursor: pointer; }
+.diff-link { padding: 2px 4px; border: 0; border-radius: 3px; background: transparent; color: var(--commit-accent); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
 .diff-link:hover { color: var(--el-color-primary); text-decoration: underline; }
 .diff-link:disabled { opacity: .5; cursor: default; }
-.empty-files { display: grid; flex: 1; place-items: center; min-height: 80px; color: var(--el-text-color-secondary); }
+.empty-files { display: grid; flex: 1; place-items: center; min-height: 80px; color: var(--commit-muted); }
 .status-badge { min-height: 19px; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 19px; padding: 0 4px; border-radius: 3px; font: 600 11px/1 var(--app-font-family-mono); }
-.output-area { flex-shrink: 0; border-top: 1px solid var(--el-border-color-light); font-size: 12px; }
-.output-area summary { padding: 5px 14px; cursor: pointer; background: var(--el-fill-color-light); color: var(--el-text-color-regular); }
+.output-area { flex-shrink: 0; border-top: 1px solid var(--commit-border); font-size: 12px; }
+.output-area summary { padding: 5px 14px; cursor: pointer; background: var(--commit-toolbar); color: var(--commit-text); }
 .output-area pre { max-height: 100px; overflow: auto; margin: 0; padding: 8px 14px; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.5 var(--app-font-family-mono); }
-.commit-footer { display: flex; align-items: center; flex-shrink: 0; gap: 14px; min-height: 52px; padding: 8px 14px; border-top: 1px solid var(--el-border-color-light); background: var(--el-bg-color); }
+.commit-footer { display: flex; align-items: center; flex-shrink: 0; gap: 14px; min-height: 52px; padding: 8px 14px; border-top: 1px solid var(--commit-border); background: var(--el-bg-color); }
 .footer-context { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; font-size: 11px; }
-.workspace-path { color: var(--el-text-color-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-path { color: var(--commit-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hidden-selection { color: var(--el-color-warning); overflow-wrap: anywhere; }
 .footer-actions { display: flex; align-items: center; flex-shrink: 0; gap: 8px; }
 .footer-actions .el-button { height: 30px; min-height: 30px; margin-left: 0; padding: 0 12px; font-size: 12px; }

@@ -39,6 +39,12 @@ const router = createRouter({
           meta: { title: 'menu.log' },
         },
         {
+          path: 'properties',
+          name: 'properties',
+          component: () => import('@/views/PropertiesView.vue'),
+          meta: { title: 'properties.title' },
+        },
+        {
           path: 'diff',
           name: 'diff',
           component: () => import('@/views/DiffView.vue'),

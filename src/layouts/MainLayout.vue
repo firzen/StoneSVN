@@ -23,8 +23,8 @@
         <button class="tool-button" :class="{ active: routeName === 'log' }" :aria-current="routeName === 'log' ? 'page' : undefined" :title="$t('menu.log')" :disabled="workspaceStore.operationBusy" @click="navigateTo('log')">
           <el-icon><List /></el-icon><span>{{ $t('menu.log') }}</span>
         </button>
-        <button class="tool-button" :class="{ active: routeName === 'diff' }" :aria-current="routeName === 'diff' ? 'page' : undefined" :title="$t('menu.diff')" :disabled="workspaceStore.operationBusy" @click="navigateTo('diff')">
-          <el-icon><Connection /></el-icon><span>{{ $t('menu.diff') }}</span>
+        <button class="tool-button" :class="{ active: routeName === 'properties' }" :aria-current="routeName === 'properties' ? 'page' : undefined" :title="$t('properties.title')" :disabled="workspaceStore.operationBusy" @click="navigateTo('properties')">
+          <el-icon><PropertyIcon /></el-icon><span>{{ $t('properties.title') }}</span>
         </button>
         <span class="toolbar-divider" aria-hidden="true"></span>
         <button class="tool-button" :class="{ active: routeName === 'update' }" :aria-current="routeName === 'update' ? 'page' : undefined" :title="$t('menu.update')" :disabled="workspaceStore.operationBusy" @click="navigateTo('update')">
@@ -49,8 +49,8 @@
           :aria-busy="workspaceStore.isLoading"
           :aria-label="$t('menu.refresh')"
           :title="$t('menu.refresh')"
-          @click="refreshStatus"
-          :disabled="workspaceStore.isLoading"
+          @click="refreshCurrentView"
+          :disabled="workspaceStore.isLoading || workspaceStore.operationBusy"
         >
           <el-icon><Refresh /></el-icon>
           <span>{{ $t('menu.refresh') }}</span>
@@ -134,7 +134,7 @@
         <div class="route-content">
           <router-view v-slot="{ Component, route }">
             <keep-alive :include="cachedViews">
-              <component :is="Component" :key="route.path" />
+              <component :is="Component" :key="route.path" ref="routeView" />
             </keep-alive>
           </router-view>
         </div>
@@ -176,6 +176,7 @@ import { useUpdateCheck } from '@/composables/useUpdateCheck'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import {
   Archive,
+  Properties as PropertyIcon,
   Code,
   OpenIn,
   FolderOpened as FolderOpenedIcon,
@@ -194,6 +195,8 @@ const {
   checkForUpdates,
   openReleasePage,
 } = useUpdateCheck()
+const routeView = ref<{ refresh?: () => void | Promise<void> } | null>(null)
+const refreshCurrentView = () => routeName.value === 'properties' ? routeView.value?.refresh?.() : refreshStatus()
 const cachedViews = ref(['WorkspaceView', 'LogView', 'UpdateView'])
 const statusRefreshIntervalMs = 60_000
 let statusRefreshTimer: number | undefined
@@ -226,15 +229,15 @@ const navigateTo = (name: string) => {
 
 const switchProject = async (path: string) => {
   if (workspaceStore.operationBusy || path === workspaceStore.currentPath) return
-  // Each project opens in its workspace, without the previous project's query.
+  // Keep the property browser open when switching its working copy.
   const request = loadWorkspace(path)
-  await router.replace({ name: 'workspace' })
+  if (routeName.value !== 'properties') await router.replace({ name: 'workspace' })
   if (!(await request) && workspaceStore.error) ElMessage.error(workspaceStore.error)
 }
 
 const addProject = async () => {
   if (workspaceStore.operationBusy) return
-  if (await openWorkspace(t('workspace.selectWorkspaceTitle'))) await router.push({ name: 'workspace' })
+  if (await openWorkspace(t('workspace.selectWorkspaceTitle')) && routeName.value !== 'properties') await router.push({ name: 'workspace' })
 }
 
 const projectTitle = (path: string) => {
@@ -297,7 +300,7 @@ const openCurrentWorkspaceIn = async (target: OpenWorkspaceTarget) => {
 }
 
 const refreshStatusSilently = async () => {
-  if (!workspaceStore.currentPath || workspaceStore.isLoading) return
+  if (routeName.value === 'properties' || !workspaceStore.currentPath || workspaceStore.isLoading) return
   await refreshStatusIfStale(statusRefreshIntervalMs)
 }
 
@@ -707,6 +710,7 @@ onUnmounted(() => {
 .route-content :deep(.settings-view),
 .route-content :deep(.log-view),
 .route-content :deep(.diff-view),
+.route-content :deep(.properties-view),
 .route-content :deep(.blame-view) {
   width: 100%;
   max-width: none;
