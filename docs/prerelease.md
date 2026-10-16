@@ -31,4 +31,4 @@ Windows 预发布仅生成 NSIS EXE 安装包，因为 MSI 目标不支持 `alph
 
 本地可运行 `node --test tests/prerelease.test.cjs` 检查标签规则、版本一致性、Windows 换行及缺失锁文件包记录；使用 actionlint 校验工作流。跨平台安装包和最终发布仍需由 GitHub Actions 实际执行确认。
 
-正式发布工作流排除包含连字符的预发布标签，由 `vX.Y.Z` 标签触发；同样先校验版本并创建草稿，全部平台检查和打包成功后公开为 Latest。正式版更新说明从 `docs/releases/vX.Y.Z.md` 读取，步骤见[发布流程](releasing.md)。准备版本文件本身不会发布版本，只有推送标签才触发流水线。
+正式发布工作流排除包含连字符的预发布标签，由 `vX.Y.Z` 标签触发；同样先校验版本并创建草稿，全部平台检查和打包成功后公开为 Latest。正式版更新说明从 `docs/releases/vX.Y.Z.md` 读取，步骤见[发布流程](releasing.md)。正式版支持为既有正式标签手动启动构建；预发布仍由推送标签触发。准备版本文件本身不会发布版本。

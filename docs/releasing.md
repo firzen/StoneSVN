@@ -30,7 +30,7 @@ StoneSVN 是独立项目，正式仓库为 `firzen/StoneSVN`，安装包通过�
 
 ## 自动流程
 
-`.github/workflows/tauri-build.yml` 只处理正式标签：
+`.github/workflows/tauri-build.yml` 处理正式标签；推送 `vX.Y.Z` 自动触发。新仓库首次启用 Actions 后，若既有标签事件未触发，可在 Actions 中手动运行 Tauri Build 并填写已存在的正式标签。手动入口同样检出该标签、校验版本，且拒绝覆盖已公开的版本。
 
 1. 校验所有版本文件和发布说明，创建或复用 GitHub Release 草稿；已公开的同名版本拒绝重新发布。
 2. Windows、macOS、Linux 安装 SVN 测试工具，运行 `npm run check`，打包并将安装包上传至同一个草稿。
