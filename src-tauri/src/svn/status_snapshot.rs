@@ -133,9 +133,9 @@ fn directory_stamp(metadata: &fs::Metadata) -> io::Result<DirectoryStamp> {
 }
 
 fn can_reuse(previous: &DirectoryStamp, current: &DirectoryStamp) -> bool {
-    // Windows enumeration already supplies file metadata; individually stating
-    // cached paths there would add expensive calls. Coarse Unix ctimes also
-    // request enumeration rather than trusting an ambiguous directory stamp.
+    // Windows directory timestamps cannot establish an unchanged child list.
+    // Coarse Unix ctimes also request enumeration rather than trusting an
+    // ambiguous directory stamp.
     let stable_age = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .ok()
@@ -354,7 +354,14 @@ pub(super) fn capture_measured(
                         return Err(io::Error::other("linked SVN administration directory"));
                     }
                     stats.checked_files += 1;
-                    files.push((path, file_stamp(&entry.metadata()?, &entry.path())?));
+                    // Windows directory enumeration may return stale last-write
+                    // metadata for a same-size edit. Query the file itself.
+                    let metadata = if cfg!(windows) {
+                        fs::symlink_metadata(entry.path())?
+                    } else {
+                        entry.metadata()?
+                    };
+                    files.push((path, file_stamp(&metadata, &entry.path())?));
                 }
             }
         }

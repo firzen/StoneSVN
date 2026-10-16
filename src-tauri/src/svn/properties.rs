@@ -127,7 +127,7 @@ pub async fn restore_file_revision(
             "Select a versioned file and a revision greater than zero".into(),
         ));
     }
-    let merge_target = target.to_string_lossy().into_owned();
+    let merge_target = super::operations::normalize_svn_path(&target.to_string_lossy());
     let target = super::operations::normalize_svn_target(&merge_target);
     let status = execute_svn(
         &["status", "--xml", "--depth", "empty", "--", &target],
@@ -446,7 +446,13 @@ mod tests {
                 let workspace = root.join("wc");
                 assert!(Command::new("svn")
                     .args(["checkout", "--quiet"])
-                    .arg(format!("file://{}", repository.display()))
+                    .arg(format!(
+                        "file:///{}",
+                        repository
+                            .to_string_lossy()
+                            .replace('\\', "/")
+                            .trim_start_matches('/')
+                    ))
                     .arg(&workspace)
                     .status()
                     .unwrap()

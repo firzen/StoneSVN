@@ -17,15 +17,23 @@ fn append_targets(args: &mut Vec<String>, targets: &[String]) {
 }
 
 pub(super) fn normalize_svn_target(file: &str) -> String {
+    let file = normalize_svn_path(file);
     if file.contains("://") || !file.contains('@') {
-        file.to_string()
+        file
     } else {
         format!("{}@", file)
     }
 }
 
-fn normalize_svn_path(path: &str) -> String {
-    path.replace('\\', "/")
+pub(super) fn normalize_svn_path(path: &str) -> String {
+    // canonicalize() returns Windows verbatim paths, which SVN does not accept.
+    if let Some(unc) = path.strip_prefix(r"\\?\UNC\") {
+        format!("//{}", unc.replace('\\', "/"))
+    } else {
+        path.strip_prefix(r"\\?\")
+            .unwrap_or(path)
+            .replace('\\', "/")
+    }
 }
 
 pub(super) fn normalize_workspace_diff_file(
@@ -1322,6 +1330,22 @@ mod tests {
     #[test]
     fn normalizes_svn_paths_to_forward_slashes() {
         assert_eq!(normalize_svn_path("src\\main.rs"), "src/main.rs");
+    }
+
+    #[test]
+    fn canonical_windows_paths_use_svn_syntax_and_keep_literal_at_signs() {
+        assert_eq!(
+            normalize_svn_target(r"\\?\C:\work\file@测试.txt"),
+            "C:/work/file@测试.txt@"
+        );
+        assert_eq!(
+            normalize_svn_target(r"\\?\UNC\server\share\folder"),
+            "//server/share/folder"
+        );
+        assert_eq!(
+            normalize_svn_path(r"\\?\C:\work\file@测试.txt"),
+            "C:/work/file@测试.txt"
+        );
     }
 
     #[test]
