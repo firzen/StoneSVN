@@ -314,12 +314,48 @@ pub async fn set_property(
     }
     let target = target_path(workspace, file)?;
     let target = super::operations::normalize_svn_target(&target.to_string_lossy());
-    // A leading dash in a name or value must not become an SVN option.
-    let args = match value {
-        Some(value) => vec!["propset", "--", name, value, &target],
-        None => vec!["propdel", "--", name, &target],
-    };
-    execute_svn(&args, Some(workspace)).await?;
+    // Windows SVN expands wildcard argv values such as svn:executable="*".
+    // A value file also preserves exact UTF-8 bytes and multiline values.
+    if let Some(value) = value {
+        use std::io::Write;
+        struct ValueFile(PathBuf);
+        impl Drop for ValueFile {
+            fn drop(&mut self) {
+                let _ = fs::remove_file(&self.0);
+            }
+        }
+        let path = std::env::temp_dir().join(format!(
+            "stonesvn-property-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|error| SvnError::CommandFailed(error.to_string()))?
+                .as_nanos()
+        ));
+        let mut options = fs::OpenOptions::new();
+        options.write(true).create_new(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.mode(0o600);
+        }
+        let mut output = options
+            .open(&path)
+            .map_err(|error| SvnError::CommandFailed(error.to_string()))?;
+        let value_file = ValueFile(path);
+        output
+            .write_all(value.as_bytes())
+            .map_err(|error| SvnError::CommandFailed(error.to_string()))?;
+        drop(output);
+        let path = super::operations::normalize_svn_path(&value_file.0.to_string_lossy());
+        execute_svn(
+            &["propset", "--file", &path, "--", name, &target],
+            Some(workspace),
+        )
+        .await?;
+    } else {
+        execute_svn(&["propdel", "--", name, &target], Some(workspace)).await?;
+    }
     Ok(())
 }
 
@@ -485,7 +521,19 @@ mod tests {
                 set_property(wc, file, "svn:executable", Some("*"))
                     .await
                     .unwrap();
+                set_property(wc, file, "test:wildcard", Some("*"))
+                    .await
+                    .unwrap();
                 let details = property_details(wc, file).await.unwrap();
+                assert_eq!(
+                    details
+                        .properties
+                        .iter()
+                        .find(|p| p.name == "test:wildcard")
+                        .unwrap()
+                        .value,
+                    "*"
+                );
                 assert!(details.editable);
                 assert!(!details.directory);
                 assert_eq!(details.size, Some(8));
