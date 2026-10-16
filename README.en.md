@@ -8,33 +8,28 @@ StoneSVN is a cross-platform SVN desktop client built with Tauri, Rust, and Vue 
 
 Development UI from the current source, captured on 2026-10-16 with fictional projects, paths, and diffs. No real repository or personal data is shown. [Dark theme](docs/images/orcasvn-workspace-dark.png).
 
-Current stable version: **0.6.4**. See the [release notes](docs/releases/v0.6.4.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
+Current stable version: **1.0.0**. See the [release notes](docs/releases/v1.0.0.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
 
 ## Features
 
 - Switch working copies from a persistent project sidebar, reorder projects, resize the sidebar, and access common actions from the top toolbar
+- Configure file filters with `*`, `?`, and `**` wildcards, with scope checks when adding and committing files
 - Preview text diffs and images, with external open actions for binary files and directories
-- Browse file and directory properties in a project tree and edit common SVN properties and custom text properties; commit separately after applying
+- Browse properties with a project tree and recursive file search; edit common SVN properties and custom text properties, then commit separately
 - View local changes, unversioned files, conflicts, and missing files in `git status`-style groups
 - Check out, update, select files or directories to commit, add files, revert changes, and clean up working copies
 - Save local changes in stashes by file or text hunk and restore them to the original workspace
-- Browse commit history, inspect file diffs, and view line-by-line blame information
+- Browse the commit timeline and paginated file history; inspect historical diffs and navigate adjacent revisions
 - Available in Simplified Chinese, Traditional Chinese, English, Japanese, and Korean
 - Light and dark themes on Windows, macOS, and Linux
 
 > StoneSVN uses the locally installed `svn` command-line tool; it does not implement the SVN protocol itself.
 
-Switch, Merge, Resolve, and scheduling deletion of versioned files currently require another SVN client or the command line. Refresh StoneSVN afterward. The workspace Delete button removes unversioned local files.
+Switch, general-purpose Merge, and conflict Resolve currently require another SVN client or the command line. Refresh StoneSVN afterward. The workspace Delete button removes unversioned files; the Properties page can schedule versioned files or directories for deletion, followed by a separate commit.
 
 ## Installation
 
-### Windows
-
-```powershell
-winget install OrcaSVN.OrcaSVN
-```
-
-You can also download installers for Windows, macOS, and Linux from [GitHub Releases](https://github.com/firzen/StoneSVN/releases).
+Download installers for Windows, macOS, and Linux from [GitHub Releases](https://github.com/firzen/StoneSVN/releases).
 
 After installation, make sure the SVN CLI is available:
 
@@ -44,12 +39,20 @@ svn --version --quiet
 
 ## Quick Start
 
-1. Open StoneSVN and select an existing SVN working copy, or check out a repository.
+1. Open StoneSVN and use Add Local Copy at the bottom of the project sidebar, or Add Remote Copy to check out a repository.
 2. Filter files in the workspace by changed, unversioned, conflicted, or missing status.
 3. Select a file to inspect its diff, then review and commit your changes from the Commit page.
 4. Run Update before committing and resolve any conflicts first.
 
 For usage instructions, see the [quick start](QUICKSTART.md) and [user guide](docs/user-guide.md) (Simplified Chinese).
+
+## Properties and File History
+
+The Properties page provides a project tree, recursive file search, and SVN property editing. Export a versioned file or directory, including local edits and excluding `.svn` metadata, to a new destination directory. Schedule deletion or restore a clean versioned file to a specified revision, then review and commit the local changes separately. The file history view lists revisions; double-click a revision to inspect its diff.
+
+![Properties and file actions with fictional data](docs/images/stonesvn-properties.png)
+
+[Dark theme](docs/images/stonesvn-properties-dark.png).
 
 ## Local Development
 

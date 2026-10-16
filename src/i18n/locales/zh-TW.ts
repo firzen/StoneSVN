@@ -137,7 +137,8 @@ export default {
   },
   workspace: {
     projects: '專案',
-    addWorkingCopy: '新增工作副本',
+    addWorkingCopy: '新增本機副本',
+    addRemoteCopy: '新增遠端副本',
     moveUp: '上移',
     moveDown: '下移',
     lastScanned: '最近掃描',

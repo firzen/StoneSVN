@@ -137,7 +137,8 @@ export default {
   },
   workspace: {
     projects: 'プロジェクト',
-    addWorkingCopy: '作業コピーを追加',
+    addWorkingCopy: 'ローカルコピーを追加',
+    addRemoteCopy: 'リモートコピーを追加',
     moveUp: '上へ移動',
     moveDown: '下へ移動',
     lastScanned: '最終スキャン',

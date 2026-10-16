@@ -34,6 +34,23 @@ export default (async () => {
 `
   window.__TAURI_INTERNALS__ = {
     invoke: async (command, args) => {
+      if (command === 'workspace_children') {
+        const entries = args.directory === '.'
+          ? [['src', true], ['docs', true], ['notes', true], ['README.md', false]]
+          : args.directory === 'src'
+            ? [['src/config.ts', false], ['src/views', true], ['src/legacy-config.ts', false]]
+            : []
+        return entries.map(([path, directory]) => ({ path, name: path.split('/').pop(), directory }))
+      }
+      if (command === 'svn_property_details') return {
+        info: { ...info, path: args.file, url: `${info.url}/${args.file}`, node_kind: 'file' },
+        directory: false, size: 256, modified: '2026-10-16T02:00:00Z', editable: true,
+        properties: [
+          { name: 'svn:eol-style', value: 'LF', binary: false },
+          { name: 'svn:mime-type', value: 'text/plain', binary: false },
+          { name: 'demo:module', value: 'workspace', binary: false },
+        ],
+      }
       if (command === 'svn_connection_info') return info
       if (command === 'svn_file_preview') return { path: args.file, diff, old_revision: 128, new_revision: 128, preview_kind: 'text', image_data: null, can_open: false }
       if (command === 'svn_diff') return { path: args.file, diff, old_revision: 128, new_revision: 128 }
@@ -62,3 +79,17 @@ export default (async () => {
   await document.fonts.ready
   return 'Documentation workspace ready (six example paths, r128)'
 })()
+
+// Display the property browser without invoking native dialogs or write commands.
+export async function showPropertiesDemo() {
+  const { propertyTree } = await import('/src/composables/usePropertyTree.ts')
+  const path = '/workspaces/stone-demo'
+  propertyTree.project(path).expanded = new Set(['.', 'src'])
+  propertyTree.select(path, 'src/config.ts')
+  await document.querySelector('#app').__vue_app__.config.globalProperties.$router.push({ name: 'properties' })
+  await propertyTree.load(path, '.')
+  await propertyTree.load(path, 'src')
+  await (await import('/node_modules/.vite/deps/vue.js')).nextTick()
+  await document.fonts.ready
+  await new Promise(resolve => setTimeout(resolve, 500))
+}

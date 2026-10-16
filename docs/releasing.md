@@ -9,7 +9,7 @@
 在项目根目录运行：
 
 ```bash
-RELEASE_TAG=v0.6.3 node scripts/validate-release.cjs
+RELEASE_TAG=v1.0.0 node scripts/validate-release.cjs
 npm run check
 ```
 
@@ -18,13 +18,15 @@ npm run check
 确认发布范围并提交、推送到 `main` 后创建标签：
 
 ```bash
-git tag -a v0.6.3 -m "StoneSVN v0.6.3"
-git push origin v0.6.3
+git tag -a v1.0.0 -m "StoneSVN v1.0.0"
+git push origin v1.0.0
 ```
 
-## 改名兼容约定
+## 项目标识与分发渠道
 
-产品名称为 StoneSVN，正式仓库为 `firzen/StoneSVN`。本轮保留应用标识 `com.orcasvn.desktop`、所有旧本地存储键和现有图标，以延续已有数据。WinGet 标识仍为 `OrcaSVN.OrcaSVN`，渠道迁移另行处理。历史发行说明、审校截图及上游问题链接保留原始记录。
+StoneSVN 是独立项目，正式仓库为 `firzen/StoneSVN`，安装包通过该仓库的 GitHub Releases 分发。已取消 WinGet 发布，不复用 OrcaSVN 的包标识或发布渠道。
+
+当前源码仍保留应用标识 `com.orcasvn.desktop` 和旧本地存储键；品牌图形使用 StoneSVN 图标。历史发行说明、审校截图及上游问题链接保留原始记录。
 
 ## 自动流程
 
@@ -33,7 +35,6 @@ git push origin v0.6.3
 1. 校验所有版本文件和发布说明，创建或复用 GitHub Release 草稿；已公开的同名版本拒绝重新发布。
 2. Windows、macOS、Linux 安装 SVN 测试工具，运行 `npm run check`，打包并将安装包上传至同一个草稿。
 3. 所有平台成功后才公开为正式版并标记 Latest。
-4. 尝试提交 WinGet 更新。WinGet 使用单独的 `WINGET_TOKEN`；该步骤失败不撤销已经公开的 GitHub Release，其审核和可用时间独立于 GitHub 发布。
 
 Windows 固定使用 SlikSVN 1.14.5，核验 svn 与 svnadmin 后加入 PATH；正式版本生成 NSIS EXE 和 MSI。macOS 使用 `macos-latest` 的原生架构，当前为 Apple Silicon；Linux 使用 Ubuntu x64。
 

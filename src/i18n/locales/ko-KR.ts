@@ -137,7 +137,8 @@ export default {
   },
   workspace: {
     projects: '프로젝트',
-    addWorkingCopy: '작업 복사본 추가',
+    addWorkingCopy: '로컬 복사본 추가',
+    addRemoteCopy: '원격 복사본 추가',
     moveUp: '위로 이동',
     moveDown: '아래로 이동',
     lastScanned: '최근 검사',

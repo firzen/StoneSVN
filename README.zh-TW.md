@@ -8,33 +8,28 @@ StoneSVN 是一款以 Tauri、Rust 和 Vue 3 打造的跨平台 SVN 桌面用戶
 
 目前原始碼的開發介面，於 2026-10-16 擷取；專案、路徑與差異皆為虛構資料，不含真實儲存庫或個人資訊。[深色主題](docs/images/orcasvn-workspace-dark.png)。
 
-目前正式版本為 **0.6.4**，更新內容見[發布說明](docs/releases/v0.6.4.md)。
+目前正式版本為 **1.0.0**，更新內容見[發布說明](docs/releases/v1.0.0.md)。
 
 ## 核心功能
 
 - 透過持久專案欄切換工作副本、拖曳排序與調整欄寬，頂部工具列集中常用操作
+- 設定檔案過濾規則，支援 `*`、`?` 與 `**` 萬用字元，加入版本控制與提交時檢查範圍
 - 預覽文字差異與圖片，並提供二進位檔案與目錄的外部開啟入口
-- 透過專案樹瀏覽檔案與目錄屬性，編輯常用 SVN 屬性與自訂文字屬性；套用後仍需提交
+- 透過專案樹與遞迴檔案搜尋瀏覽屬性，編輯常用 SVN 屬性與自訂文字屬性；套用後仍需提交
 - 以類似 `git status` 的分類檢視本機變更、未納入版本控制的檔案、衝突和遺失檔案
 - 簽出、更新、按檔案或目錄選擇提交、加入版本控制、還原與清理工作副本
 - 本機貯藏：按檔案或文字區塊儲存修改，並還原至原工作副本
-- 瀏覽提交記錄、檢視檔案差異與逐行 Blame 資訊
+- 瀏覽提交時間軸與分頁檔案歷史，檢視歷史差異並切換相鄰版本
 - 支援簡體中文、繁體中文、英文、日文和韓文
 - 支援 Windows、macOS、Linux，以及淺色與深色主題
 
 > StoneSVN 使用本機安裝的 `svn` 命令列工具，不會自行實作 SVN 通訊協定。
 
-Switch、Merge、Resolve 與受控檔案的刪除排程目前需使用其他 SVN 用戶端或命令列完成，再回到 StoneSVN 重新整理。工作區的「刪除」按鈕用於刪除未納入版本控制的本機檔案。完整操作說明見[使用者手冊（簡體中文）](docs/user-guide.md)。
+Switch、一般 Merge 與衝突 Resolve 目前需使用其他 SVN 用戶端或命令列完成，再回到 StoneSVN 重新整理。工作區的「刪除」按鈕用於刪除未納入版本控制的檔案；屬性頁可為受控檔案或目錄安排刪除，之後仍需提交。完整操作說明見[使用者手冊（簡體中文）](docs/user-guide.md)。
 
 ## 安裝
 
-### Windows
-
-```powershell
-winget install OrcaSVN.OrcaSVN
-```
-
-你也可以從 [GitHub Releases](https://github.com/firzen/StoneSVN/releases) 下載 Windows、macOS 或 Linux 安裝程式。
+從 [GitHub Releases](https://github.com/firzen/StoneSVN/releases) 下載 Windows、macOS 或 Linux 安裝程式。
 
 安裝後，請確認 SVN CLI 可以使用：
 
@@ -44,12 +39,20 @@ svn --version --quiet
 
 ## 快速開始
 
-1. 開啟 StoneSVN，選擇現有的 SVN 工作副本，或透過 Checkout 簽出儲存庫。
+1. 開啟 StoneSVN，從專案欄底部選擇「新增本機副本」開啟既有工作副本，或選擇「新增遠端副本」簽出儲存庫。
 2. 在工作區依變更、未納入版本控制、衝突或遺失狀態篩選檔案。
 3. 選擇檔案檢視 Diff，確認後前往 Commit 頁面提交變更。
 4. 提交前先執行 Update，並優先解決所有衝突。
 
 更完整的操作說明請參閱 [QUICKSTART.md](QUICKSTART.md)。
+
+## 屬性、匯出與檔案歷史
+
+屬性頁支援專案樹、遞迴搜尋與 SVN 屬性編輯。可將受控檔案或目錄匯出至尚不存在的新目錄，保留本機修改且不含 `.svn` 中繼資料。也可安排刪除，或將沒有本機修改的受控檔案還原至指定版本；檢查後需另行提交。檔案歷史以分頁顯示，雙擊記錄可檢視差異。
+
+![使用虛構資料的屬性頁](docs/images/stonesvn-properties.png)
+
+[深色主題](docs/images/stonesvn-properties-dark.png)。
 
 ## 本機開發
 

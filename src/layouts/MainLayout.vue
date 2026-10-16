@@ -33,9 +33,6 @@
           <el-icon><Edit /></el-icon><span>{{ $t('menu.blame') }}</span>
         </button>
         <span class="toolbar-divider" aria-hidden="true"></span>
-        <button class="tool-button" :class="{ active: routeName === 'checkout' }" :aria-current="routeName === 'checkout' ? 'page' : undefined" :title="$t('menu.checkout')" :disabled="workspaceStore.operationBusy" @click="navigateTo('checkout')">
-          <el-icon><Download /></el-icon><span>{{ $t('menu.checkout') }}</span>
-        </button>
         <button
           class="tool-button"
           :class="{ 'is-refreshing': workspaceStore.isLoading }"
@@ -111,7 +108,10 @@
           </el-dropdown>
           <p v-if="!workspaceStore.recentWorkspaces.length" class="project-empty">{{ $t('workspace.noWorkspace') }}</p>
         </div>
-        <button class="project-add" :disabled="workspaceStore.operationBusy" @click="addProject"><el-icon><Plus /></el-icon><span>{{ $t('workspace.addWorkingCopy') }}</span></button>
+        <div class="project-add-actions">
+          <button class="project-add" :disabled="workspaceStore.operationBusy" @click="addProject"><el-icon><Plus /></el-icon><span>{{ $t('workspace.addWorkingCopy') }}</span></button>
+          <button class="project-add" :aria-current="routeName === 'checkout' ? 'page' : undefined" :disabled="workspaceStore.operationBusy" @click="navigateTo('checkout')"><el-icon><Download /></el-icon><span>{{ $t('workspace.addRemoteCopy') }}</span></button>
+        </div>
         <div class="sidebar-resizer" role="separator" aria-orientation="vertical" :aria-label="$t('workspace.resizeProjects')" :aria-valuenow="sidebarWidth" :aria-valuemin="200" :aria-valuemax="360" tabindex="0" @pointerdown="startSidebarResize" @keydown.left.prevent="resizeSidebar(sidebarWidth - 8)" @keydown.right.prevent="resizeSidebar(sidebarWidth + 8)"></div>
       </aside>
 
@@ -604,8 +604,11 @@ onUnmounted(() => {
 .project-copy strong, .project-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-copy small { color: var(--app-color-sidebar-muted); font-size: var(--app-font-size-xs); }
 .project-count { font-size: var(--app-font-size-xs); font-variant-numeric: tabular-nums; }
+.project-add-actions { display: flex; flex-direction: column; gap: 6px; margin-top: auto; padding-top: 8px; flex-shrink: 0; }
 .project-add {
-  margin-top: auto;
+  min-height: 36px;
+  padding: 6px 10px;
+  gap: 8px;
   flex-shrink: 0;
   justify-content: center;
   color: var(--md-sys-color-on-primary);
@@ -818,7 +821,7 @@ onUnmounted(() => {
   .project-list > :deep(.el-dropdown) { flex: 0 0 180px; }
   .project-item { min-height: 44px; }
   .project-copy small, .sidebar-resizer { display: none; }
-  .project-add { min-height: 34px; flex-shrink: 0; }
+  .project-add { min-height: 32px; padding: 4px 8px; }
   .toolbar-actions { gap: 4px; }
   .toolbar-divider { margin-inline: 2px; }
   .tool-button, .open-in-trigger { padding-inline: 8px; }

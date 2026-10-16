@@ -138,6 +138,7 @@ export default {
   workspace: {
     projects: '项目',
     addWorkingCopy: '添加本地副本',
+    addRemoteCopy: '添加远程副本',
     moveUp: '上移',
     moveDown: '下移',
     lastScanned: '最近扫描',

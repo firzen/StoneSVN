@@ -137,7 +137,8 @@ export default {
   },
   workspace: {
     projects: 'Projects',
-    addWorkingCopy: 'Add Working Copy',
+    addWorkingCopy: 'Add Local Copy',
+    addRemoteCopy: 'Add Remote Copy',
     moveUp: 'Move Up',
     moveDown: 'Move Down',
     lastScanned: 'Last scanned',
