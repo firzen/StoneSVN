@@ -4,7 +4,7 @@ use std::fs;
 use std::path::{Component, Path};
 
 /// The same name/root-path glob semantics as parseFilterRules in the frontend.
-/// This is an OrcaSVN filter, not a parser for .gitignore contents.
+/// This is an StoneSVN filter, not a parser for .gitignore contents.
 pub struct FileFilter {
     patterns: Vec<Regex>,
 }

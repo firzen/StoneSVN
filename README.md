@@ -1,10 +1,10 @@
-# OrcaSVN
+# StoneSVN
 
 简体中文 | [繁體中文](README.zh-TW.md) | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-OrcaSVN 是一个基于 Tauri、Rust 和 Vue 3 的跨平台 SVN 桌面客户端。它借鉴 Git 客户端清晰的工作区体验，同时保留 SVN 的集中式版本控制语义。
+StoneSVN 是一个基于 Tauri、Rust 和 Vue 3 的跨平台 SVN 桌面客户端。它借鉴 Git 客户端清晰的工作区体验，同时保留 SVN 的集中式版本控制语义。
 
-![OrcaSVN 软件界面](docs/images/orcasvn-workspace.png)
+![StoneSVN 软件界面](docs/images/orcasvn-workspace.png)
 
 0.6.3 发布前开发界面，2026-10-02 截取；使用示例工作区数据。[深色主题](docs/images/orcasvn-workspace-dark.png)。
 
@@ -17,9 +17,9 @@ OrcaSVN 是一个基于 Tauri、Rust 和 Vue 3 的跨平台 SVN 桌面客户端�
 - 支持简体中文、繁体中文、英语、日语和韩语
 - 支持浅色、深色主题以及 Windows、macOS、Linux
 
-> OrcaSVN 调用本机的 `svn` 命令行工具，不会自行实现 SVN 协议。
+> StoneSVN 调用本机的 `svn` 命令行工具，不会自行实现 SVN 协议。
 
-Switch、Merge、Resolve 和受控文件安排删除目前需使用其他 SVN 客户端或命令行完成，再回到 OrcaSVN 刷新。工作区中的“删除”按钮用于删除未跟踪的本地文件。
+Switch、Merge、Resolve 和受控文件安排删除目前需使用其他 SVN 客户端或命令行完成，再回到 StoneSVN 刷新。工作区中的“删除”按钮用于删除未跟踪的本地文件。
 
 ## 安装
 
@@ -29,7 +29,7 @@ Switch、Merge、Resolve 和受控文件安排删除目前需使用其他 SVN �
 winget install OrcaSVN.OrcaSVN
 ```
 
-也可以从 [GitHub Releases](https://github.com/wustites/OrcaSVN/releases) 下载 Windows、macOS 或 Linux 安装包。
+也可以从 [GitHub Releases](https://github.com/firzen/StoneSVN/releases) 下载 Windows、macOS 或 Linux 安装包。
 
 安装后请确认 SVN CLI 可用：
 
@@ -39,7 +39,7 @@ svn --version --quiet
 
 ## 快速开始
 
-1. 打开 OrcaSVN，选择已有 SVN 工作副本，或通过 Checkout 检出仓库。
+1. 打开 StoneSVN，选择已有 SVN 工作副本，或通过 Checkout 检出仓库。
 2. 在工作区按“变更、未跟踪、冲突、缺失”筛选文件。
 3. 选择文件查看 Diff，确认后进入 Commit 页面提交。
 4. 提交前先执行 Update，并优先解决冲突。

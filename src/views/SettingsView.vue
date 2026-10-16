@@ -118,7 +118,7 @@
               <el-icon><FolderOpened /></el-icon>
             </div>
             <div class="about-info">
-              <h4>OrcaSVN</h4>
+              <h4>StoneSVN</h4>
               <p class="about-subtitle">{{ $t('settings.aboutSubtitle') }}</p>
             </div>
           </div>

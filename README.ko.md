@@ -1,10 +1,10 @@
-# OrcaSVN
+# StoneSVN
 
 [简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en.md) | [日本語](README.ja.md) | 한국어
 
-OrcaSVN은 Tauri, Rust, Vue 3로 만든 크로스 플랫폼 SVN 데스크톱 클라이언트입니다. SVN의 중앙 집중식 버전 관리 모델을 유지하면서 Git 클라이언트처럼 명확한 작업 사본 경험을 제공합니다.
+StoneSVN은 Tauri, Rust, Vue 3로 만든 크로스 플랫폼 SVN 데스크톱 클라이언트입니다. SVN의 중앙 집중식 버전 관리 모델을 유지하면서 Git 클라이언트처럼 명확한 작업 사본 경험을 제공합니다.
 
-![OrcaSVN 애플리케이션 화면](docs/images/orcasvn-workspace.png)
+![StoneSVN 애플리케이션 화면](docs/images/orcasvn-workspace.png)
 
 0.6.3 출시 전 개발 화면으로, 2026-10-02에 예제 작업 사본 데이터로 촬영했습니다. [다크 테마](docs/images/orcasvn-workspace-dark.png).
 
@@ -19,9 +19,9 @@ OrcaSVN은 Tauri, Rust, Vue 3로 만든 크로스 플랫폼 SVN 데스크톱 클
 - 중국어 간체, 중국어 번체, 영어, 일본어 및 한국어 지원
 - Windows, macOS, Linux와 라이트 및 다크 테마 지원
 
-> OrcaSVN은 로컬에 설치된 `svn` 명령줄 도구를 사용하며 SVN 프로토콜을 직접 구현하지 않습니다.
+> StoneSVN은 로컬에 설치된 `svn` 명령줄 도구를 사용하며 SVN 프로토콜을 직접 구현하지 않습니다.
 
-Switch, Merge, Resolve 및 버전 관리 대상 파일의 삭제 예약은 현재 다른 SVN 클라이언트나 명령줄에서 수행한 뒤 OrcaSVN을 새로 고쳐야 합니다. 작업 사본의 삭제 버튼은 버전 관리되지 않은 로컬 파일을 삭제합니다. 자세한 내용은 [사용자 가이드(중국어 간체)](docs/user-guide.md)를 참고하세요.
+Switch, Merge, Resolve 및 버전 관리 대상 파일의 삭제 예약은 현재 다른 SVN 클라이언트나 명령줄에서 수행한 뒤 StoneSVN을 새로 고쳐야 합니다. 작업 사본의 삭제 버튼은 버전 관리되지 않은 로컬 파일을 삭제합니다. 자세한 내용은 [사용자 가이드(중국어 간체)](docs/user-guide.md)를 참고하세요.
 
 ## 설치
 
@@ -31,7 +31,7 @@ Switch, Merge, Resolve 및 버전 관리 대상 파일의 삭제 예약은 현�
 winget install OrcaSVN.OrcaSVN
 ```
 
-[GitHub Releases](https://github.com/wustites/OrcaSVN/releases)에서 Windows, macOS 및 Linux용 설치 파일을 다운로드할 수도 있습니다.
+[GitHub Releases](https://github.com/firzen/StoneSVN/releases)에서 Windows, macOS 및 Linux용 설치 파일을 다운로드할 수도 있습니다.
 
 설치 후 SVN CLI를 사용할 수 있는지 확인하세요.
 
@@ -41,7 +41,7 @@ svn --version --quiet
 
 ## 빠른 시작
 
-1. OrcaSVN을 열고 기존 SVN 작업 사본을 선택하거나 저장소를 Checkout합니다.
+1. StoneSVN을 열고 기존 SVN 작업 사본을 선택하거나 저장소를 Checkout합니다.
 2. 작업 공간에서 변경됨, 버전 관리 안 됨, 충돌 또는 누락 상태로 파일을 필터링합니다.
 3. 파일을 선택하여 Diff를 확인한 다음 Commit 페이지에서 변경 사항을 검토하고 커밋합니다.
 4. 커밋 전에 Update를 실행하고 충돌이 있다면 먼저 해결합니다.

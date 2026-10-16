@@ -1,4 +1,4 @@
-# OrcaSVN 快速使用
+# StoneSVN 快速使用
 
 完整界面说明、操作步骤、贮藏限制和常见问题见 [用户手册](docs/user-guide.md)。
 
@@ -37,11 +37,11 @@
 - **Revert**：永久丢弃本地修改，操作前请确认 Diff。
 - **Cleanup**：工作副本被锁定或操作中断时使用。
 - **贮藏**：在本机保存选中的文本修改或未跟踪文件，保存后从工作副本移除；恢复前核对当前工作区。支持范围见[用户手册](docs/user-guide.md#暂时保存修改贮藏)。
-- **Switch / Merge / Resolve**：当前没有独立界面入口，使用其他 SVN 客户端完成，再回到 OrcaSVN 刷新。
+- **Switch / Merge / Resolve**：当前没有独立界面入口，使用其他 SVN 客户端完成，再回到 StoneSVN 刷新。
 
 ## 命令行对应关系
 
-OrcaSVN 的主要操作与 SVN CLI 一一对应：
+StoneSVN 的主要操作与 SVN CLI 一一对应：
 
 ```text
 打开工作区  -> 状态缓存核对或 svn status --xml + 本地版本号（元信息缺失时再读 svn info --xml）

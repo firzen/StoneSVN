@@ -43,7 +43,7 @@ npm run tauri build
 
 ### 找不到 SVN
 
-确保 `svn` 位于当前用户的 `PATH` 中，然后重新启动 OrcaSVN。
+确保 `svn` 位于当前用户的 `PATH` 中，然后重新启动 StoneSVN。
 
 ### Windows 编译失败
 

@@ -1,10 +1,10 @@
-# OrcaSVN
+# StoneSVN
 
 [简体中文](README.md) | [繁體中文](README.zh-TW.md) | English | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-OrcaSVN is a cross-platform SVN desktop client built with Tauri, Rust, and Vue 3. It brings the clarity of a Git-style working-copy experience to SVN while preserving its centralized version-control model.
+StoneSVN is a cross-platform SVN desktop client built with Tauri, Rust, and Vue 3. It brings the clarity of a Git-style working-copy experience to SVN while preserving its centralized version-control model.
 
-![OrcaSVN application interface](docs/images/orcasvn-workspace.png)
+![StoneSVN application interface](docs/images/orcasvn-workspace.png)
 
 Development UI captured before the 0.6.3 release on 2026-10-02 with example workspace data. [Dark theme](docs/images/orcasvn-workspace-dark.png).
 
@@ -19,9 +19,9 @@ Current stable version: **0.6.3**. See the [release notes](docs/releases/v0.6.3.
 - Available in Simplified Chinese, Traditional Chinese, English, Japanese, and Korean
 - Light and dark themes on Windows, macOS, and Linux
 
-> OrcaSVN uses the locally installed `svn` command-line tool; it does not implement the SVN protocol itself.
+> StoneSVN uses the locally installed `svn` command-line tool; it does not implement the SVN protocol itself.
 
-Switch, Merge, Resolve, and scheduling deletion of versioned files currently require another SVN client or the command line. Refresh OrcaSVN afterward. The workspace Delete button removes unversioned local files.
+Switch, Merge, Resolve, and scheduling deletion of versioned files currently require another SVN client or the command line. Refresh StoneSVN afterward. The workspace Delete button removes unversioned local files.
 
 ## Installation
 
@@ -31,7 +31,7 @@ Switch, Merge, Resolve, and scheduling deletion of versioned files currently req
 winget install OrcaSVN.OrcaSVN
 ```
 
-You can also download installers for Windows, macOS, and Linux from [GitHub Releases](https://github.com/wustites/OrcaSVN/releases).
+You can also download installers for Windows, macOS, and Linux from [GitHub Releases](https://github.com/firzen/StoneSVN/releases).
 
 After installation, make sure the SVN CLI is available:
 
@@ -41,7 +41,7 @@ svn --version --quiet
 
 ## Quick Start
 
-1. Open OrcaSVN and select an existing SVN working copy, or check out a repository.
+1. Open StoneSVN and select an existing SVN working copy, or check out a repository.
 2. Filter files in the workspace by changed, unversioned, conflicted, or missing status.
 3. Select a file to inspect its diff, then review and commit your changes from the Commit page.
 4. Run Update before committing and resolve any conflicts first.

@@ -92,7 +92,7 @@ export default {
     title: '工作區',
     emptyWorkspace: '尚未開啟工作區',
     emptyDescription: '開啟現有 SVN 工作副本，或從儲存庫簽出新的工作副本。',
-    welcomeTitle: '歡迎使用 OrcaSVN',
+    welcomeTitle: '歡迎使用 StoneSVN',
     welcomeRepository: '歡迎',
     svnClient: 'Subversion 用戶端',
     workingCopy: '工作副本',

@@ -1,10 +1,10 @@
-# OrcaSVN
+# StoneSVN
 
 [简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en.md) | 日本語 | [한국어](README.ko.md)
 
-OrcaSVN は、Tauri、Rust、Vue 3 で構築されたクロスプラットフォーム対応の SVN デスクトップクライアントです。SVN の集中型バージョン管理モデルを維持しながら、Git クライアントのように分かりやすい作業コピー体験を提供します。
+StoneSVN は、Tauri、Rust、Vue 3 で構築されたクロスプラットフォーム対応の SVN デスクトップクライアントです。SVN の集中型バージョン管理モデルを維持しながら、Git クライアントのように分かりやすい作業コピー体験を提供します。
 
-![OrcaSVN アプリケーション画面](docs/images/orcasvn-workspace.png)
+![StoneSVN アプリケーション画面](docs/images/orcasvn-workspace.png)
 
 0.6.3 リリース前の開発画面です。2026-10-02 にサンプルデータで撮影しました。[ダークテーマ](docs/images/orcasvn-workspace-dark.png)。
 
@@ -19,9 +19,9 @@ OrcaSVN は、Tauri、Rust、Vue 3 で構築されたクロスプラットフォ
 - 簡体字中国語、繁体字中国語、英語、日本語、韓国語に対応
 - Windows、macOS、Linux、およびライト／ダークテーマに対応
 
-> OrcaSVN はローカルにインストールされた `svn` コマンドラインツールを使用し、SVN プロトコル自体は実装していません。
+> StoneSVN はローカルにインストールされた `svn` コマンドラインツールを使用し、SVN プロトコル自体は実装していません。
 
-Switch、Merge、Resolve、およびバージョン管理対象のファイルの削除予約は、現在、他の SVN クライアントまたはコマンドラインで実行してから OrcaSVN を更新する必要があります。作業コピー画面の削除ボタンは、バージョン管理外のローカルファイルを削除します。詳細は[ユーザーガイド（簡体字中国語）](docs/user-guide.md)をご覧ください。
+Switch、Merge、Resolve、およびバージョン管理対象のファイルの削除予約は、現在、他の SVN クライアントまたはコマンドラインで実行してから StoneSVN を更新する必要があります。作業コピー画面の削除ボタンは、バージョン管理外のローカルファイルを削除します。詳細は[ユーザーガイド（簡体字中国語）](docs/user-guide.md)をご覧ください。
 
 ## インストール
 
@@ -31,7 +31,7 @@ Switch、Merge、Resolve、およびバージョン管理対象のファイル�
 winget install OrcaSVN.OrcaSVN
 ```
 
-[GitHub Releases](https://github.com/wustites/OrcaSVN/releases) から Windows、macOS、Linux 用のインストーラーをダウンロードすることもできます。
+[GitHub Releases](https://github.com/firzen/StoneSVN/releases) から Windows、macOS、Linux 用のインストーラーをダウンロードすることもできます。
 
 インストール後、SVN CLI が利用できることを確認してください。
 
@@ -41,7 +41,7 @@ svn --version --quiet
 
 ## クイックスタート
 
-1. OrcaSVN を開き、既存の SVN 作業コピーを選択するか、リポジトリを Checkout します。
+1. StoneSVN を開き、既存の SVN 作業コピーを選択するか、リポジトリを Checkout します。
 2. ワークスペースで、変更済み、バージョン管理外、競合、欠落の各状態からファイルを絞り込みます。
 3. ファイルを選択して Diff を確認し、Commit ページから変更をコミットします。
 4. コミット前に Update を実行し、競合がある場合は先に解決します。

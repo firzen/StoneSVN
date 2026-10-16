@@ -92,7 +92,7 @@ export default {
     title: 'ワークスペース',
     emptyWorkspace: 'ワークスペースがありません',
     emptyDescription: '既存の SVN 作業コピーを開くか、新しい作業コピーをチェックアウトします。',
-    welcomeTitle: 'OrcaSVN へようこそ',
+    welcomeTitle: 'StoneSVN へようこそ',
     welcomeRepository: 'ようこそ',
     svnClient: 'Subversion クライアント',
     workingCopy: '作業コピー',

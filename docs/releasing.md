@@ -4,7 +4,7 @@
 
 ## 发布前
 
-将 `package.json`、`package-lock.json` 顶层及根包版本、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 的 OrcaSVN 包版本、`src-tauri/tauri.conf.json` 统一为正式版本。更新用户文档及 `docs/releases/vX.Y.Z.md`；发布流水线从该文件读取公开更新说明。
+将 `package.json`、`package-lock.json` 顶层及根包版本、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 的 StoneSVN 包版本、`src-tauri/tauri.conf.json` 统一为正式版本。更新用户文档及 `docs/releases/vX.Y.Z.md`；发布流水线从该文件读取公开更新说明。
 
 在项目根目录运行：
 
@@ -18,9 +18,13 @@ npm run check
 确认发布范围并提交、推送到 `main` 后创建标签：
 
 ```bash
-git tag -a v0.6.3 -m "OrcaSVN v0.6.3"
+git tag -a v0.6.3 -m "StoneSVN v0.6.3"
 git push origin v0.6.3
 ```
+
+## 改名兼容约定
+
+产品名称为 StoneSVN，正式仓库为 `firzen/StoneSVN`。本轮保留应用标识 `com.orcasvn.desktop`、所有旧本地存储键和现有图标，以延续已有数据。WinGet 标识仍为 `OrcaSVN.OrcaSVN`，渠道迁移另行处理。历史发行说明、审校截图及上游问题链接保留原始记录。
 
 ## 自动流程
 

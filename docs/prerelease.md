@@ -7,7 +7,7 @@
 - `package.json`
 - `package-lock.json` 顶层及根包版本（可用 `npm install --package-lock-only` 更新）
 - `src-tauri/Cargo.toml`
-- `src-tauri/Cargo.lock` 的 OrcaSVN 包版本（可用 `cargo check --manifest-path src-tauri/Cargo.toml` 更新）
+- `src-tauri/Cargo.lock` 的 StoneSVN 包版本（可用 `cargo check --manifest-path src-tauri/Cargo.toml` 更新）
 - `src-tauri/tauri.conf.json`
 
 ```powershell

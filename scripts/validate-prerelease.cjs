@@ -18,7 +18,7 @@ function readVersions(root = process.cwd()) {
   const lock = json('package-lock.json')
   const cargo = read('src-tauri/Cargo.toml').split('[package]')[1]?.split(/\n\[/)[0]
   const cargoLock = read('src-tauri/Cargo.lock').split('[[package]]')
-    .find(block => /^name = "OrcaSVN"$/m.test(block))
+    .find(block => /^name = "StoneSVN"$/m.test(block))
   return {
     'package.json': json('package.json').version,
     'package-lock.json': lock.version,

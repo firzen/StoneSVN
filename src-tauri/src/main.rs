@@ -25,7 +25,7 @@ enum OpenTarget {
     Terminal,
 }
 
-/// Workspace directory passed on the command line, e.g. `orcasvn <path>`.
+/// Workspace directory passed on the command line, e.g. `stonesvn <path>`.
 #[tauri::command]
 fn launch_workspace_path() -> Option<String> {
     launch_workspace_arg(

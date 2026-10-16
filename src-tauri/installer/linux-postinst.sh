@@ -1,6 +1,6 @@
 #!/bin/sh
-# Expose the lowercase `orcasvn` command next to the bundled /usr/bin/OrcaSVN binary.
-if [ -x /usr/bin/OrcaSVN ] && [ ! -e /usr/bin/orcasvn ]; then
-  ln -s /usr/bin/OrcaSVN /usr/bin/orcasvn
+# Expose the lowercase `stonesvn` command next to the bundled /usr/bin/StoneSVN binary.
+if [ -x /usr/bin/StoneSVN ] && [ ! -e /usr/bin/stonesvn ]; then
+  ln -s /usr/bin/StoneSVN /usr/bin/stonesvn
 fi
 exit 0

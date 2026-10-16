@@ -92,7 +92,7 @@ export default {
     title: '작업 공간',
     emptyWorkspace: '작업 공간 없음',
     emptyDescription: '기존 SVN 작업 복사본을 열거나 새 작업 복사본을 체크아웃하세요.',
-    welcomeTitle: 'OrcaSVN에 오신 것을 환영합니다',
+    welcomeTitle: 'StoneSVN에 오신 것을 환영합니다',
     welcomeRepository: '환영합니다',
     svnClient: 'Subversion 클라이언트',
     workingCopy: '작업 복사본',

@@ -1,10 +1,10 @@
-# OrcaSVN
+# StoneSVN
 
 [简体中文](README.md) | 繁體中文 | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-OrcaSVN 是一款以 Tauri、Rust 和 Vue 3 打造的跨平台 SVN 桌面用戶端。它將 Git 用戶端清晰的工作副本體驗帶到 SVN，同時保留 SVN 的集中式版本控制模式。
+StoneSVN 是一款以 Tauri、Rust 和 Vue 3 打造的跨平台 SVN 桌面用戶端。它將 Git 用戶端清晰的工作副本體驗帶到 SVN，同時保留 SVN 的集中式版本控制模式。
 
-![OrcaSVN 軟體介面](docs/images/orcasvn-workspace.png)
+![StoneSVN 軟體介面](docs/images/orcasvn-workspace.png)
 
 0.6.3 發布前的開發版介面，於 2026-10-02 使用範例工作副本資料擷取。[深色主題](docs/images/orcasvn-workspace-dark.png)。
 
@@ -19,9 +19,9 @@ OrcaSVN 是一款以 Tauri、Rust 和 Vue 3 打造的跨平台 SVN 桌面用戶�
 - 支援簡體中文、繁體中文、英文、日文和韓文
 - 支援 Windows、macOS、Linux，以及淺色與深色主題
 
-> OrcaSVN 使用本機安裝的 `svn` 命令列工具，不會自行實作 SVN 通訊協定。
+> StoneSVN 使用本機安裝的 `svn` 命令列工具，不會自行實作 SVN 通訊協定。
 
-Switch、Merge、Resolve 與受控檔案的刪除排程目前需使用其他 SVN 用戶端或命令列完成，再回到 OrcaSVN 重新整理。工作區的「刪除」按鈕用於刪除未納入版本控制的本機檔案。完整操作說明見[使用者手冊（簡體中文）](docs/user-guide.md)。
+Switch、Merge、Resolve 與受控檔案的刪除排程目前需使用其他 SVN 用戶端或命令列完成，再回到 StoneSVN 重新整理。工作區的「刪除」按鈕用於刪除未納入版本控制的本機檔案。完整操作說明見[使用者手冊（簡體中文）](docs/user-guide.md)。
 
 ## 安裝
 
@@ -31,7 +31,7 @@ Switch、Merge、Resolve 與受控檔案的刪除排程目前需使用其他 SVN
 winget install OrcaSVN.OrcaSVN
 ```
 
-你也可以從 [GitHub Releases](https://github.com/wustites/OrcaSVN/releases) 下載 Windows、macOS 或 Linux 安裝程式。
+你也可以從 [GitHub Releases](https://github.com/firzen/StoneSVN/releases) 下載 Windows、macOS 或 Linux 安裝程式。
 
 安裝後，請確認 SVN CLI 可以使用：
 
@@ -41,7 +41,7 @@ svn --version --quiet
 
 ## 快速開始
 
-1. 開啟 OrcaSVN，選擇現有的 SVN 工作副本，或透過 Checkout 簽出儲存庫。
+1. 開啟 StoneSVN，選擇現有的 SVN 工作副本，或透過 Checkout 簽出儲存庫。
 2. 在工作區依變更、未納入版本控制、衝突或遺失狀態篩選檔案。
 3. 選擇檔案檢視 Diff，確認後前往 Commit 頁面提交變更。
 4. 提交前先執行 Update，並優先解決所有衝突。

@@ -1,7 +1,7 @@
 {
-  "name": "OrcaSVN",
+  "name": "stonesvn",
   "version": "0.6.4",
-  "description": "OrcaSVN 客户端 - 基于 Tauri",
+  "description": "StoneSVN 客户端 - 基于 Tauri",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",

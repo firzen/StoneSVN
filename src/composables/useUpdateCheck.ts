@@ -3,8 +3,8 @@ import { open } from '@tauri-apps/plugin-shell'
 import packageInfo from '../../package.json'
 import { isNewerVersion } from '@/utils/version'
 
-const LATEST_RELEASE_API = 'https://api.github.com/repos/wustites/OrcaSVN/releases/latest'
-export const RELEASES_PAGE = 'https://github.com/wustites/OrcaSVN/releases'
+const LATEST_RELEASE_API = 'https://api.github.com/repos/firzen/StoneSVN/releases/latest'
+export const RELEASES_PAGE = 'https://github.com/firzen/StoneSVN/releases'
 const REQUEST_TIMEOUT_MS = 10_000
 
 export type UpdateCheckState = 'idle' | 'checking' | 'upToDate' | 'available' | 'failed'

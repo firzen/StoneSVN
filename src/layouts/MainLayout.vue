@@ -2,7 +2,7 @@
   <div class="fork-shell">
     <header class="fork-toolbar">
       <div class="toolbar-brand">
-        <button class="brand-button" aria-label="OrcaSVN" :disabled="workspaceStore.operationBusy" @click="navigateTo('workspace')">
+        <button class="brand-button" aria-label="StoneSVN" :disabled="workspaceStore.operationBusy" @click="navigateTo('workspace')">
           <span class="brand-mark">
             <svg viewBox="0 0 512 512" aria-hidden="true">
               <path d="M91 297C132 217 214 170 345 166C322 187 309 211 306 237C347 241 385 258 420 289C358 288 315 305 288 340C221 361 155 347 91 297Z" />
@@ -13,7 +13,7 @@
               <circle cx="281" cy="112" r="18" class="brand-node" />
             </svg>
           </span>
-          <span class="brand-name">OrcaSVN</span>
+          <span class="brand-name">StoneSVN</span>
         </button>
       </div>
       <nav class="toolbar-actions" :aria-label="$t('workspace.application')">
@@ -212,7 +212,7 @@ const repositoryName = computed(() => {
 
 const workspaceNameFromPath = (path: string) => path.split(/[\\/]/).filter(Boolean).pop() || path
 
-const repositoryRevision = computed(() => workspaceStore.svnInfo ? `r${workspaceStore.svnInfo.revision}` : 'OrcaSVN')
+const repositoryRevision = computed(() => workspaceStore.svnInfo ? `r${workspaceStore.svnInfo.revision}` : 'StoneSVN')
 
 const routeName = computed(() => String(route.name || 'workspace'))
 const currentRouteTitle = computed(() => {

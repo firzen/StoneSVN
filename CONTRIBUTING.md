@@ -1,6 +1,6 @@
 # Contributing
 
-感谢参与 OrcaSVN。请保持改动聚焦、可验证，并确保界面语义与 SVN CLI 行为一致。
+感谢参与 StoneSVN。请保持改动聚焦、可验证，并确保界面语义与 SVN CLI 行为一致。
 
 ## 开发流程
 

@@ -92,7 +92,7 @@ export default {
     title: 'Workspace',
     emptyWorkspace: 'No Workspace',
     emptyDescription: 'Open an existing SVN working copy or check out a new one.',
-    welcomeTitle: 'Welcome to OrcaSVN',
+    welcomeTitle: 'Welcome to StoneSVN',
     welcomeRepository: 'Welcome',
     svnClient: 'Subversion client',
     workingCopy: 'Working Copy',

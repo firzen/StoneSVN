@@ -50,7 +50,7 @@ jobs:
             fi
             gh release edit "$RELEASE_TAG" --prerelease=false --latest=false --notes-file "docs/releases/$RELEASE_TAG.md"
           else
-            gh release create "$RELEASE_TAG" --verify-tag --draft --latest=false --notes-file "docs/releases/$RELEASE_TAG.md" --title "OrcaSVN $RELEASE_TAG"
+            gh release create "$RELEASE_TAG" --verify-tag --draft --latest=false --notes-file "docs/releases/$RELEASE_TAG.md" --title "StoneSVN $RELEASE_TAG"
           fi
           # A newly created draft can take a moment to appear in the REST list.
           release_id=""
