@@ -5,7 +5,7 @@ const vm = require('node:vm')
 const ts = require('typescript')
 const vue = require('vue')
 const flush = async () => { await vue.nextTick(); await Promise.resolve(); await vue.nextTick() }
-const detail = (properties = []) => ({ editable: true, directory: false, properties, info: {}, size: 10 })
+const detail = (properties = []) => ({ editable: true, directory: false, link_target: null, properties, info: {}, size: 10 })
 const property = (name, value) => ({ name, value, binary: false })
 
 function harness(api = {}) {
@@ -193,4 +193,21 @@ test('export cancellation and changed selection do not write; failures release t
   await flush()
   assert.equal(loose.canExport.value, false)
   loose.stop()
+})
+
+
+test('symbolic links cannot export, blame or restore their target through the inspector', async () => {
+  const h = harness({ read: async () => ({ ...detail(), link_target: '/outside/node_modules', editable: false, info: { revision: 42, schedule: 'normal' } }) })
+  await flush()
+  assert.equal(h.error.value, '')
+  assert.equal(h.details.value.link_target, '/outside/node_modules')
+  assert.equal(h.canExport.value, false)
+  assert.equal(h.canBlame.value, false)
+  assert.equal(h.canRestore.value, false)
+  h.openBlame()
+  await h.exportTarget()
+  await h.restoreTarget()
+  assert.equal(h.calls.length, 0)
+  assert.equal(h.events.some(event => event[0] === 'blame'), false)
+  h.stop()
 })

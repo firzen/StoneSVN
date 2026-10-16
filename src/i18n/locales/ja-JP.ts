@@ -1,5 +1,9 @@
 export default {
   properties: {
+    symlink: "シンボリックリンク",
+    linkTarget: "リンク先パス",
+    linkReadOnly: "リンク自体の情報のみを表示し、リンク先にはアクセスしません。",
+
     export: "エクスポート",
     exportDirectory: "新しいフォルダーにエクスポート（新しい名前を入力）",
     exported: "{path} にエクスポートしました",

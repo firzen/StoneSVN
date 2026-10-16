@@ -1,5 +1,9 @@
 export default {
   properties: {
+    symlink: "软链接",
+    linkTarget: "目标路径",
+    linkReadOnly: "仅查看软链接自身信息，不访问链接目标。",
+
     export: "导出",
     exportDirectory: "导出到新目录（输入新目录名称）",
     exported: "已导出到 {path}",

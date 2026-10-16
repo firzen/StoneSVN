@@ -21,7 +21,10 @@
           <dt>{{ t('properties.name') }}</dt><dd :title="file">{{ file === '.' ? workspace.split(/[\\/]/).filter(Boolean).pop() : file.split('/').pop() }}</dd>
           <dt>{{ t('workspace.path') }}</dt><dd>{{ file }}</dd>
           <template v-if="details">
-            <dt>{{ t('properties.kind') }}</dt><dd>{{ t(details.directory ? 'properties.directory' : 'properties.file') }}</dd>
+            <dt>{{ t('properties.kind') }}</dt><dd>{{ t(details.link_target !== null ? 'properties.symlink' : details.directory ? 'properties.directory' : 'properties.file') }}</dd>
+            <template v-if="details.link_target !== null">
+              <dt>{{ t('properties.linkTarget') }}</dt><dd>{{ details.link_target }}</dd>
+            </template>
             <dt>{{ t('properties.size') }}</dt><dd>{{ details.size === null ? '—' : `${details.size.toLocaleString()} B` }}</dd>
             <dt>{{ t('properties.modified') }}</dt><dd>{{ details.modified ? new Date(details.modified).toLocaleString() : '—' }}</dd>
             <dt>{{ t('workspace.revision') }}</dt><dd>{{ details.info?.revision ?? '—' }}</dd>
@@ -35,7 +38,7 @@
           <h3>{{ t('workspace.repository') }}</h3>
           <dl><dt>URL</dt><dd>{{ details.info.url }}</dd></dl>
         </section>
-        <p v-if="!details.editable" class="inspector-note">{{ t(details.info ? 'properties.readOnly' : 'properties.addFirst') }}</p>
+        <p v-if="!details.editable" class="inspector-note">{{ t(details.link_target !== null ? 'properties.linkReadOnly' : details.info ? 'properties.readOnly' : 'properties.addFirst') }}</p>
         <fieldset :disabled="disabled || saving || !details.editable">
           <section>
             <h3>{{ t('properties.title') }}</h3>
@@ -96,7 +99,7 @@ const fetching = ref(false)
 const saving = ref(false)
 const error = ref('')
 const exporting = ref(false)
-const canExport = computed(() => Boolean(props.file && details.value?.info
+const canExport = computed(() => Boolean(props.file && details.value?.info && !details.value.link_target
   && details.value.info.schedule !== 'delete' && !['deleted', 'missing'].includes(props.status?.status_code || '')
   && !fetching.value && !saving.value && !exporting.value && !props.disabled && !store.operationBusy))
 async function exportTarget() {
@@ -114,7 +117,7 @@ async function exportTarget() {
   finally { exporting.value = false; emit('busy', false); store.setOperationBusy(false) }
 }
 const canBlame = computed(() => Boolean(props.file && details.value?.info && details.value.info.revision > 0
-  && !details.value.directory && !fetching.value && !saving.value && !props.disabled && !store.operationBusy))
+  && !details.value.directory && !details.value.link_target && !fetching.value && !saving.value && !props.disabled && !store.operationBusy))
 function openBlame() { if (canBlame.value) emit('blame', props.file) }
 const values = ref<Record<string, string>>({})
 const original = ref<Record<string, string>>({})

@@ -1,5 +1,9 @@
 export default {
   properties: {
+    symlink: "Symbolic link",
+    linkTarget: "Target path",
+    linkReadOnly: "Only the link itself is inspected; its target is not accessed.",
+
     export: "Export",
     exportDirectory: "Export to a new folder (enter a new folder name)",
     exported: "Exported to {path}",

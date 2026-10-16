@@ -1,5 +1,9 @@
 export default {
   properties: {
+    symlink: "심볼릭 링크",
+    linkTarget: "대상 경로",
+    linkReadOnly: "링크 자체의 정보만 표시하며 링크 대상에는 접근하지 않습니다。",
+
     export: "내보내기",
     exportDirectory: "새 폴더로 내보내기 (새 폴더 이름 입력)",
     exported: "{path}(으)로 내보냈습니다",

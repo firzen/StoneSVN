@@ -99,6 +99,7 @@ export interface SvnProperty {
 }
 
 export interface PropertyDetails {
+  link_target: string | null
   info: SvnInfo | null
   directory: boolean
   size: number | null

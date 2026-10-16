@@ -15,6 +15,7 @@ pub struct SvnProperty {
 pub struct PropertyDetails {
     pub info: Option<crate::SvnInfo>,
     pub directory: bool,
+    pub link_target: Option<String>,
     pub size: Option<u64>,
     pub modified: Option<String>,
     pub editable: bool,
@@ -22,10 +23,27 @@ pub struct PropertyDetails {
 }
 
 fn target_path(workspace: &str, file: &str) -> Result<PathBuf, SvnError> {
+    checked_target_path(workspace, file, false)
+}
+
+// Inspection may read a link entry, but must still validate its parent.
+// Listing and mutations continue to validate the resolved target itself.
+fn checked_target_path(
+    workspace: &str,
+    file: &str,
+    inspect_link: bool,
+) -> Result<PathBuf, SvnError> {
     let root = fs::canonicalize(workspace).map_err(|e| SvnError::CommandFailed(e.to_string()))?;
     let target = crate::resolve_workspace_child(&root, file).map_err(SvnError::InvalidArguments)?;
     // Check the nearest existing ancestor too, including symlinked directories.
-    let mut ancestor = target.as_path();
+    let mut ancestor =
+        if inspect_link && fs::symlink_metadata(&target).is_ok_and(|m| m.is_symlink()) {
+            target
+                .parent()
+                .ok_or_else(|| SvnError::InvalidArguments(file.into()))?
+        } else {
+            target.as_path()
+        };
     while !ancestor.exists() {
         ancestor = ancestor
             .parent()
@@ -256,8 +274,18 @@ fn parse_properties(xml: &str) -> Result<Vec<SvnProperty>, SvnError> {
 }
 
 pub async fn property_details(workspace: &str, file: &str) -> Result<PropertyDetails, SvnError> {
-    let target = target_path(workspace, file)?;
+    let target = checked_target_path(workspace, file, true)?;
     let metadata = fs::symlink_metadata(&target).ok();
+    let link_target = if metadata.as_ref().is_some_and(|m| m.is_symlink()) {
+        Some(
+            fs::read_link(&target)
+                .map_err(|e| SvnError::CommandFailed(e.to_string()))?
+                .to_string_lossy()
+                .into_owned(),
+        )
+    } else {
+        None
+    };
     let svn_target = super::operations::normalize_svn_target(&target.to_string_lossy());
     let info = match execute_svn(&["info", "--xml", "--", &svn_target], Some(workspace)).await {
         Ok(xml) => Some(super::parser::parse_info_xml(&xml)?),
@@ -274,8 +302,9 @@ pub async fn property_details(workspace: &str, file: &str) -> Result<PropertyDet
         .as_ref()
         .map(|info| info.node_kind == "dir")
         .unwrap_or_else(|| metadata.as_ref().is_some_and(|m| m.is_dir()));
-    let editable =
-        info.as_ref().is_some_and(|info| info.schedule != "delete") && metadata.is_some();
+    let editable = info.as_ref().is_some_and(|info| info.schedule != "delete")
+        && metadata.is_some()
+        && (link_target.is_none() || target_path(workspace, file).is_ok());
     let properties = if info.as_ref().is_some_and(|info| info.schedule != "delete") {
         let target = super::operations::normalize_svn_target(&target.to_string_lossy());
         parse_properties(
@@ -299,6 +328,7 @@ pub async fn property_details(workspace: &str, file: &str) -> Result<PropertyDet
     Ok(PropertyDetails {
         info,
         directory,
+        link_target,
         editable,
         properties,
         size: metadata.as_ref().filter(|m| m.is_file()).map(|m| m.len()),
@@ -520,6 +550,53 @@ mod tests {
                     .unwrap()
                     .success());
                 let wc = workspace.to_str().unwrap();
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::symlink;
+                    let outside = fs::canonicalize(&root).unwrap();
+                    symlink(&outside, workspace.join("outside")).unwrap();
+                    symlink("missing-target", workspace.join("broken")).unwrap();
+                    symlink(&outside, root.join("another-link")).unwrap();
+                    for (file, expected) in [
+                        ("outside", outside.to_string_lossy().into_owned()),
+                        ("broken", "missing-target".to_string()),
+                    ] {
+                        let details = property_details(wc, file).await.unwrap();
+                        assert_eq!(details.link_target.as_deref(), Some(expected.as_str()));
+                        assert!(details.info.is_none());
+                        assert!(!details.directory);
+                        assert!(!details.editable);
+                        assert!(workspace_children(wc, file).is_err());
+                        assert!(set_property(wc, file, "test:blocked", Some("value"))
+                            .await
+                            .is_err());
+                    }
+                    // Allowing inspection of the final link must not allow traversal
+                    // through a link in a parent component, even to another link.
+                    assert!(property_details(wc, "outside/another-link").await.is_err());
+                    assert!(property_details(wc, "outside/repo").await.is_err());
+                    assert!(property_details(wc, "../another-link").await.is_err());
+                    let children = workspace_children(wc, ".").unwrap();
+                    assert!(
+                        !children
+                            .iter()
+                            .find(|child| child.name == "outside")
+                            .unwrap()
+                            .expandable
+                    );
+                    // Versioned links retain SVN metadata and their stored link path.
+                    symlink("../repo", workspace.join("versioned-link")).unwrap();
+                    assert!(Command::new("svn")
+                        .args(["add", "versioned-link"])
+                        .current_dir(&workspace)
+                        .status()
+                        .unwrap()
+                        .success());
+                    let details = property_details(wc, "versioned-link").await.unwrap();
+                    assert_eq!(details.link_target.as_deref(), Some("../repo"));
+                    assert_eq!(details.info.unwrap().schedule, "add");
+                    assert!(!details.editable);
+                }
                 fs::create_dir(workspace.join("dir")).unwrap();
                 fs::write(workspace.join("dir/file@测试.txt"), "one\ntwo\n").unwrap();
                 assert!(Command::new("svn")

@@ -102,7 +102,7 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="date" :label="$t('log.date')" width="180" sortable>
+          <el-table-column prop="date" :label="$t('log.date')" width="240" sortable>
             <template #default="{ row }">
               <div class="date-cell">
                 <el-icon><Calendar /></el-icon>
@@ -834,6 +834,10 @@ onUnmounted(() => {
   flex-shrink: 0;
   font-size: var(--app-font-size-body);
   color: var(--el-text-color-secondary);
+}
+
+.date-cell {
+  white-space: nowrap;
 }
 
 .author-cell span {

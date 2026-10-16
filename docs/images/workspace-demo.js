@@ -44,7 +44,7 @@ export default (async () => {
       }
       if (command === 'svn_property_details') return {
         info: { ...info, path: args.file, url: `${info.url}/${args.file}`, node_kind: 'file' },
-        directory: false, size: 256, modified: '2026-10-16T02:00:00Z', editable: true,
+        directory: false, link_target: null, size: 256, modified: '2026-10-16T02:00:00Z', editable: true,
         properties: [
           { name: 'svn:eol-style', value: 'LF', binary: false },
           { name: 'svn:mime-type', value: 'text/plain', binary: false },

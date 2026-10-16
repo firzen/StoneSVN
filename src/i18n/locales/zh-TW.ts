@@ -1,5 +1,9 @@
 export default {
   properties: {
+    symlink: "符號連結",
+    linkTarget: "目標路徑",
+    linkReadOnly: "僅檢視符號連結本身的資訊，不存取連結目標。",
+
     export: "匯出",
     exportDirectory: "匯出到新目錄（輸入新目錄名稱）",
     exported: "已匯出到 {path}",
