@@ -31,6 +31,8 @@ Switch, general-purpose Merge, and conflict Resolve currently require another SV
 
 Download installers for Windows, macOS, and Linux from [GitHub Releases](https://github.com/firzen/StoneSVN/releases).
 
+The app uses an external SVN CLI. On Windows, multilingual paths and property values depend on that CLI’s Unicode and code-page support.
+
 After installation, make sure the SVN CLI is available:
 
 ```bash
