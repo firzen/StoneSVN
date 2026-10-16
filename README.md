@@ -31,7 +31,9 @@ Switch、通用 Merge 和冲突 Resolve 目前需使用其他 SVN 客户端或�
 
 macOS 安装包按芯片类型区分：Intel Mac 选择文件名含 `x64` 的 DMG；M 系列 Mac 选择 `aarch64`。可在「关于本机」确认芯片类型。
 
-应用使用外部 SVN CLI。macOS 未指定 SVN 路径时，会依次探测 PATH、Homebrew 与 MacPorts 的常见安装位置；自定义路径仍按设置使用。Windows 上的中文路径与属性值处理取决于所用 SVN 的 Unicode／代码页支持；若出现字符替换，需使用支持相应字符的 SVN 命令行环境。
+应用使用外部 SVN CLI。Windows 上的中文路径与属性值处理取决于所用 SVN 的 Unicode／代码页支持；若出现字符替换，需使用支持相应字符的 SVN 命令行环境。
+
+当前开发版在 Windows、macOS、Linux 上自动探测 PATH 与常见 SVN 安装位置。探测失败时显示配置窗口，填写或选择可执行文件并通过验证后才能使用；无效路径不会保存。该改动尚未发布，v1.0.0 可在「设置」中手动填写 SVN 完整路径。
 
 安装后请确认 SVN CLI 可用：
 
@@ -92,7 +94,7 @@ npm run check
 
 详细环境配置和常见问题见 [SETUP.md](SETUP.md)，贡献约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-当前正式版本为 **1.0.1**，更新内容见 [发布说明](docs/releases/v1.0.1.md)。正式发布步骤见 [发布流程](docs/releasing.md)，候选版本见 [预发布说明](docs/prerelease.md)，与 v0.6.2 的性能对照及测量边界见 [性能基准](docs/workspace-startup-benchmark.md)。
+当前正式版本为 **1.0.0**，更新内容见 [发布说明](docs/releases/v1.0.0.md)。正式发布步骤见 [发布流程](docs/releasing.md)，候选版本见 [预发布说明](docs/prerelease.md)，与 v0.6.2 的性能对照及测量边界见 [性能基准](docs/workspace-startup-benchmark.md)。
 
 ## 项目结构
 

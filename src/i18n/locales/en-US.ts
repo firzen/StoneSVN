@@ -113,6 +113,14 @@ export default {
     forget: "Remove exception",
     forgotten: "Server exception removed; future connections will be verified again",
   },
+  svnSetup: {
+    title: 'Configure SVN path',
+    description: 'No usable SVN command-line tool was found. Install SVN and enter or select its executable. Validation must succeed before continuing.',
+    failed: 'SVN path detection failed',
+    hint: 'Select svn.exe on Windows or svn on macOS and Linux. Enter the full executable path, not a workspace or installation directory.',
+    detect: 'Detect again',
+    apply: 'Validate and continue',
+  },
   settings: {
     appearance: 'Appearance',
     svnSettings: 'SVN Configuration',

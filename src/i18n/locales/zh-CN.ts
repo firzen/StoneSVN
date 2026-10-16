@@ -113,6 +113,14 @@ export default {
     forget: "移除例外",
     forgotten: "已移除服务器例外，下次连接将重新验证",
   },
+  svnSetup: {
+    title: '配置 SVN 路径',
+    description: '未找到可用的 SVN 命令行工具。请安装 SVN，并填写或选择 svn 可执行文件，验证通过后才能正常使用。',
+    failed: 'SVN 路径检测失败',
+    hint: 'Windows 选择 svn.exe；macOS 和 Linux 选择 svn 文件。填写可执行文件的完整路径，而非工作区或安装目录。',
+    detect: '重新自动探测',
+    apply: '验证并继续',
+  },
   settings: {
     appearance: '外观',
     svnSettings: 'SVN 配置',

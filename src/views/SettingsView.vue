@@ -57,7 +57,8 @@
 
           <el-form-item :label="$t('settings.svnPath')" class="form-item">
             <el-input
-              v-model="settings.svnPath"
+              v-model="svnPathDraft"
+              :disabled="runtime.checking"
               :placeholder="$t('settings.svnPathPlaceholder')"
               class="settings-control settings-path-input"
               clearable
@@ -155,10 +156,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus/es/components/message/index'
-import { configureSvnExecutable, configureSvnServerSecurity } from '@/api/svn'
+import { configureSvnServerSecurity } from '@/api/svn'
+import { useSvnRuntime } from '@/composables/useSvnRuntime'
 import { useLocale } from '@/composables/useLocale'
 import { useSettings } from '@/composables/useSettings'
 import { applyTheme } from '@/composables/useTheme'
@@ -168,6 +170,9 @@ import { useUpdateCheck } from '@/composables/useUpdateCheck'
 const { t } = useI18n()
 const { setLocale } = useLocale()
 const { settings, updateSettings } = useSettings()
+const { runtime, configure } = useSvnRuntime()
+const svnPathDraft = ref(settings.svnPath)
+watch(() => settings.svnPath, value => { svnPathDraft.value = value })
 const filterRulesDraft = ref(settings.filterRules)
 const removingServer = ref<string | null>(null)
 const { refreshStatusAfterMutation } = useWorkspace()
@@ -196,11 +201,8 @@ const handleFilterRulesChange = () => {
 }
 
 const handleSvnPathChange = async (value: string) => {
-  try {
-    const version = await configureSvnExecutable(value)
-    ElMessage.success(t('settings.svnPathApplied', { version }))
-  } catch (err) {
-    ElMessage.error(t('settings.svnPathInvalid', { error: String(err) }))
+  if (await configure(value)) {
+    ElMessage.success(t('settings.svnPathApplied', { version: runtime.version }))
   }
 }
 

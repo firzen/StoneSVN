@@ -92,33 +92,119 @@ async fn execute_svn_with_configurations(
 }
 
 pub async fn configure_svn_executable(executable: Option<&str>) -> Result<String, SvnError> {
-    let explicit = executable.map(str::trim).filter(|value| !value.is_empty());
-    #[allow(unused_mut)]
-    let mut candidates = vec![normalize_svn_executable(explicit)];
-    #[cfg(target_os = "macos")]
-    if explicit.is_none() {
-        // Finder launches do not inherit Homebrew/MacPorts paths from a shell.
-        // Probe known locations without sourcing shell profiles or changing PATH.
-        candidates.extend([
-            PathBuf::from("/opt/homebrew/bin/svn"),
-            PathBuf::from("/usr/local/bin/svn"),
-            PathBuf::from("/opt/local/bin/svn"),
-        ]);
-    }
+    let candidates = svn_executable_candidates(executable, std::env::consts::OS, |key| {
+        std::env::var_os(key)
+    });
     let mut failure = SvnError::SvnNotFound;
     for candidate in candidates {
-        match execute_svn_inner(candidate.clone(), &["--version", "--quiet"], None).await {
-            Ok(version) => {
+        // Missing fixed paths need no subprocess. Bound each probe so a broken
+        // installation cannot hold the setup screen for the operation timeout.
+        if candidate.is_absolute() && !candidate.is_file() {
+            continue;
+        }
+        let probe = timeout(
+            Duration::from_secs(3),
+            execute_svn_inner(candidate.clone(), &["--version", "--quiet"], None),
+        )
+        .await
+        .unwrap_or(Err(SvnError::Timeout));
+        match probe {
+            Ok(version) if valid_svn_version(&version) => {
                 let mut configured = svn_executable_lock().write().map_err(|_| {
                     SvnError::CommandFailed("SVN 可执行文件配置锁已损坏".to_string())
                 })?;
                 *configured = candidate;
                 return Ok(version.trim().to_string());
             }
+            Ok(_) => failure = SvnError::CommandFailed("SVN 版本输出无效".to_string()),
             Err(error) => failure = error,
         }
     }
     Err(failure)
+}
+
+fn valid_svn_version(version: &str) -> bool {
+    let core = version.trim().split('-').next().unwrap_or_default();
+    let parts: Vec<_> = core.split('.').collect();
+    parts.len() == 3
+        && parts
+            .iter()
+            .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()))
+}
+
+fn svn_executable_candidates(
+    executable: Option<&str>,
+    platform: &str,
+    env_value: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Vec<PathBuf> {
+    let explicit = executable.map(str::trim).filter(|value| !value.is_empty());
+    if explicit.is_some() {
+        return vec![normalize_svn_executable(explicit)];
+    }
+    let mut candidates = vec![PathBuf::from("svn")];
+    match platform {
+        "macos" => candidates.extend(
+            [
+                "/opt/homebrew/bin/svn",
+                "/usr/local/bin/svn",
+                "/opt/local/bin/svn",
+                "/usr/bin/svn",
+            ]
+            .map(PathBuf::from),
+        ),
+        "windows" => {
+            for key in ["ProgramW6432", "ProgramFiles", "ProgramFiles(x86)"] {
+                if let Some(root) = env_value(key).filter(|value| !value.is_empty()) {
+                    let root = PathBuf::from(root);
+                    for relative in [
+                        "SlikSvn/bin/svn.exe",
+                        "TortoiseSVN/bin/svn.exe",
+                        "VisualSVN/bin/svn.exe",
+                        "CollabNet/Subversion Client/svn.exe",
+                    ] {
+                        candidates.push(root.join(relative));
+                    }
+                }
+            }
+            if let Some(root) = env_value("ChocolateyInstall").filter(|value| !value.is_empty()) {
+                candidates.push(PathBuf::from(root).join("bin/svn.exe"));
+            }
+            if let Some(root) = env_value("USERPROFILE").filter(|value| !value.is_empty()) {
+                let root = PathBuf::from(root);
+                for relative in [
+                    "scoop/shims/svn.exe",
+                    "scoop/apps/subversion/current/bin/svn.exe",
+                ] {
+                    candidates.push(root.join(relative));
+                }
+            }
+            if let Some(root) = env_value("LOCALAPPDATA").filter(|value| !value.is_empty()) {
+                candidates.push(PathBuf::from(root).join("Programs/SlikSvn/bin/svn.exe"));
+            }
+        }
+        _ => {
+            candidates.extend(
+                [
+                    "/usr/bin/svn",
+                    "/usr/local/bin/svn",
+                    "/bin/svn",
+                    "/snap/bin/svn",
+                    "/opt/subversion/bin/svn",
+                ]
+                .map(PathBuf::from),
+            );
+            if let Some(home) = env_value("HOME").filter(|value| !value.is_empty()) {
+                candidates.push(PathBuf::from(home).join(".local/bin/svn"));
+            }
+        }
+    }
+    let mut unique = Vec::new();
+    for candidate in candidates {
+        if !unique.contains(&candidate) {
+            unique.push(candidate);
+        }
+    }
+    unique
 }
 
 fn normalize_svn_executable(executable: Option<&str>) -> PathBuf {
@@ -583,6 +669,61 @@ mod tests {
     fn empty_executable_uses_default_command() {
         assert_eq!(normalize_svn_executable(Some("   ")), Path::new("svn"));
         assert_eq!(normalize_svn_executable(None), Path::new("svn"));
+    }
+
+    #[test]
+    fn discovery_covers_supported_platforms_without_overriding_explicit_paths() {
+        let env_value = |name: &str| match name {
+            "ProgramFiles" | "ProgramW6432" => Some("C:/Program Files".into()),
+            "ProgramFiles(x86)" => Some("C:/Program Files (x86)".into()),
+            "ChocolateyInstall" => Some("C:/ProgramData/chocolatey".into()),
+            "USERPROFILE" => Some("C:/Users/demo".into()),
+            "LOCALAPPDATA" => Some("C:/Users/demo/AppData/Local".into()),
+            "HOME" => Some("/home/demo".into()),
+            _ => None,
+        };
+        for platform in ["windows", "macos", "linux"] {
+            assert_eq!(
+                svn_executable_candidates(Some(" /custom/svn "), platform, env_value),
+                vec![PathBuf::from("/custom/svn")]
+            );
+            assert_eq!(
+                svn_executable_candidates(Some(" "), platform, env_value),
+                svn_executable_candidates(None, platform, env_value)
+            );
+        }
+        let windows = svn_executable_candidates(None, "windows", env_value);
+        assert_eq!(windows[0], PathBuf::from("svn"));
+        for root in ["C:/Program Files", "C:/Program Files (x86)"] {
+            for tool in ["SlikSvn", "TortoiseSVN", "VisualSVN"] {
+                assert!(windows.contains(&PathBuf::from(root).join(tool).join("bin/svn.exe")));
+            }
+        }
+        assert!(windows.contains(&PathBuf::from("C:/ProgramData/chocolatey").join("bin/svn.exe")));
+        assert!(windows.contains(&PathBuf::from("C:/Users/demo").join("scoop/shims/svn.exe")));
+        let mut unique = windows.clone();
+        unique.sort();
+        unique.dedup();
+        assert_eq!(windows.len(), unique.len());
+        assert!(svn_executable_candidates(None, "macos", env_value)
+            .contains(&PathBuf::from("/opt/homebrew/bin/svn")));
+        assert!(svn_executable_candidates(None, "macos", env_value)
+            .contains(&PathBuf::from("/opt/local/bin/svn")));
+        let linux = svn_executable_candidates(None, "linux", env_value);
+        assert!(linux.contains(&PathBuf::from("/usr/bin/svn")));
+        assert!(linux.contains(&PathBuf::from("/home/demo").join(".local/bin/svn")));
+        assert!(!svn_executable_candidates(None, "windows", |_| None)
+            .contains(&PathBuf::from("bin/svn.exe")));
+    }
+
+    #[test]
+    fn discovery_requires_an_svn_version_response() {
+        for version in ["1.14.5\n", " 1.14.2 ", "1.15.0-dev"] {
+            assert!(valid_svn_version(version));
+        }
+        for version in ["", "hello", "1.14", "svn 1.14.5", "1..5", "1.14.5\nwarning"] {
+            assert!(!valid_svn_version(version));
+        }
     }
 
     #[test]

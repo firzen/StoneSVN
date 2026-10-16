@@ -8,7 +8,7 @@ StoneSVN is a cross-platform SVN desktop client built with Tauri, Rust, and Vue 
 
 Development UI from the current source, captured on 2026-10-16 with fictional projects, paths, and diffs. No real repository or personal data is shown. [Dark theme](docs/images/orcasvn-workspace-dark.png).
 
-Current stable version: **1.0.1**. See the [release notes](docs/releases/v1.0.1.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
+Current stable version: **1.0.0**. See the [release notes](docs/releases/v1.0.0.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
 
 ## Features
 

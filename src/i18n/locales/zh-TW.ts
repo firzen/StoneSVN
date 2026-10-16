@@ -113,6 +113,14 @@ export default {
     forget: "移除例外",
     forgotten: "已移除伺服器例外，下次連線將重新驗證",
   },
+  svnSetup: {
+    title: '設定 SVN 路徑',
+    description: '找不到可用的 SVN 命令列工具。請安裝 SVN，並填寫或選擇 svn 可執行檔，驗證通過後才能正常使用。',
+    failed: 'SVN 路徑偵測失敗',
+    hint: 'Windows 選擇 svn.exe；macOS 和 Linux 選擇 svn 檔案。請填寫可執行檔的完整路徑，而非工作區或安裝目錄。',
+    detect: '重新自動偵測',
+    apply: '驗證並繼續',
+  },
   settings: {
     appearance: '外觀',
     svnSettings: 'SVN 設定',

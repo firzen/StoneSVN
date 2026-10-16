@@ -113,6 +113,14 @@ export default {
     forget: "예외 삭제",
     forgotten: "서버 예외가 삭제되었습니다. 다음 연결 시 다시 검증합니다",
   },
+  svnSetup: {
+    title: 'SVN 경로 설정',
+    description: '사용 가능한 SVN 명령줄 도구를 찾지 못했습니다. SVN을 설치한 뒤 실행 파일을 입력하거나 선택하세요. 검증에 성공해야 계속 사용할 수 있습니다.',
+    failed: 'SVN 경로 감지 실패',
+    hint: 'Windows에서는 svn.exe, macOS와 Linux에서는 svn 파일을 선택하세요. 작업 사본이나 설치 폴더가 아닌 실행 파일의 전체 경로를 입력하세요.',
+    detect: '다시 자동 감지',
+    apply: '검증 후 계속',
+  },
   settings: {
     appearance: '모양',
     svnSettings: 'SVN 설정',

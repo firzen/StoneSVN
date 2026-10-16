@@ -1,14 +1,18 @@
 <template>
   <el-config-provider :locale="elementLocale">
-    <router-view />
+    <router-view v-if="runtime.initialized" />
+    <SvnSetupDialog />
   </el-config-provider>
 </template>
 
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount } from 'vue'
 import { useLocale } from './composables/useLocale'
+import { useSvnRuntime } from './composables/useSvnRuntime'
+import SvnSetupDialog from './components/SvnSetupDialog.vue'
 
 const { elementLocale } = useLocale()
+const { runtime } = useSvnRuntime()
 
 const restrictContextMenu = (event: MouseEvent) => {
   const target = event.target

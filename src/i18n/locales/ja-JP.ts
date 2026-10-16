@@ -113,6 +113,14 @@ export default {
     forget: "例外を削除",
     forgotten: "サーバーの例外を削除しました。次回の接続時に再検証します",
   },
+  svnSetup: {
+    title: 'SVN パスの設定',
+    description: '利用可能な SVN コマンドラインツールが見つかりません。SVN をインストールし、実行ファイルを指定してください。検証に成功すると利用できます。',
+    failed: 'SVN パスの検出に失敗しました',
+    hint: 'Windows は svn.exe、macOS と Linux は svn を選択してください。作業コピーやインストール先のフォルダーではなく、実行ファイルのフルパスを指定します。',
+    detect: '再度自動検出',
+    apply: '検証して続行',
+  },
   settings: {
     appearance: '外観',
     svnSettings: 'SVN 設定',

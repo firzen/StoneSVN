@@ -43,7 +43,15 @@ npm run tauri build
 
 ### 找不到 SVN
 
-确保 `svn` 位于当前用户的 `PATH` 中，然后重新启动 StoneSVN。
+当前开发版启动时先验证自定义路径；未指定时，自动探测 PATH 与系统常见位置：
+
+- Windows：SlikSVN、TortoiseSVN、VisualSVN、CollabNet 的标准安装目录，以及 Chocolatey、Scoop 和用户安装目录。
+- macOS：Homebrew（`/opt/homebrew/bin/svn`、`/usr/local/bin/svn`）、MacPorts（`/opt/local/bin/svn`）及系统目录。
+- Linux：`/usr/bin/svn`、`/usr/local/bin/svn`、`/bin/svn`、`/snap/bin/svn`、`/opt/subversion/bin/svn` 和 `~/.local/bin/svn`。
+
+探测失败时显示「配置 SVN 路径」窗口。先安装 SVN CLI，再填写完整文件路径，或使用「浏览」选择 `svn.exe`（Windows）／`svn`（macOS、Linux）。选择安装目录或工作区无效。点击「验证并继续」，通过验证后才加载工作区；无效配置不会保存。也可点击「重新自动探测」。
+
+以上流程尚未发布。v1.0.0 可在「设置」中手动填写可执行文件路径。例如 Intel Mac 的 Homebrew 常见路径为 `/usr/local/bin/svn`。
 
 ### Windows 编译失败
 
