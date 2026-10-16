@@ -6,12 +6,15 @@ StoneSVN is a cross-platform SVN desktop client built with Tauri, Rust, and Vue 
 
 ![StoneSVN application interface](docs/images/orcasvn-workspace.png)
 
-Development UI captured before the 0.6.3 release on 2026-10-02 with example workspace data. [Dark theme](docs/images/orcasvn-workspace-dark.png).
+Development UI from the current source, captured on 2026-10-16 with fictional projects, paths, and diffs. No real repository or personal data is shown. [Dark theme](docs/images/orcasvn-workspace-dark.png).
 
-Current stable version: **0.6.3**. See the [release notes](docs/releases/v0.6.3.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
+Current stable version: **0.6.4**. See the [release notes](docs/releases/v0.6.4.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
 
 ## Features
 
+- Switch working copies from a persistent project sidebar, reorder projects, resize the sidebar, and access common actions from the top toolbar
+- Preview text diffs and images, with external open actions for binary files and directories
+- Browse file and directory properties in a project tree and edit common SVN properties and custom text properties; commit separately after applying
 - View local changes, unversioned files, conflicts, and missing files in `git status`-style groups
 - Check out, update, select files or directories to commit, add files, revert changes, and clean up working copies
 - Save local changes in stashes by file or text hunk and restore them to the original workspace

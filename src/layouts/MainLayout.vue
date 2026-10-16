@@ -4,14 +4,7 @@
       <div class="toolbar-brand">
         <button class="brand-button" aria-label="StoneSVN" :disabled="workspaceStore.operationBusy" @click="navigateTo('workspace')">
           <span class="brand-mark">
-            <svg viewBox="0 0 512 512" aria-hidden="true">
-              <path d="M91 297C132 217 214 170 345 166C322 187 309 211 306 237C347 241 385 258 420 289C358 288 315 305 288 340C221 361 155 347 91 297Z" />
-              <path d="M153 288C188 238 233 209 290 201C270 232 269 263 286 294C235 310 191 308 153 288Z" class="brand-cut" />
-              <path d="M326 207V143M326 143L374 114M326 143L281 112" class="brand-branch" />
-              <circle cx="326" cy="207" r="18" class="brand-node" />
-              <circle cx="374" cy="114" r="18" class="brand-node" />
-              <circle cx="281" cy="112" r="18" class="brand-node" />
-            </svg>
+            <img src="/stone.svg" alt="" aria-hidden="true" />
           </span>
           <span class="brand-name">StoneSVN</span>
         </button>
@@ -21,7 +14,7 @@
           <el-icon><FolderOpened /></el-icon><span>{{ $t('menu.workspace') }}</span>
         </button>
         <button class="tool-button" :class="{ active: routeName === 'log' }" :aria-current="routeName === 'log' ? 'page' : undefined" :title="$t('menu.log')" :disabled="workspaceStore.operationBusy" @click="navigateTo('log')">
-          <el-icon><List /></el-icon><span>{{ $t('menu.log') }}</span>
+          <el-icon><GitBranch /></el-icon><span>{{ $t('menu.log') }}</span>
         </button>
         <button class="tool-button" :class="{ active: routeName === 'properties' }" :aria-current="routeName === 'properties' ? 'page' : undefined" :title="$t('properties.title')" :disabled="workspaceStore.operationBusy" @click="navigateTo('properties')">
           <el-icon><PropertyIcon /></el-icon><span>{{ $t('properties.title') }}</span>
@@ -176,6 +169,7 @@ import { useUpdateCheck } from '@/composables/useUpdateCheck'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import {
   Archive,
+  GitBranch,
   Properties as PropertyIcon,
   Code,
   OpenIn,
@@ -333,12 +327,12 @@ onUnmounted(() => {
 .fork-toolbar {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(170px, 1fr) minmax(0, auto) minmax(170px, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
   min-height: var(--app-size-toolbar);
   padding: 10px 18px;
-  background: var(--md-sys-color-surface-container-lowest);
+  background: var(--app-color-toolbar);
   border-bottom: 1px solid var(--md-sys-color-outline-variant);
   box-shadow: none;
 }
@@ -355,7 +349,8 @@ onUnmounted(() => {
 }
 
 .toolbar-brand { display: flex; align-items: center; }
-.toolbar-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; min-width: 0; }
+.toolbar-actions { display: flex; flex-wrap: nowrap; justify-content: safe center; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.toolbar-actions > * { flex-shrink: 0; }
 
 .brand-button {
   display: flex;
@@ -384,31 +379,14 @@ onUnmounted(() => {
   height: var(--app-size-control-compact);
   border-radius: 11px;
   color: var(--md-sys-color-on-primary);
-  background: var(--md-sys-color-primary);
+  background: transparent;
   box-shadow: none;
 }
 
-.brand-mark svg {
-  width: var(--app-size-icon-lg);
-  fill: currentColor;
-}
-
-.brand-mark .brand-cut {
-  fill: var(--md-sys-color-primary-active);
-}
-
-.brand-mark .brand-branch {
-  fill: none;
-  stroke: #73d6c9;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 20px;
-}
-
-.brand-mark .brand-node {
-  fill: #fff;
-  stroke: #73d6c9;
-  stroke-width: 13px;
+.brand-mark img {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .brand-name {
@@ -611,23 +589,39 @@ onUnmounted(() => {
   min-width: 0;
   min-height: 0;
   padding: 14px 10px;
-  background: var(--md-sys-color-surface-container-lowest);
+  background: var(--app-color-sidebar);
   border-right: 1px solid var(--md-sys-color-outline-variant);
 }
 
-.project-heading { display: flex; justify-content: space-between; gap: 8px; padding: 4px 10px 14px; color: var(--md-sys-color-on-surface-variant); font-size: var(--app-font-size-sm); }
+.project-heading { display: flex; justify-content: space-between; gap: 8px; padding: 4px 10px 14px; color: var(--app-color-sidebar-text); font-size: var(--app-font-size-sm); }
 .project-list { display: flex; flex-direction: column; gap: 4px; min-height: 0; overflow: auto; }
 .project-list > :deep(.el-dropdown) { display: block; flex-shrink: 0; min-width: 0; }
-.project-item, .project-add { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 10px; border: 0; border-radius: var(--app-radius-sm); color: var(--md-sys-color-on-surface-variant); background: transparent; font: inherit; font-size: var(--app-font-size-label); text-align: left; cursor: pointer; }
-.project-item:hover, .project-add:hover { color: var(--md-sys-color-on-surface); background: var(--md-sys-state-hover); }
-.project-item.active { color: var(--md-sys-color-on-primary-container); background: var(--md-sys-color-primary-container); }
+.project-item, .project-add { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 10px; border: 0; border-radius: var(--app-radius-sm); color: var(--app-color-sidebar-text); background: transparent; font: inherit; font-size: var(--app-font-size-label); text-align: left; cursor: pointer; }
+.project-item:hover, .project-add:hover { color: var(--app-color-sidebar-selected-text); background: var(--app-color-sidebar-hover); }
+.project-item.active { color: var(--app-color-sidebar-selected-text); background: var(--app-color-sidebar-selected); }
 .project-item:disabled, .project-add:disabled { cursor: not-allowed; opacity: .6; }
 .project-copy { display: flex; flex: 1; flex-direction: column; min-width: 0; gap: 3px; }
 .project-copy strong, .project-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.project-copy small { color: var(--md-sys-color-on-surface-variant); font-size: var(--app-font-size-xs); }
+.project-copy small { color: var(--app-color-sidebar-muted); font-size: var(--app-font-size-xs); }
 .project-count { font-size: var(--app-font-size-xs); font-variant-numeric: tabular-nums; }
-.project-add { margin-top: auto; flex-shrink: 0; }
-.project-empty { padding: 8px 10px; color: var(--md-sys-color-on-surface-variant); font-size: var(--app-font-size-sm); }
+.project-add {
+  margin-top: auto;
+  flex-shrink: 0;
+  justify-content: center;
+  color: var(--md-sys-color-on-primary);
+  background: var(--md-sys-color-primary);
+  font-weight: var(--app-font-weight-semibold);
+  box-shadow: var(--md-sys-elevation-1);
+  transition: background var(--app-transition-fast), box-shadow var(--app-transition-fast);
+}
+.project-add:hover {
+  color: var(--md-sys-color-on-primary);
+  background: var(--md-sys-color-primary);
+}
+.project-add:not(:disabled):hover { background: var(--md-sys-color-primary-hover); box-shadow: var(--md-sys-elevation-2); }
+.project-add:not(:disabled):active { background: var(--md-sys-color-primary-active); box-shadow: none; }
+.project-add:focus-visible { outline: 2px solid var(--md-sys-color-primary); outline-offset: 3px; }
+.project-empty { padding: 8px 10px; color: var(--app-color-sidebar-muted); font-size: var(--app-font-size-sm); }
 .sidebar-resizer { position: absolute; right: -3px; top: 0; bottom: 0; width: 6px; z-index: 2; cursor: col-resize; touch-action: none; }
 .sidebar-resizer:hover, .sidebar-resizer:focus-visible { background: var(--md-sys-color-primary); }
 
@@ -814,7 +808,7 @@ onUnmounted(() => {
   .fork-toolbar { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding-block: 8px; row-gap: 8px; }
   .toolbar-brand { grid-column: 1; grid-row: 1; }
   .toolbar-group-right { grid-column: 2; grid-row: 1; }
-  .toolbar-actions { grid-column: 1 / -1; grid-row: 2; justify-self: center; max-width: 100%; flex-wrap: wrap; justify-content: center; }
+  .toolbar-actions { grid-column: 1 / -1; grid-row: 2; justify-self: stretch; max-width: 100%; flex-wrap: nowrap; justify-content: safe center; }
 }
 @media (max-width: 650px) {
   .fork-content { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }

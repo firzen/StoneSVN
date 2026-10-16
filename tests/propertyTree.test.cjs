@@ -92,3 +92,24 @@ test('projects keep independent selections and expanded paths survive reopening 
   assert.equal(collapsed.project('/two').expanded.has('.'), false)
   assert.equal(calls.length, 0)
 })
+
+test('directory links retain folder type without expanding or restoring linked descendants', async () => {
+  const calls = []
+  const { tree } = harness(async (_wc, path) => {
+    calls.push(path)
+    return path === '.' ? [
+      { ...entry('node_modules', true), expandable: false },
+      { ...entry('empty-folder', true), expandable: true },
+    ] : []
+  }, JSON.stringify({ '/wc': { selected: '.', expanded: ['.', 'node_modules', 'empty-folder'] } }))
+  await tree.open('/wc')
+  const rows = tree.rows(['/wc'])
+  const linked = rows.find(row => row.path === 'node_modules')
+  assert.equal(linked.directory, true)
+  assert.equal(linked.expandable, false)
+  assert.ok(!calls.includes('node_modules'))
+  assert.ok(calls.includes('empty-folder'))
+  assert.equal(rows.filter(row => row.path === 'node_modules').length, 1)
+  await tree.refresh('/wc')
+  assert.ok(!calls.includes('node_modules'))
+})

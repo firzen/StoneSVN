@@ -1,5 +1,5 @@
 <template>
-  <div class="commit-view compact-commit">
+  <div class="commit-view compact-commit compact-workbench">
     <div v-if="!workspaceStore.currentPath" class="no-workspace">
       <el-empty :description="$t('log.openWorkspaceFirst')">
         <el-button type="primary" @click="openWorkspace">
@@ -17,8 +17,8 @@
           <h2 id="commit-message-heading">{{ $t('commit.commitMessage') }}</h2>
           <span class="character-count">{{ $t('commit.characterCount', { count: commitMessage.length }) }}</span>
           <el-dropdown trigger="click" placement="bottom-end" :max-height="280"
-            :disabled="loading || recentMessages.length === 0" @visible-change="loadRecentMessages" @command="useRecentMessage">
-            <el-button size="small" text :aria-label="$t('commit.recentMessages')" :disabled="loading || recentMessages.length === 0">
+            :disabled="loading" @visible-change="loadRecentMessages" @command="useRecentMessage">
+            <el-button size="small" text :aria-label="$t('commit.recentMessages')" :disabled="loading" :loading="loadingRecentMessages">
               <el-icon><Calendar /></el-icon>{{ $t('commit.recentMessages') }}<el-icon class="recent-arrow"><ArrowDown /></el-icon>
             </el-button>
             <template #dropdown>
@@ -94,8 +94,8 @@
                     :aria-label="$t(collapsedPaths.has(row.node.path) ? 'commit.expandDirectory' : 'commit.collapseDirectory', { path: row.node.path })"
                     @click.stop="toggleExpanded(row.node.path)"><el-icon><ArrowRight v-if="collapsedPaths.has(row.node.path)" /><ArrowDown v-else /></el-icon></button>
                   <span v-else class="expand-spacer"></span>
-                  <FileTypeIcon :path="row.node.path" :directory="!!row.node.children.length || !row.node.entry" :muted="!row.node.entry" />
-                  <span class="tree-name" :class="{ 'directory-name': row.node.children.length || !row.node.entry, 'context-directory-name': !row.node.entry }" :title="row.node.path">
+                  <FileTypeIcon :path="row.node.path" :directory="isDirectoryChange(row.node)" :muted="!row.node.entry" />
+                  <span class="tree-name" :class="{ 'directory-name': isDirectoryChange(row.node), 'context-directory-name': !row.node.entry }" :title="row.node.path">
                     {{ row.node.path === '.' ? workspaceName : row.node.label }}
                   </span>
                   <small v-if="row.node.children.length" class="tree-count">{{ row.node.targets.length }}</small>
@@ -148,7 +148,7 @@
 import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { svnAdd, svnCommit } from '@/api/svn'
+import { svnAdd, svnCommit, svnLog } from '@/api/svn'
 import { useI18n } from 'vue-i18n'
 import { getStatusClass, getStatusLabelKey } from '@/composables/useSvnStatus'
 import { useWorkspace } from '@/composables/useWorkspace'
@@ -156,7 +156,7 @@ import { useSettings } from '@/composables/useSettings'
 import type { SvnStatus } from '@/types'
 import VirtualViewport from '@/components/VirtualViewport.vue'
 import FileTypeIcon from '@/components/FileTypeIcon.vue'
-import { buildChangeTree, filterChangeTree, flattenChangeTree, isWithinDirectory, normalizePath, type ChangeNode } from '@/utils/changeTree'
+import { buildChangeTree, filterChangeTree, flattenChangeTree, isDirectoryChange, isWithinDirectory, normalizePath, type ChangeNode } from '@/utils/changeTree'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -164,7 +164,6 @@ const route = useRoute()
 const workspaceStore = useWorkspaceStore()
 const { openWorkspace: openWorkspaceDialog, refreshStatusAfterMutation } = useWorkspace()
 
-const RECENT_COMMIT_MESSAGES_KEY = 'orcasvn-recent-commit-messages'
 interface RecentCommitMessage {
   id: string
   message: string
@@ -177,6 +176,8 @@ const commitMessage = ref('')
 const loading = ref(false)
 const output = ref('')
 const recentMessages = ref<RecentCommitMessage[]>([])
+const loadingRecentMessages = ref(false)
+let recentMessagesRequest = 0
 
 const committableStatuses = new Set(['added', 'modified', 'deleted', 'replaced', 'unversioned'])
 
@@ -451,7 +452,7 @@ const doCommit = async () => {
     }
 
     const result = await svnCommit(workspaceStore.currentPath, commitMessage.value, files, filterRules)
-    if (result.success) recordRecentMessage(workspaceStore.currentPath, commitMessage.value)
+    if (result.success) void loadRecentMessages()
     output.value = result.output
     await refreshStatusAfterMutation()
 
@@ -494,38 +495,30 @@ const resetForm = () => {
 
 }
 
-const loadRecentMessages = () => {
+const loadRecentMessages = async (visible = true) => {
+  if (!visible) return
+  const request = ++recentMessagesRequest
   const workspacePath = workspaceStore.currentPath
-  if (!workspacePath) return
-
-  try {
-    const stored = JSON.parse(localStorage.getItem(RECENT_COMMIT_MESSAGES_KEY) || '{}') as Record<string, unknown>
-    const messages = stored[workspacePath]
-    recentMessages.value = Array.isArray(messages)
-      ? messages.filter((entry): entry is RecentCommitMessage => Boolean(entry && typeof entry === 'object' && typeof (entry as RecentCommitMessage).id === 'string' && typeof (entry as RecentCommitMessage).message === 'string'))
-      : []
-  } catch {
+  if (!workspacePath) {
     recentMessages.value = []
+    loadingRecentMessages.value = false
+    return
   }
-}
 
-const recordRecentMessage = (workspacePath: string, message: string) => {
-  const normalized = message.trim()
-  if (!normalized) return
-
+  loadingRecentMessages.value = true
   try {
-    const stored = JSON.parse(localStorage.getItem(RECENT_COMMIT_MESSAGES_KEY) || '{}') as Record<string, unknown>
-    const previous = Array.isArray(stored[workspacePath])
-      ? stored[workspacePath] as RecentCommitMessage[]
-      : []
-    stored[workspacePath] = [
-      { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, message: normalized },
-      ...previous.filter(entry => entry.message !== normalized),
-    ]
-    localStorage.setItem(RECENT_COMMIT_MESSAGES_KEY, JSON.stringify(stored))
-    recentMessages.value = stored[workspacePath] as RecentCommitMessage[]
-  } catch {
-    // Ignore unavailable or malformed local storage.
+    const logs = await svnLog(workspacePath, 10)
+    if (request !== recentMessagesRequest || workspaceStore.currentPath !== workspacePath) return
+    recentMessages.value = logs.map(entry => ({
+      id: String(entry.revision),
+      message: entry.message,
+    }))
+  } catch (err) {
+    if (request !== recentMessagesRequest || workspaceStore.currentPath !== workspacePath) return
+    recentMessages.value = []
+    output.value = `${t('common.error')}：${err}`
+  } finally {
+    if (request === recentMessagesRequest) loadingRecentMessages.value = false
   }
 }
 
@@ -536,38 +529,12 @@ const useRecentMessage = (message: string) => {
 
 <style scoped>
 .commit-view.compact-commit {
-  --commit-text: #1c2938;
-  --commit-muted: #4d5c6c;
-  --commit-directory-context: #84909d;
-  --commit-border: #b8c5d2;
-  --commit-toolbar: #e9eef4;
-  --commit-heading: #e0e8f0;
-  --commit-stripe: #f4f7fa;
-  --commit-hover: #e7f0fa;
-  --commit-selected: #dcecff;
-  --commit-selected-hover: #cce3fc;
-  --commit-accent: #125b96;
   color: var(--commit-text);
   height: 100%;
   min-width: 0;
   overflow: hidden;
   flex-direction: column;
   background: var(--el-bg-color);
-}
-
-/* Keep the higher contrast palette local to the commit page. */
-:global(html.theme-dark .commit-view.compact-commit) {
-  --commit-text: #e7eef6;
-  --commit-muted: #b5c3d1;
-  --commit-directory-context: #8e9dac;
-  --commit-border: #536779;
-  --commit-toolbar: #233341;
-  --commit-heading: #2c4052;
-  --commit-stripe: #1c2a36;
-  --commit-hover: #2a3e50;
-  --commit-selected: #244969;
-  --commit-selected-hover: #2b557b;
-  --commit-accent: #a3d3ff;
 }
 
 .no-workspace { display: grid; place-items: center; flex: 1; }
@@ -600,7 +567,7 @@ const useRecentMessage = (message: string) => {
 .scope-bar .el-button { margin-left: auto; }
 .file-table-container { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; font-size: 12px; }
 .file-table-heading { flex-shrink: 0; overflow: hidden; border-bottom: 1px solid var(--commit-border); background: var(--commit-heading); color: var(--commit-text); font-weight: 600; }
-.commit-columns { display: grid; grid-template-columns: 42px minmax(230px, 1.2fr) 76px minmax(200px, 1fr) 60px; align-items: center; min-width: 640px; }
+.commit-columns { display: grid; grid-template-columns: 28px minmax(230px, 1.2fr) 76px minmax(200px, 1fr) 60px; align-items: center; min-width: 640px; }
 .file-table-heading .commit-columns { height: 30px; }
 .commit-columns > [role="columnheader"], .commit-columns > [role="gridcell"] { min-width: 0; padding: 0 8px; }
 .commit-files { background: var(--el-bg-color); }
@@ -610,7 +577,7 @@ const useRecentMessage = (message: string) => {
 .commit-file-row.selected { background: var(--commit-selected); box-shadow: inset 3px 0 var(--commit-accent); }
 .commit-file-row.selected:hover { background: var(--commit-selected-hover); }
 .commit-file-row:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: -2px; }
-.commit-columns > .checkbox-cell { display: flex; align-items: center; justify-content: center; }
+.commit-columns > .checkbox-cell { display: flex; align-items: center; justify-content: center; padding: 0 4px; }
 .commit-checkbox { width: 14px; height: 14px; margin: 0; accent-color: var(--el-color-primary); cursor: pointer; }
 .commit-checkbox:disabled { cursor: default; }
 .name-cell { display: flex; align-items: center; gap: 6px; overflow: hidden; }

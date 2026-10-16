@@ -56,6 +56,10 @@ export async function svnLog(
   return invokeWithConnectionPrompt<SvnLogEntry[]>('svn_log', { path, limit, startRev, endRev, keyword, author, dateFrom, dateTo })
 }
 
+export async function svnFileLog(path: string, file: string, limit: number, startRev?: number): Promise<SvnLogEntry[]> {
+  return invokeWithConnectionPrompt<SvnLogEntry[]>('svn_log', { path, file, limit, startRev })
+}
+
 export async function svnCurrentUser(path: string): Promise<SvnAuthUser | null> {
   return invoke<SvnAuthUser | null>('svn_current_user', { path })
 }
@@ -106,12 +110,20 @@ export async function svnBlame(workspacePath: string, file: string): Promise<Bla
   return invokeWithConnectionPrompt<BlameLine[]>('svn_blame', { workspacePath, file })
 }
 
+export async function svnExport(path: string, file: string, destination: string): Promise<CommandResult> {
+  return invokeWithConnectionPrompt<CommandResult>('svn_export', { path, file, destination })
+}
+
 export async function svnAdd(path: string, files: string[], filterRules?: string[]): Promise<CommandResult> {
   return invoke<CommandResult>('svn_add', { path, files, filterRules })
 }
 
 export async function svnDelete(path: string, files: string[]): Promise<CommandResult> {
   return invoke<CommandResult>('svn_delete', { path, files })
+}
+
+export async function svnRestoreFileRevision(path: string, file: string, revision: number): Promise<CommandResult> {
+  return invokeWithConnectionPrompt<CommandResult>('svn_restore_file_revision', { path, file, revision })
 }
 
 export async function svnRevert(path: string, files: string[]): Promise<CommandResult> {
@@ -188,4 +200,8 @@ export async function svnSetProperty(path: string, file: string, name: string, v
 
 export async function workspaceChildren(path: string, directory: string): Promise<import('@/types').WorkspaceChild[]> {
   return invoke('workspace_children', { path, directory })
+}
+
+export async function workspaceSearch(path: string, query: string): Promise<import('@/types').WorkspaceChild[]> {
+  return invoke('workspace_search', { path, query })
 }

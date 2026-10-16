@@ -113,7 +113,7 @@
             <div v-for="file in unversionedFiles" :key="file.path" class="unversioned-file" :class="{ selected: selectedUnversioned.includes(file.path) }" @click="onUnversionedToggle(file.path, !selectedUnversioned.includes(file.path))">
               <div class="unversioned-file-header">
                 <el-checkbox :model-value="selectedUnversioned.includes(file.path)" @click.stop @change="onUnversionedToggle(file.path, $event)" />
-                <el-icon><Document /></el-icon>
+                <FileTypeIcon :path="file.path" :directory="file.directory" />
                 <span class="unversioned-file-path">{{ file.path }}</span>
                 <el-tag size="small" type="warning" effect="light">{{ $t('status.unversioned') }}</el-tag>
               </div>
@@ -173,6 +173,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import FileTypeIcon from '@/components/FileTypeIcon.vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { save } from '@tauri-apps/plugin-dialog'

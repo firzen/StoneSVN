@@ -13,6 +13,7 @@ export interface ChangeNode {
   children: ChangeNode[]
   targets: string[]
 }
+export const isDirectoryChange = (node: ChangeNode): boolean => Boolean(node.entry?.directory || node.children.length || !node.entry)
 export function buildChangeTree(entries: SvnStatus[], scope = ''): ChangeNode[] {
   const root: ChangeNode = { path: scope || '.', label: scope || '.', children: [], targets: [] }
   const nodes = new Map<string, ChangeNode>([[normalizePath(scope) || '.', root]])

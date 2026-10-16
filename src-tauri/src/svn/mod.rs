@@ -14,7 +14,8 @@ pub use file_filter::FileFilter;
 pub use operations::*;
 pub use preview::{file_preview, FilePreviewResult};
 pub use properties::{
-    property_details, set_property, workspace_children, PropertyDetails, WorkspaceChild,
+    property_details, restore_file_revision, set_property, workspace_children, workspace_search,
+    PropertyDetails, WorkspaceChild,
 };
 pub use ssl_compat::configure_server_security;
 pub use status_cache::cached_status;

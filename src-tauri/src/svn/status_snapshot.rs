@@ -10,8 +10,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 static NEXT_TEMP_FILE: AtomicU64 = AtomicU64::new(0);
 
-// Older snapshots did not track administration outside the selected directory.
-const VERSION: u32 = 6;
+// Invalidate older snapshots that did not retain status entry directory types.
+const VERSION: u32 = 7;
 const MAX_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_FILES: usize = 500_000;
 
@@ -932,6 +932,7 @@ mod tests {
                     files.files[0].1.modified = value;
                     let entries = vec![SvnStatus {
                         path: "file-000".into(),
+                        directory: false,
                         status: "modified".into(),
                         status_code: value.to_string(),
                         prop_status: "none".into(),

@@ -1,9 +1,9 @@
-// Run in the local Vite page through browser-use eval. Read-only demo data;
+// Run in the local Vite page through Playwright CLI eval. Read-only demo data;
 // no SVN process, repository access or filesystem changes are performed.
-(async () => {
+export default (async () => {
   const { useWorkspaceStore } = await import('/src/stores/workspace.ts')
   const { updateSettings } = (await import('/src/composables/useSettings.ts')).useSettings()
-  const path = 'D:\\projects\\orca-demo'
+  const path = '/workspaces/stone-demo'
   const files = [
     ['src/config.ts', 'modified'],
     ['src/views/WorkspaceView.vue', 'modified'],
@@ -13,8 +13,8 @@
     ['notes/release-checklist.md', 'unversioned'],
   ].map(([path, status_code]) => ({ path, status_code, status: status_code,
     prop_status: 'none', locked: false, history: false, switched: false }))
-  const info = { path, url: 'https://svn.example.com/orca/trunk',
-    repository_root: 'https://svn.example.com/orca', revision: 128,
+  const info = { path, url: 'https://svn.example.com/stone-demo/trunk',
+    repository_root: 'https://svn.example.com/stone-demo', revision: 128,
     node_kind: 'dir', schedule: 'normal' }
   const diff = `Index: src/config.ts
 ===================================================================
@@ -34,6 +34,8 @@
 `
   window.__TAURI_INTERNALS__ = {
     invoke: async (command, args) => {
+      if (command === 'svn_connection_info') return info
+      if (command === 'svn_file_preview') return { path: args.file, diff, old_revision: 128, new_revision: 128, preview_kind: 'text', image_data: null, can_open: false }
       if (command === 'svn_diff') return { path: args.file, diff, old_revision: 128, new_revision: 128 }
       if (command === 'svn_status') return files
       if (command === 'svn_info') return info
@@ -43,7 +45,12 @@
   }
   updateSettings({ language: 'zh-CN', theme: 'light', gitignoreEnabled: false })
   const store = useWorkspaceStore(document.querySelector('#app').__vue_app__.config.globalProperties.$pinia)
-  store.setCurrentPath(path, false)
+  store.recentWorkspaces = []
+  store.projectSummaries = {}
+  for (const project of [path, '/workspaces/docs-site', '/workspaces/ui-components']) {
+    store.rememberWorkspace(project)
+  }
+  store.setCurrentPath(path)
   store.setSvnInfo(info)
   store.setStatusList(files)
   store.setStatusIsStale(false)
@@ -51,6 +58,7 @@
   store.setError(null)
   await (await import('/node_modules/.vite/deps/vue.js')).nextTick()
   document.querySelector('.file-path').click()
+  await new Promise(resolve => setTimeout(resolve, 500))
   await document.fonts.ready
   return 'Documentation workspace ready (six example paths, r128)'
 })()

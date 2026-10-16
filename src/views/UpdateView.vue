@@ -1,5 +1,5 @@
 <template>
-  <div class="update-view">
+  <div class="update-view compact-workbench">
     <el-card class="update-card">
       <template #header>
         <div class="card-header">

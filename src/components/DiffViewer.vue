@@ -180,7 +180,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.diff-viewer { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; overflow: hidden; border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--app-radius-md); background: var(--md-sys-color-surface-container-lowest); }
+.diff-viewer { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; overflow: hidden; border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--app-radius-md); background: var(--app-color-diff-canvas); }
 .diff-tools { display: flex; align-items: center; flex-shrink: 0; gap: 4px; padding: 5px 8px; border-bottom: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-low); }
 .diff-search { flex: 1; width: 0; min-width: 60px; height: 28px; padding: 0 8px; font-size: var(--app-font-size-sm); border: 1px solid var(--md-sys-color-outline-variant); border-radius: var(--app-radius-sm); background: var(--md-sys-color-surface-container-lowest); }
 .diff-tools button { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; border: 0; border-radius: var(--app-radius-sm); background: transparent; cursor: pointer; }
@@ -190,7 +190,7 @@ onBeforeUnmount(() => {
 .indexing-diff { padding: 16px; color: var(--md-sys-color-on-surface-variant); }
 .diff-lines { font-family: var(--app-font-family-mono); font-size: var(--app-font-size-label); line-height: 20px; }
 .compact .diff-lines { font-size: var(--app-font-size-sm); }
-.diff-row { display: grid; grid-template-columns: 64px 34px minmax(0, 1fr); border-bottom: 1px solid var(--md-sys-color-outline-variant); }
+.diff-row { display: grid; grid-template-columns: 64px 34px minmax(0, 1fr); border-bottom: 1px solid var(--app-color-diff-row-border); }
 .compact .diff-row { grid-template-columns: 46px 24px minmax(0, 1fr); }
 .diff-line-number, .diff-marker { user-select: none; padding: 3px 8px; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container-low); text-align: right; }
 .diff-marker { text-align: center; font-weight: 700; }
@@ -202,8 +202,8 @@ onBeforeUnmount(() => {
 .diff-removed { background: var(--app-color-status-error-bg); }
 .diff-removed .diff-code { color: var(--app-color-status-error-text); }
 .diff-removed .diff-line-number, .diff-removed .diff-marker { background: var(--app-color-status-error-bg); color: var(--app-color-status-error-text); }
-.diff-meta { background: var(--app-color-status-unversioned-bg); }
-.diff-meta .diff-code, .diff-meta .diff-marker { color: var(--app-color-status-unversioned-text); font-weight: 700; }
+.diff-meta { background: var(--app-color-diff-meta-bg); }
+.diff-meta .diff-code, .diff-meta .diff-marker { color: var(--app-color-diff-meta-text); font-weight: 700; }
 .is-search-match { box-shadow: inset 3px 0 var(--md-sys-color-primary); }
 mark { background: var(--app-color-status-modified-bg); color: var(--app-color-status-modified-text); }
 </style>

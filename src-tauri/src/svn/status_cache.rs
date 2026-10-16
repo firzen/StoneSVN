@@ -262,6 +262,7 @@ mod tests {
     fn entry(path: &str, code: &str) -> SvnStatus {
         SvnStatus {
             path: path.into(),
+            directory: false,
             status: code.into(),
             status_code: code.into(),
             prop_status: "none".into(),
@@ -604,6 +605,42 @@ mod tests {
         fs::write(fixture.wc.join("new-dir/deep/new.txt"), "new").unwrap();
         runtime().block_on(async {
             let full = status(fixture.wc.to_str().unwrap()).await.unwrap();
+            assert!(
+                full.iter()
+                    .find(|entry| entry.path == "new-dir")
+                    .unwrap()
+                    .directory
+            );
+            let scoped = status_for_paths(fixture.wc.to_str().unwrap(), &["new-dir".into()])
+                .await
+                .unwrap();
+            assert!(
+                scoped
+                    .iter()
+                    .find(|entry| entry.path == "new-dir")
+                    .unwrap()
+                    .directory
+            );
+            let cached = cached_status(fixture.wc.to_str().unwrap(), false)
+                .await
+                .unwrap();
+            assert!(
+                cached
+                    .iter()
+                    .find(|entry| entry.path == "new-dir")
+                    .unwrap()
+                    .directory
+            );
+            let reused = cached_status(fixture.wc.to_str().unwrap(), false)
+                .await
+                .unwrap();
+            assert!(
+                reused
+                    .iter()
+                    .find(|entry| entry.path == "new-dir")
+                    .unwrap()
+                    .directory
+            );
             let fresh = status_for_paths(
                 fixture.wc.to_str().unwrap(),
                 &[

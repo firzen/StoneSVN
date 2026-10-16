@@ -20,6 +20,7 @@ export interface PropertyTreeRow extends WorkspaceChild {
   depth: number
   type: 'entry' | 'loading' | 'error' | 'empty'
 }
+export const canExpandPropertyEntry = (entry: WorkspaceChild): boolean => entry.expandable ?? entry.directory
 const STORAGE_KEY = 'orcasvn-property-tree'
 
 export function createPropertyTree(read: typeof workspaceChildren, storage?: Pick<Storage, 'getItem' | 'setItem'>) {
@@ -77,7 +78,7 @@ export function createPropertyTree(read: typeof workspaceChildren, storage?: Pic
     await load(workspace, path, force)
     const node = directory(workspace, path)
     if (node.error || !state.expanded.has(path)) return
-    await Promise.all(node.children.filter(child => child.directory && state.expanded.has(child.path))
+    await Promise.all(node.children.filter(child => canExpandPropertyEntry(child) && state.expanded.has(child.path))
       .map(child => loadExpanded(workspace, child.path, force)))
   }
   async function open(workspace: string) {
@@ -102,7 +103,7 @@ export function createPropertyTree(read: typeof workspaceChildren, storage?: Pic
     function append(workspace: string, child: WorkspaceChild, depth: number) {
       result.push({ ...child, workspace, depth, type: 'entry' })
       const state = project(workspace)
-      if (!child.directory || !state.expanded.has(child.path)) return
+      if (!canExpandPropertyEntry(child) || !state.expanded.has(child.path)) return
       const node = directory(workspace, child.path)
       if (node.loading || node.error || (node.loaded && !node.children.length)) {
         result.push({ path: child.path, name: node.error, directory: false, workspace, depth: depth + 1,

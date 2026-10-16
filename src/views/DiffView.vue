@@ -1,5 +1,5 @@
 <template>
-  <div class="diff-view">
+  <div class="diff-view compact-workbench">
     <el-card class="diff-card">
       <template #header>
         <div class="card-header">
@@ -30,9 +30,9 @@
               <el-tag type="info" effect="plain" size="small">
                 {{ currentFileIndex + 1 }} / {{ fileList.length }}
               </el-tag>
-              <el-button size="small" @click="backToCommit">
+              <el-button size="small" @click="goBack">
                 <el-icon><Back /></el-icon>
-                {{ $t('diff.backToCommit') }}
+                {{ $t(diffSource === 'commit' ? 'diff.backToCommit' : 'common.back') }}
               </el-button>
             </template>
             <template v-else>
@@ -42,14 +42,10 @@
                 clearable
                 class="path-input"
               >
-                <template #prepend>
-                  <el-icon><Document /></el-icon>
-                </template>
-                <template #append>
-                  <el-button @click="browseFile">{{ $t('common.browse') }}</el-button>
-                </template>
+                <template #prefix><FileTypeIcon :path="currentPath" :directory="!!fileStatusMap.get(currentPath)?.directory || (diffResult?.path === currentPath && diffResult?.preview_kind === 'directory')" /></template>
               </el-input>
-              <el-button @click="loadDiff" :loading="loading" type="primary">
+              <el-button size="small" @click="browseFile">{{ $t('common.browse') }}</el-button>
+              <el-button size="small" @click="loadDiff" :loading="loading" type="primary">
                 <el-icon><Connection /></el-icon>
                 {{ $t('diff.compare') }}
               </el-button>
@@ -88,7 +84,7 @@
 
         <div class="diff-main">
           <div class="diff-options">
-            <el-radio-group v-model="diffType" class="mode-switch" @change="handleDiffTypeChange">
+            <el-radio-group size="small" v-model="diffType" class="mode-switch" @change="handleDiffTypeChange">
               <el-radio-button label="working">{{ $t('diff.workingCopy') }}</el-radio-button>
               <el-radio-button label="revision">{{ $t('diff.betweenRevisions') }}</el-radio-button>
               <el-radio-button v-if="changeRev" label="change">
@@ -131,7 +127,7 @@
             <div class="diff-header">
               <div class="diff-tags">
                 <el-tag class="path-tag" type="primary">
-                  <el-icon><Document /></el-icon>
+                  <FileTypeIcon :path="diffResult?.path || currentPath" :directory="diffResult?.preview_kind === 'directory'" />
                   <span class="path-label" :title="diffResult?.path">{{ $t('diff.file') }}：{{ diffResult?.path }}</span>
                 </el-tag>
                 <el-tag v-if="diffResult?.old_revision && diffResult?.new_revision" type="info">
@@ -159,7 +155,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, watch, onMounted } from 'vue'
+import { ref, computed, nextTick, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { open } from '@tauri-apps/plugin-dialog'
 import { ElMessage } from 'element-plus/es/components/message/index'
@@ -168,6 +164,7 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import { useI18n } from 'vue-i18n'
 import { toWorkspaceRelativePath } from '@/utils/workspacePath'
 import FilePreview from '@/components/FilePreview.vue'
+import FileTypeIcon from '@/components/FileTypeIcon.vue'
 import VirtualViewport from '@/components/VirtualViewport.vue'
 import type { FilePreviewResult, SvnStatus } from '@/types'
 
@@ -300,10 +297,34 @@ const switchToFile = (index: number) => {
 const goToPrevFile = () => switchToFile(currentFileIndex.value - 1)
 const goToNextFile = () => switchToFile(currentFileIndex.value + 1)
 
-const backToCommit = () => {
+const goBack = () => {
   sessionStorage.removeItem('orca_diff_files')
-  router.back()
+  const previous = router.options.history.state.back
+  if (diffSource.value === 'commit' && (typeof previous !== 'string' || router.resolve(previous).name !== 'commit')) {
+    // A reloaded or directly restored comparison may no longer have commit history.
+    let directory = ''
+    try {
+      const draft = JSON.parse(sessionStorage.getItem('orca_commit_form') || '{}')
+      if (draft.workspace === workspaceStore.currentPath && typeof draft.scope === 'string') directory = draft.scope
+    } catch { /* Invalid draft metadata must not block returning. */ }
+    void router.replace({ name: 'commit', query: directory ? { directory } : {} })
+  } else if (typeof previous === 'string') {
+    router.back()
+  } else {
+    void router.replace({ name: 'workspace' })
+  }
 }
+
+const handleEscape = (event: KeyboardEvent) => {
+  if (event.key !== 'Escape' || event.defaultPrevented || event.isComposing || event.repeat) return
+  event.preventDefault()
+  goBack()
+}
+onMounted(() => window.addEventListener('keydown', handleEscape))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleEscape)
+  requestGeneration++
+})
 
 onMounted(() => {
   const data = sessionStorage.getItem('orca_diff_files')
@@ -379,11 +400,15 @@ watch(
 :deep(.diff-card > .el-card__body) {
   display: flex;
   flex-direction: column;
-  height: calc(100% - 57px);
+  height: auto;
+  flex: 1;
+  overflow: hidden;
   min-height: 0;
 }
 
 .view-title {
+  font-size: 12px;
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: var(--app-spacing-sm);
@@ -391,19 +416,25 @@ watch(
 }
 
 .card-header {
+  min-width: 0;
+  gap: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .header-actions {
+  flex: 1;
+  min-width: 0;
+  justify-content: flex-end;
   display: flex;
   align-items: center;
   gap: var(--app-spacing-sm);
 }
 
 .path-input {
-  width: min(420px, 42vw);
+  width: min(420px, 100%);
+  min-width: 0;
 }
 
 .path-input :deep(.el-input-group__prepend) {
@@ -415,7 +446,7 @@ watch(
 }
 
 .diff-options {
-  margin-bottom: var(--app-spacing-md);
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -460,7 +491,7 @@ watch(
   flex: 1;
   min-height: 0;
   flex-direction: column;
-  margin-top: var(--app-spacing-md);
+  margin-top: 0;
 }
 
 .diff-header {
@@ -602,11 +633,16 @@ watch(
 }
 
 .diff-main {
+  padding: 10px 14px;
+  min-height: 0;
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
+
+.header-actions > .el-button { flex-shrink: 0; margin-left: 0; }
+.mode-switch :deep(.el-radio-button__inner) { min-height: 28px; height: 28px; padding: 6px 10px; line-height: 14px; font-size: 12px; }
 
 .nav-group {
   margin-right: var(--app-spacing-sm);
@@ -621,11 +657,11 @@ watch(
     width: 100%;
   }
 
-  .header-actions {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-  }
+  .card-header { flex-wrap: wrap; gap: 8px; }
+  .header-actions { flex-basis: 100%; flex-wrap: wrap; }
+  .path-input { flex: 1; width: auto; }
+  .mode-switch { max-width: 100%; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; }
+  .mode-switch :deep(.el-radio-button) { flex-shrink: 0; }
 
   .diff-header {
     flex-direction: column;

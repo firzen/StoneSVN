@@ -6,6 +6,7 @@ export interface CommandResult {
 
 export interface SvnStatus {
   path: string
+  directory?: boolean
   status: string
   status_code: string
   prop_status: string
@@ -110,4 +111,5 @@ export interface WorkspaceChild {
   path: string
   name: string
   directory: boolean
+  expandable?: boolean
 }

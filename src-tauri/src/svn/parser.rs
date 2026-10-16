@@ -65,6 +65,7 @@ pub fn parse_status_xml(xml: &str) -> Result<Vec<SvnStatus>, SvnError> {
                 if e.name().as_ref() == b"entry" && in_entry {
                     statuses.push(SvnStatus {
                         path: current_path.clone(),
+                        directory: false,
                         status: status_code.clone(),
                         status_code: status_code.clone(),
                         prop_status: if prop_status.is_empty() {

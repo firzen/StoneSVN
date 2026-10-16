@@ -524,6 +524,8 @@ fn open_terminal(path: &str) -> Result<(), String> {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SvnStatus {
     pub path: String,
+    #[serde(default)]
+    pub directory: bool,
     pub status: String,
     pub status_code: String,
     pub prop_status: String,
@@ -644,6 +646,7 @@ async fn svn_status(
 #[tauri::command]
 async fn svn_log(
     path: String,
+    file: Option<String>,
     limit: Option<u32>,
     start_rev: Option<u64>,
     end_rev: Option<u64>,
@@ -652,6 +655,11 @@ async fn svn_log(
     date_from: Option<String>,
     date_to: Option<String>,
 ) -> Result<Vec<SvnLogEntry>, String> {
+    if let Some(file) = file {
+        return svn::file_log(&path, &file, limit, start_rev)
+            .await
+            .map_err(|e| e.to_string());
+    }
     svn::log(
         &path,
         limit,
@@ -693,6 +701,15 @@ async fn svn_property_details(path: String, file: String) -> Result<svn::Propert
     svn::property_details(&path, &file)
         .await
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn workspace_search(path: String, query: String) -> Result<Vec<svn::WorkspaceChild>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        svn::workspace_search(&path, &query).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -765,6 +782,22 @@ async fn svn_blame(workspace_path: String, file: String) -> Result<Vec<svn::Blam
 }
 
 #[tauri::command]
+async fn svn_export(
+    path: String,
+    file: String,
+    destination: String,
+) -> Result<CommandResult, String> {
+    svn::export(&path, &file, &destination)
+        .await
+        .map(|output| CommandResult {
+            success: true,
+            output,
+            error: None,
+        })
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn svn_add(
     path: String,
     files: Vec<String>,
@@ -787,6 +820,22 @@ async fn svn_add(
 #[tauri::command]
 async fn svn_delete(path: String, files: Vec<String>) -> Result<CommandResult, String> {
     svn::delete(&path, &files)
+        .await
+        .map(|output| CommandResult {
+            success: true,
+            output,
+            error: None,
+        })
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn svn_restore_file_revision(
+    path: String,
+    file: String,
+    revision: u64,
+) -> Result<CommandResult, String> {
+    svn::restore_file_revision(&path, &file, revision)
         .await
         .map(|output| CommandResult {
             success: true,
@@ -1189,6 +1238,7 @@ fn main() {
             svn_current_user,
             svn_info,
             workspace_children,
+            workspace_search,
             svn_property_details,
             svn_set_property,
             svn_local_revision,
@@ -1197,9 +1247,11 @@ fn main() {
             svn_file_preview,
             svn_apply_patch,
             svn_blame,
+            svn_export,
             svn_add,
             svn_delete,
             svn_revert,
+            svn_restore_file_revision,
             svn_resolve,
             svn_cleanup,
             svn_switch,

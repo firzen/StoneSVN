@@ -55,3 +55,22 @@ test('flattening a tree preserves depth and collapsed groups retain every select
   assert.deepEqual(Array.from(collapsed[0].node.targets).sort(), ['A/nested/two', 'A/one'])
   assert.equal(flattenChangeTree([]).length, 0)
 })
+
+test('collapsed unversioned folders and empty folders retain directory icons without children', () => {
+  const { isDirectoryChange, filterChangeTree } = context.exports
+  const tree = buildChangeTree([
+    { ...entry('node_modules'), status_code: 'unversioned', directory: true },
+    { ...entry('empty-folder'), status_code: 'added', directory: true },
+    { ...entry('README'), directory: false },
+    { ...entry('folder.with.dots'), directory: true },
+  ])
+  const children = tree[0].children
+  for (const path of ['node_modules', 'empty-folder', 'folder.with.dots']) {
+    const node = children.find(node => node.path === path)
+    assert.equal(node.children.length, 0)
+    assert.equal(isDirectoryChange(node), true)
+  }
+  assert.equal(isDirectoryChange(children.find(node => node.path === 'README')), false)
+  const filtered = filterChangeTree(tree, new Set(['node_modules']))
+  assert.equal(isDirectoryChange(filtered[0].children[0]), true)
+})

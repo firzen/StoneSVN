@@ -140,6 +140,59 @@ pub(super) fn resolve_workspace_file_path(
     Ok(canonical_file)
 }
 
+pub async fn export(workspace: &str, file: &str, destination: &str) -> Result<String, SvnError> {
+    let source = resolve_workspace_file_path(workspace, file)?;
+    if source.components().any(|part| part.as_os_str() == ".svn") {
+        return Err(SvnError::InvalidArguments(
+            "不能导出 SVN 元数据".to_string(),
+        ));
+    }
+    let requested = Path::new(destination);
+    if !requested.is_absolute() || requested.file_name().is_none() {
+        return Err(SvnError::InvalidArguments(
+            "请选择新目录的完整路径".to_string(),
+        ));
+    }
+    let parent = requested
+        .parent()
+        .unwrap()
+        .canonicalize()
+        .map_err(|e| SvnError::CommandFailed(format!("无法访问导出目录的上级目录：{}", e)))?;
+    let destination = parent.join(requested.file_name().unwrap());
+    if destination.symlink_metadata().is_ok() {
+        return Err(SvnError::InvalidArguments(
+            "导出目录已存在，请选择新的目录".to_string(),
+        ));
+    }
+    if source.is_dir() && parent.starts_with(&source) {
+        return Err(SvnError::InvalidArguments(
+            "导出目录不能位于源目录内".to_string(),
+        ));
+    }
+    let directory = source.is_dir();
+    let target = if directory {
+        destination.clone()
+    } else {
+        fs::create_dir(&destination)
+            .map_err(|e| SvnError::CommandFailed(format!("无法创建导出目录：{}", e)))?;
+        destination.join(
+            source
+                .file_name()
+                .ok_or_else(|| SvnError::InvalidArguments("文件名无效".to_string()))?,
+        )
+    };
+    let source_arg = normalize_svn_target(&source.to_string_lossy());
+    let target_arg = normalize_svn_target(&target.to_string_lossy());
+    // A local working-copy export retains local edits and never copies .svn metadata.
+    // Do not use --force: an existing destination must never be overwritten.
+    let result = execute_svn(&["export", "--", &source_arg, &target_arg], Some(workspace)).await;
+    if result.is_err() && !directory {
+        // Remove only an empty directory created by this call; preserve partial output.
+        let _ = fs::remove_dir(&destination);
+    }
+    result
+}
+
 fn build_unversioned_file_diff(file: &str, content: &str) -> String {
     let normalized = content.replace("\r\n", "\n").replace('\r', "\n");
     let has_trailing_newline = normalized.ends_with('\n');
@@ -271,6 +324,14 @@ pub async fn commit(
     execute_svn(&args_refs, Some(path)).await
 }
 
+fn populate_status_directories(workspace: &str, entries: &mut [SvnStatus]) {
+    for entry in entries {
+        // SVN status XML does not include node kinds, and unversioned folders
+        // appear as single entries without their children.
+        entry.directory = Path::new(workspace).join(&entry.path).is_dir();
+    }
+}
+
 pub async fn status(path: &str) -> Result<Vec<SvnStatus>, SvnError> {
     let output = execute_svn(&["status", "--xml"], Some(path)).await?;
     let mut entries = parse_status_xml(&output)?;
@@ -299,7 +360,9 @@ pub async fn status(path: &str) -> Result<Vec<SvnStatus>, SvnError> {
             changed.insert(entry.path.clone(), entry);
         }
     }
-    Ok(changed.into_values().collect())
+    let mut entries: Vec<_> = changed.into_values().collect();
+    populate_status_directories(path, &mut entries);
+    Ok(entries)
 }
 
 /// Query only exact paths. The filesystem event queue chooses these
@@ -321,6 +384,7 @@ pub(super) async fn status_for_paths(
         let output = execute_svn(&refs, Some(path)).await?;
         entries.extend(parse_status_xml(&output)?);
     }
+    populate_status_directories(path, &mut entries);
     Ok(entries
         .into_iter()
         .filter(|entry| {
@@ -493,6 +557,19 @@ async fn filtered_log(
     }
 
     Ok(matches)
+}
+
+pub async fn file_log(
+    workspace: &str,
+    file: &str,
+    limit: Option<u32>,
+    start_rev: Option<u64>,
+) -> Result<Vec<SvnLogEntry>, SvnError> {
+    let mut args = build_log_args(limit, start_rev, Some(1), None, None);
+    append_targets(&mut args, &[file.to_string()]);
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let output = execute_svn(&refs, Some(workspace)).await?;
+    parse_log_xml(&output)
 }
 
 pub async fn log(
@@ -817,6 +894,90 @@ mod tests {
     }
 
     #[test]
+    fn export_local_files_and_directories_without_metadata_or_overwrites() {
+        use std::process::Command;
+        let root = std::env::temp_dir().join(format!(
+            "stonesvn-export-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&root).unwrap();
+        let repo = root.join("repo");
+        let wc = root.join("wc");
+        assert!(Command::new("svnadmin")
+            .arg("create")
+            .arg(&repo)
+            .status()
+            .unwrap()
+            .success());
+        let url = format!(
+            "file:///{}",
+            repo.to_string_lossy()
+                .replace('\\', "/")
+                .trim_start_matches('/')
+        );
+        assert!(Command::new("svn")
+            .args(["checkout", &url, wc.to_str().unwrap()])
+            .output()
+            .unwrap()
+            .status
+            .success());
+        std::fs::create_dir(wc.join("folder")).unwrap();
+        std::fs::write(wc.join("folder/a@b.txt"), "before").unwrap();
+        for args in [vec!["add", "folder"], vec!["commit", "-m", "initial"]] {
+            assert!(Command::new("svn")
+                .args(args)
+                .current_dir(&wc)
+                .output()
+                .unwrap()
+                .status
+                .success());
+        }
+        std::fs::write(wc.join("folder/a@b.txt"), "local changes").unwrap();
+        std::fs::write(wc.join("folder/loose.txt"), "unversioned").unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let run = |file: &str, destination: &std::path::Path| {
+            runtime.block_on(super::export(
+                wc.to_str().unwrap(),
+                file,
+                destination.to_str().unwrap(),
+            ))
+        };
+        let exported = root.join("directory@export");
+        run("folder", &exported).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(exported.join("a@b.txt")).unwrap(),
+            "local changes"
+        );
+        assert!(!exported.join(".svn").exists());
+        assert!(!exported.join("loose.txt").exists());
+        run("folder/a@b.txt", &root.join("single-file")).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(root.join("single-file/a@b.txt")).unwrap(),
+            "local changes"
+        );
+        run(".", &root.join("whole-workspace")).unwrap();
+        assert!(!root.join("whole-workspace/.svn").exists());
+        assert!(run("folder", &exported).is_err());
+        assert!(run("folder", &wc.join("folder/nested-export")).is_err());
+        assert!(run("../repo", &root.join("outside")).is_err());
+        assert!(run(".svn", &root.join("metadata")).is_err());
+        let before = Command::new("svn")
+            .args(["status"])
+            .current_dir(&wc)
+            .output()
+            .unwrap();
+        assert!(String::from_utf8_lossy(&before.stdout).contains("a@b.txt"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
     fn empty_targets_do_not_add_separator() {
         let mut args = vec!["commit".to_string()];
         append_targets(&mut args, &[]);
@@ -1037,6 +1198,22 @@ mod tests {
             .trim()
             .parse()
             .unwrap();
+            let history = runtime
+                .block_on(super::file_log(wc.to_str().unwrap(), name, Some(21), None))
+                .unwrap();
+            assert_eq!(history.len(), 1, "file history must exclude other files");
+            assert_eq!(history[0].revision, revision);
+            assert_eq!(history[0].message, "at filename");
+            let cursor_history = runtime
+                .block_on(super::file_log(
+                    wc.to_str().unwrap(),
+                    name,
+                    Some(21),
+                    Some(revision),
+                ))
+                .unwrap();
+            assert_eq!(cursor_history.len(), 1);
+            assert_eq!(cursor_history[0].revision, revision);
             let historical_diff = runtime
                 .block_on(super::diff(
                     wc.to_str().unwrap(),

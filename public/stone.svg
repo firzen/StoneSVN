@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="tile" x1="72" y1="40" x2="432" y2="480" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#52789b"/>
+      <stop offset="1" stop-color="#244967"/>
+    </linearGradient>
+    <linearGradient id="stone" x1="160" y1="110" x2="360" y2="430" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d7e3ed"/>
+    </linearGradient>
+    <mask id="silhouette" maskUnits="userSpaceOnUse" x="80" y="64" width="352" height="384">
+      <path d="M300 72L374 156L408 300L334 432H198L104 328L142 160Z" fill="white"/>
+      <path d="M300 72L234 226L310 278L198 432L260 288L184 236Z" fill="black"/>
+    </mask>
+  </defs>
+  <rect x="28" y="28" width="456" height="456" rx="108" fill="url(#tile)"/>
+  <g mask="url(#silhouette)">
+    <path d="M100 64H416V440H100Z" fill="url(#stone)"/>
+    <path d="M300 72L374 156L408 300L278 248Z" fill="#c2d3e3"/>
+    <path d="M142 160L184 236L198 432L104 328Z" fill="#afc3d5"/>
+    <path d="M310 278L408 300L334 432H198Z" fill="#e8eff5"/>
+    <path d="M142 160L300 72L184 236Z" fill="#f6f9fc"/>
+  </g>
+</svg>

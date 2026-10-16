@@ -1,6 +1,18 @@
 <template>
-  <aside class="property-inspector" :aria-label="t('properties.title')" :aria-busy="fetching || saving">
-    <header><strong>{{ t('properties.title') }}</strong><span v-if="dirty" class="dirty-dot" :title="t('properties.unsaved')">●</span></header>
+  <aside class="property-inspector" :aria-label="t('properties.title')" :aria-busy="fetching || saving || exporting">
+    <header>
+      <strong>{{ t('properties.title') }}</strong><span v-if="dirty" class="dirty-dot" :title="t('properties.unsaved')">●</span>
+      <div v-if="showBlame" class="target-actions">
+      <el-button size="small" :disabled="!canExport" :loading="exporting" @click="exportTarget">
+        <el-icon><Download /></el-icon>{{ t('properties.export') }}
+      </el-button>
+      <el-button class="blame-button" size="small" :disabled="!canBlame" @click="openBlame">
+        <el-icon><Edit /></el-icon>{{ t('menu.blame') }}
+      </el-button>
+      <el-button size="small" type="danger" plain :disabled="!canDelete" @click="deleteTarget"><el-icon><Delete /></el-icon>{{ t('common.delete') }}</el-button>
+      <el-button size="small" :disabled="!canRestore" @click="restoreTarget"><el-icon><RefreshLeft /></el-icon>{{ t('properties.restoreTo') }}</el-button>
+      </div>
+    </header>
     <div v-if="!file" class="inspector-empty">{{ t('properties.selectTarget') }}</div>
     <template v-else>
       <section>
@@ -63,16 +75,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, h, onBeforeUnmount, ref, watch } from 'vue'
+import { ElMessageBox } from 'element-plus/es/components/message-box/index'
+import { ElMessage } from 'element-plus/es/components/message/index'
 import { useI18n } from 'vue-i18n'
+import { save as selectExportPath } from '@tauri-apps/plugin-dialog'
 import { propertyDrafts as drafts } from '@/utils/propertyDrafts'
-import { svnPropertyDetails, svnSetProperty } from '@/api/svn'
+import { svnPropertyDetails, svnSetProperty, svnDelete, deleteUnversioned, svnRestoreFileRevision, svnExport } from '@/api/svn'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useWorkspace } from '@/composables/useWorkspace'
 import type { PropertyDetails, SvnStatus } from '@/types'
 
-const props = defineProps<{ workspace: string; file: string; status?: SvnStatus; disabled: boolean }>()
-const emit = defineEmits<{ busy: [value: boolean]; dirty: [value: boolean] }>()
+const props = defineProps<{ workspace: string; file: string; status?: SvnStatus; disabled: boolean; showBlame?: boolean }>()
+const emit = defineEmits<{ busy: [value: boolean]; dirty: [value: boolean]; blame: [file: string]; mutated: [action: 'delete' | 'restore' | 'refresh'] }>()
 const { t } = useI18n()
 const store = useWorkspaceStore()
 const { refreshStatusAfterMutation } = useWorkspace()
@@ -80,6 +95,27 @@ const details = ref<PropertyDetails | null>(null)
 const fetching = ref(false)
 const saving = ref(false)
 const error = ref('')
+const exporting = ref(false)
+const canExport = computed(() => Boolean(props.file && details.value?.info
+  && details.value.info.schedule !== 'delete' && !['deleted', 'missing'].includes(props.status?.status_code || '')
+  && !fetching.value && !saving.value && !exporting.value && !props.disabled && !store.operationBusy))
+async function exportTarget() {
+  if (!canExport.value) return
+  const workspace = props.workspace, file = props.file, targetKey = key.value
+  const name = (file === '.' ? workspace : file).split(/[\\/]/).filter(Boolean).pop() || 'export'
+  exporting.value = true; emit('busy', true); store.setOperationBusy(true)
+  try {
+    const destination = await selectExportPath({ title: t('properties.exportDirectory'), defaultPath: `${name}-export` })
+    if (!destination || key.value !== targetKey || store.currentPath !== workspace) return
+    const result = await svnExport(workspace, file, destination)
+    if (!result.success) throw new Error(result.error || result.output)
+    ElMessage.success(t('properties.exported', { path: destination }))
+  } catch (err) { ElMessage.error(String(err)) }
+  finally { exporting.value = false; emit('busy', false); store.setOperationBusy(false) }
+}
+const canBlame = computed(() => Boolean(props.file && details.value?.info && details.value.info.revision > 0
+  && !details.value.directory && !fetching.value && !saving.value && !props.disabled && !store.operationBusy))
+function openBlame() { if (canBlame.value) emit('blame', props.file) }
 const values = ref<Record<string, string>>({})
 const original = ref<Record<string, string>>({})
 const newName = ref('')
@@ -88,6 +124,69 @@ let generation = 0
 const key = computed(() => JSON.stringify([props.workspace, props.file]))
 const dirty = computed(() => [...new Set([...Object.keys(original.value), ...Object.keys(values.value)])]
   .some(name => values.value[name] !== original.value[name]))
+const canMutate = computed(() => Boolean(props.file && props.file !== '.' && details.value && !dirty.value
+  && !fetching.value && !saving.value && !props.disabled && !store.operationBusy && !store.statusIsStale))
+const canDelete = computed(() => canMutate.value && !['deleted', 'missing'].includes(props.status?.status_code || '') && details.value?.info?.schedule !== 'delete')
+const canRestore = computed(() => canMutate.value && canBlame.value && details.value?.editable && details.value.info?.schedule === 'normal')
+const deleteTarget = () => mutateTarget('delete')
+const restoreTarget = () => mutateTarget('restore')
+async function mutateTarget(action: 'delete' | 'restore') {
+  if (!(action === 'delete' ? canDelete.value : canRestore.value)) return
+  const workspace = props.workspace, file = props.file, targetKey = key.value
+  const unversioned = !details.value?.info
+  let attempted = false, completed = false
+  saving.value = true; emit('busy', true); store.setOperationBusy(true); error.value = ''
+  try {
+    const message = h('div', [
+      h('p', t(action === 'restore' ? 'properties.restoreHint' : unversioned ? 'workspace.deleteUnversionedConfirm' : 'properties.deleteHint')),
+      h('code', { style: 'display:block;overflow-wrap:anywhere' }, file),
+    ])
+    let revision = 0
+    if (action === 'restore') {
+      const answer = await ElMessageBox.prompt(message, t('properties.restoreTo'), {
+        inputPlaceholder: t('properties.revisionPlaceholder'), inputPattern: /^[1-9]\d*$/,
+        inputValidator: value => Number.isSafeInteger(Number(value)) && Number(value) > 0,
+        inputErrorMessage: t('properties.invalidRevision'),
+        confirmButtonText: t('common.confirm'), cancelButtonText: t('common.cancel'),
+        closeOnClickModal: false, distinguishCancelAndClose: true,
+      })
+      revision = Number(answer.value)
+    } else {
+      await ElMessageBox.confirm(message, t('common.delete'), {
+        type: 'warning', confirmButtonType: 'danger', confirmButtonText: t('common.delete'),
+        cancelButtonText: t('common.cancel'), closeOnClickModal: false, distinguishCancelAndClose: true,
+      })
+    }
+    if (key.value !== targetKey || store.currentPath !== workspace) return
+    attempted = true
+    const result = action === 'restore' ? await svnRestoreFileRevision(workspace, file, revision)
+      : unversioned ? await deleteUnversioned(workspace, [file]) : await svnDelete(workspace, [file])
+    if (!result.success) throw new Error(result.error || result.output)
+    completed = true
+  } catch (err) {
+    if (err !== 'cancel' && err !== 'close' && key.value === targetKey) error.value = String(err)
+  } finally {
+    if (attempted && store.currentPath === workspace) {
+      try { if (!await refreshStatusAfterMutation()) error.value ||= t('properties.actionRefreshFailed') }
+      catch (err) { error.value ||= String(err) }
+    }
+    saving.value = false; emit('busy', false); store.setOperationBusy(false)
+    if (attempted && store.currentPath === workspace) {
+      if (completed && action === 'delete') {
+        // The parent remains inspectable after the selected entry is removed.
+        emit('mutated', 'delete')
+      } else {
+        const failure = error.value
+        if (key.value === targetKey) await load()
+        error.value ||= failure
+        emit('mutated', completed ? action : 'refresh')
+      }
+    }
+    if (error.value) ElMessage.error(error.value)
+    if (completed) ElMessage.success(t(action === 'restore' ? 'properties.restored' : unversioned ? 'properties.removed' : 'properties.deleted'))
+  }
+}
+
 const reportDirty = () => emit('dirty', dirty.value || [...drafts.keys()].some(entry => JSON.parse(entry)[0] === props.workspace))
 watch(values, () => {
   if (fetching.value || saving.value || !details.value) return
@@ -180,7 +279,10 @@ onBeforeUnmount(() => { if (dirty.value) drafts.set(key.value, { ...values.value
 
 <style scoped>
 .property-inspector { width: 300px; flex: 0 0 300px; min-height: 0; overflow: auto; border-left: 1px solid var(--commit-border); background: var(--el-bg-color); color: var(--commit-text); font-size: 12px; }
-header { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 14px; background: var(--commit-toolbar); border-bottom: 1px solid var(--commit-border); }
+header { position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 42px; padding: 6px 14px; background: var(--commit-toolbar); border-bottom: 1px solid var(--commit-border); }
+.target-actions { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.target-actions > .el-button { margin-left: 0; }
+.target-actions > .el-button--danger { color: var(--el-color-danger); border-color: var(--el-color-danger-light-5); }
 section { padding: 14px; border-bottom: 1px solid var(--el-border-color-lighter); }
 h3 { margin: 0 0 12px; font-size: 12px; font-weight: 600; }
 dl { display: grid; grid-template-columns: 65px minmax(0, 1fr); gap: 7px 10px; margin: 0; line-height: 1.5; }

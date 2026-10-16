@@ -55,3 +55,20 @@ export const Switch = createMaterialIcon('Switch', 'contrast')
 export const Terminal = createMaterialIcon('Terminal', 'terminal')
 export const Upload = createMaterialIcon('Upload', 'upload')
 export const User = createMaterialIcon('User', 'person')
+
+// Branch nodes match the weight and current-color behavior of toolbar icons.
+export const GitBranch = defineComponent({
+  name: 'GitBranch',
+  setup() {
+    return () => h('svg', {
+      viewBox: '0 0 24 24', width: '1em', height: '1em',
+      fill: 'none', stroke: 'currentColor', 'stroke-width': 1.8,
+      'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true',
+    }, [
+      h('path', { d: 'M6 8v8M18 8v2a6 6 0 0 1-6 6H6' }),
+      h('circle', { cx: 6, cy: 5, r: 3 }),
+      h('circle', { cx: 6, cy: 19, r: 3 }),
+      h('circle', { cx: 18, cy: 5, r: 3 }),
+    ])
+  },
+})

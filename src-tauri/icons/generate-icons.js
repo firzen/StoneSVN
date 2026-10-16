@@ -4,8 +4,7 @@ const { spawnSync } = require('child_process');
 
 const iconsDir = __dirname;
 const projectRoot = resolve(iconsDir, '..', '..');
-const sourceSvg = join(iconsDir, 'orca.svg');
-const relativeSourceSvg = 'src-tauri/icons/orca.svg';
+const relativeSourceSvg = 'src-tauri/icons/stone.svg';
 const relativeIconsDir = 'src-tauri/icons';
 
 const command = 'npm';
@@ -27,6 +26,9 @@ if (result.status !== 0) {
   }
   process.exit(result.status ?? 1);
 }
+
+// Share the exact app artwork with the toolbar and browser favicon.
+copyFileSync(join(iconsDir, 'stone.svg'), join(projectRoot, 'public', 'stone.svg'));
 
 // The Tauri icon generator writes 128x128@2x.png but this project config
 // also references 256x256.png directly.

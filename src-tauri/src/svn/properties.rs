@@ -45,6 +45,7 @@ pub struct WorkspaceChild {
     pub path: String,
     pub name: String,
     pub directory: bool,
+    pub expandable: bool,
 }
 
 pub fn workspace_children(
@@ -62,7 +63,8 @@ pub fn workspace_children(
         if name.eq_ignore_ascii_case(".svn") {
             continue;
         }
-        // Symlinks remain leaf nodes, so directory links cannot form cycles.
+        // Directory links use folder icons but remain leaves to avoid cycles
+        // and traversal outside the working copy.
         let kind = entry
             .file_type()
             .map_err(|e| SvnError::CommandFailed(e.to_string()))?;
@@ -74,7 +76,8 @@ pub fn workspace_children(
         children.push(WorkspaceChild {
             path,
             name,
-            directory: kind.is_dir(),
+            directory: kind.is_dir() || (kind.is_symlink() && entry.path().is_dir()),
+            expandable: kind.is_dir(),
         });
     }
     children.sort_by(|a, b| {
@@ -84,6 +87,82 @@ pub fn workspace_children(
             .then_with(|| a.name.cmp(&b.name))
     });
     Ok(children)
+}
+
+/// Search local paths without expanding directory links or SVN administration.
+pub fn workspace_search(workspace: &str, query: &str) -> Result<Vec<WorkspaceChild>, SvnError> {
+    let query = query.trim().replace('\\', "/").to_lowercase();
+    if query.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut pending = vec![".".to_string()];
+    let mut matches = Vec::new();
+    while let Some(directory) = pending.pop() {
+        for child in workspace_children(workspace, &directory)? {
+            if child.expandable {
+                pending.push(child.path.clone());
+            }
+            if child.path.to_lowercase().contains(&query) {
+                matches.push(child);
+            }
+        }
+    }
+    matches.sort_by(|a, b| {
+        a.path
+            .to_lowercase()
+            .cmp(&b.path.to_lowercase())
+            .then_with(|| a.path.cmp(&b.path))
+    });
+    Ok(matches)
+}
+
+pub async fn restore_file_revision(
+    workspace: &str,
+    file: &str,
+    revision: u64,
+) -> Result<String, SvnError> {
+    let target = target_path(workspace, file)?;
+    if revision == 0 || !target.is_file() || target.is_symlink() {
+        return Err(SvnError::InvalidArguments(
+            "Select a versioned file and a revision greater than zero".into(),
+        ));
+    }
+    let merge_target = target.to_string_lossy().into_owned();
+    let target = super::operations::normalize_svn_target(&merge_target);
+    let status = execute_svn(
+        &["status", "--xml", "--depth", "empty", "--", &target],
+        Some(workspace),
+    )
+    .await?;
+    if super::parser::parse_status_xml(&status)?
+        .iter()
+        .any(|entry| {
+            !matches!(entry.status_code.as_str(), "normal" | "none" | "")
+                || entry.prop_status == "modified"
+                || entry.prop_status == "conflicted"
+        })
+    {
+        return Err(SvnError::InvalidArguments(
+            "The file has local changes. Commit, stash or revert them before restoring a revision"
+                .into(),
+        ));
+    }
+    let info_xml = execute_svn(&["info", "--xml", "--", &target], Some(workspace)).await?;
+    let info = super::parser::parse_info_xml(&info_xml)?;
+    if info.revision == 0 || info.schedule != "normal" {
+        return Err(SvnError::InvalidArguments(
+            "Select an existing versioned file".into(),
+        ));
+    }
+    // A local file source also selects that exact file as the implicit target.
+    // Passing an explicit target breaks filenames containing @ in SVN merge.
+    let source = format!("{}@{}", merge_target, info.revision);
+    let range = format!("{}:{}", info.revision, revision);
+    execute_svn(
+        &["merge", "--ignore-ancestry", "-r", &range, "--", &source],
+        Some(workspace),
+    )
+    .await
 }
 
 fn parse_properties(xml: &str) -> Result<Vec<SvnProperty>, SvnError> {
@@ -280,18 +359,42 @@ mod tests {
         assert!(folder.iter().any(|child| child.path == "folder/child.txt"));
         assert!(workspace_children(workspace, "../").is_err());
         assert!(workspace_children(workspace, "missing").is_err());
+        let matches = workspace_search(workspace, "CHILD.TXT").unwrap();
+        assert_eq!(matches.len(), 1);
+        assert_eq!(matches[0].path, "folder/child.txt");
+        assert!(!matches[0].directory);
+        assert_eq!(
+            workspace_search(workspace, "folder\\child").unwrap().len(),
+            1
+        );
+        assert!(workspace_search(workspace, ".svn").unwrap().is_empty());
+        assert!(workspace_search(workspace, "no-match").unwrap().is_empty());
+        assert!(workspace_search(workspace, "  ").unwrap().is_empty());
         #[cfg(unix)]
         {
             std::os::unix::fs::symlink(root.parent().unwrap(), root.join("outside")).unwrap();
             let children = workspace_children(workspace, ".").unwrap();
             assert!(
-                !children
+                children
                     .iter()
                     .find(|child| child.name == "outside")
                     .unwrap()
                     .directory
             );
+            assert!(
+                !children
+                    .iter()
+                    .find(|child| child.name == "outside")
+                    .unwrap()
+                    .expandable
+            );
             assert!(workspace_children(workspace, "outside").is_err());
+            std::os::unix::fs::symlink(&root, root.join("folder/back")).unwrap();
+            let matches = workspace_search(workspace, "back").unwrap();
+            assert_eq!(matches.len(), 1);
+            assert_eq!(matches[0].path, "folder/back");
+            assert!(matches[0].directory);
+            assert!(!matches[0].expandable);
         }
     }
 
@@ -420,6 +523,56 @@ mod tests {
                     .await
                     .is_err());
                 assert!(set_property(wc, file, "bad name", Some("x")).await.is_err());
+                // Restore an older file revision as a local change, including properties.
+                fs::write(workspace.join(file), "new revision\n").unwrap();
+                set_property(wc, file, "test:restored", Some("new"))
+                    .await
+                    .unwrap();
+                assert!(Command::new("svn")
+                    .args(["commit", "-m", "second", "--quiet"])
+                    .current_dir(&workspace)
+                    .status()
+                    .unwrap()
+                    .success());
+                assert!(restore_file_revision(wc, file, 0).await.is_err());
+                assert!(restore_file_revision(wc, "dir", 1).await.is_err());
+                assert!(restore_file_revision(wc, "../repo", 1).await.is_err());
+                assert!(restore_file_revision(wc, "loose.txt", 1).await.is_err());
+                fs::write(workspace.join(file), "uncommitted\n").unwrap();
+                assert!(restore_file_revision(wc, file, 1).await.is_err());
+                assert_eq!(
+                    fs::read_to_string(workspace.join(file)).unwrap(),
+                    "uncommitted\n"
+                );
+                super::super::operations::revert(wc, &[file.into()])
+                    .await
+                    .unwrap();
+                assert!(restore_file_revision(wc, file, 99999).await.is_err());
+                assert_eq!(
+                    fs::read_to_string(workspace.join(file)).unwrap(),
+                    "new revision\n"
+                );
+                restore_file_revision(wc, file, 1).await.unwrap();
+                assert_eq!(
+                    fs::read_to_string(workspace.join(file)).unwrap(),
+                    "one\ntwo\n"
+                );
+                let restored = property_details(wc, file).await.unwrap();
+                assert_eq!(restored.info.unwrap().revision, 2);
+                assert!(restored.properties.is_empty());
+                let statuses = super::super::operations::status(wc).await.unwrap();
+                assert!(statuses.iter().any(|entry| entry.path == file
+                    && entry.status_code == "modified"
+                    && entry.prop_status == "modified"));
+                assert_eq!(
+                    property_details(wc, "dir").await.unwrap().properties[0].value,
+                    "*.log\ncache\n"
+                );
+                let repository_content =
+                    execute_svn(&["cat", "-r", "HEAD", "--", "dir/file@测试.txt@"], Some(wc))
+                        .await
+                        .unwrap();
+                assert_eq!(repository_content, "new revision\n");
                 assert!(Command::new("svn")
                     .args(["delete", "--force", "--", "dir/file@测试.txt@"])
                     .current_dir(&workspace)

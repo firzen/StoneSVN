@@ -1,0 +1,124 @@
+/* Shared compact controls for property, commit, log and update workbenches. */
+.compact-workbench {
+  --workbench-border: var(--md-sys-color-outline-variant);
+  --workbench-toolbar: var(--md-sys-color-surface-container-low);
+  --workbench-heading: var(--md-sys-color-surface-container);
+  --workbench-hover: var(--md-sys-color-surface-container-high);
+  --workbench-selected: var(--md-sys-color-primary-container);
+  --commit-text: var(--md-sys-color-on-surface);
+  --commit-muted: var(--md-sys-color-on-surface-variant);
+  --commit-directory-context: var(--md-sys-color-outline);
+  --commit-border: var(--workbench-border);
+  --commit-toolbar: var(--workbench-toolbar);
+  --commit-heading: var(--workbench-heading);
+  --commit-stripe: var(--md-sys-color-surface-container-low);
+  --commit-hover: var(--workbench-hover);
+  --commit-selected: var(--workbench-selected);
+  --commit-selected-hover: color-mix(in srgb, var(--workbench-selected) 80%, var(--workbench-hover));
+  --commit-accent: var(--md-sys-color-primary);
+  font-size: 12px;
+  color: var(--commit-text);
+}
+
+.compact-workbench .el-button {
+  min-height: 28px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  gap: 6px;
+}
+.compact-workbench .el-input__wrapper,
+.compact-workbench .el-select__wrapper,
+.compact-workbench .el-date-editor.el-input__wrapper {
+  min-height: 28px;
+  height: 28px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.compact-workbench .el-input__inner { height: 26px; font-size: 12px; }
+.compact-workbench .el-range-input { font-size: 12px; }
+.compact-workbench .el-table {
+  border-radius: 0;
+  font-size: 12px;
+  color: var(--commit-text);
+  --el-table-header-bg-color: var(--workbench-heading);
+  --el-table-row-hover-bg-color: var(--workbench-hover);
+  --el-table-border-color: var(--workbench-border);
+  --el-table-current-row-bg-color: var(--workbench-selected);
+}
+.compact-workbench .el-table th.el-table__cell,
+.compact-workbench .el-table td.el-table__cell {
+  height: 32px;
+  padding: 4px 0;
+}
+.compact-workbench .el-table .cell { line-height: 22px; }
+.compact-workbench .el-table th.el-table__cell { color: var(--commit-text); font-weight: 600; }
+.compact-workbench .el-table .el-table__row--striped td.el-table__cell { background: var(--commit-stripe); }
+.compact-workbench .el-table .el-table__row:hover > td.el-table__cell { background: var(--workbench-hover); }
+
+/* Keep workbench cards and controls aligned within the outer shell. */
+.route-content .compact-workbench > :is(.log-card, .update-card, .blame-card, .diff-card) {
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+  box-shadow: none;
+}
+.route-content .compact-workbench > :is(.log-card, .update-card, .blame-card, .diff-card) > .el-card__header {
+  padding: 6px 14px;
+  background: var(--workbench-toolbar);
+  border-bottom: 1px solid var(--workbench-border);
+}
+.route-content .compact-workbench > :is(.log-card, .update-card, .blame-card, .diff-card) > .el-card__body {
+  min-height: 0;
+  padding: 0;
+}
+.compact-workbench .card-title { font-size: 12px; font-weight: 600; }
+
+.log-view.compact-workbench .log-filters {
+  padding: 8px 14px;
+  margin: 0;
+  border-bottom: 1px solid var(--workbench-border);
+  background: var(--workbench-toolbar);
+  grid-template-columns: minmax(100px, 1fr) minmax(130px, 2fr) minmax(240px, 2fr) auto auto;
+}
+.log-view.compact-workbench .log-filters > * { min-width: 0; }
+.log-view.compact-workbench .log-filters > .el-button { margin-left: 0; }
+.log-view.compact-workbench .log-query-state { margin: 0; padding: 4px 14px; }
+.log-view.compact-workbench .log-pagination { padding: 8px 14px; border-top: 1px solid var(--workbench-border); }
+.log-view.compact-workbench .log-table { border-radius: 0; }
+
+.update-view.compact-workbench .update-content { gap: 0; }
+.update-view.compact-workbench .revision-strip { gap: 0; border-bottom: 1px solid var(--workbench-border); }
+.update-view.compact-workbench .revision-strip > div {
+  padding: 8px 14px;
+  border: 0;
+  border-right: 1px solid var(--workbench-border);
+  border-radius: 0;
+  background: var(--workbench-toolbar);
+}
+.update-view.compact-workbench .revision-strip > div:last-child { border-right: 0; }
+.update-view.compact-workbench .revision-strip strong { margin-top: 2px; font-size: 14px; }
+.update-view.compact-workbench .section-header {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  min-height: 36px;
+  margin: 0;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--workbench-border);
+  background: var(--workbench-toolbar);
+}
+.update-view.compact-workbench .section-header h3 { font-size: 12px; font-weight: 600; }
+.update-view.compact-workbench .list-divider { background: var(--workbench-border); }
+.update-view.compact-workbench .update-table { border-radius: 0; }
+.update-view.compact-workbench .status-badge { min-width: 48px; min-height: 19px; height: 19px; border-radius: 3px; padding: 0 4px; font-size: 11px; }
+
+@media (max-width: 1100px) {
+  .log-view.compact-workbench .log-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .log-view.compact-workbench .log-date-range { grid-column: 1 / -1; width: 100%; }
+}
+@media (max-width: 640px) {
+  .log-view.compact-workbench .log-filters { grid-template-columns: 1fr; }
+}

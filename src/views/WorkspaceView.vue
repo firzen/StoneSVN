@@ -56,7 +56,7 @@
         <div class="sidebar-section">
           <div class="sidebar-heading">{{ $t('workspace.repository') }}</div>
           <button class="sidebar-row" @click="router.push({ name: 'log' })">
-            <el-icon><List /></el-icon>
+            <el-icon><GitBranch /></el-icon>
             <span>{{ $t('menu.log') }}</span>
           </button>
           <button class="sidebar-row" @click="router.push({ name: 'blame' })">
@@ -250,6 +250,7 @@ import { useWorkspace } from '@/composables/useWorkspace'
 import VirtualViewport from '@/components/VirtualViewport.vue'
 import FilePreview from '@/components/FilePreview.vue'
 import GlassLoading from '@/components/GlassLoading.vue'
+import { GitBranch } from '@/components/icons/materialIcons'
 import { writeClipboardText } from '@/utils/clipboard'
 import type { SvnStatus, FilePreviewResult } from '@/types'
 
@@ -1260,7 +1261,7 @@ const handleFileAction = async (file: SvnStatus) => {
   flex: 1 1 auto;
   width: auto;
   min-width: 0;
-  background: var(--md-sys-color-surface-container-lowest);
+  background: var(--app-color-diff-surface);
 }
 
 .panel-header {

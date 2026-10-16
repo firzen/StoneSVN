@@ -1,14 +1,6 @@
 <template>
-  <div class="log-view">
+  <div class="log-view compact-workbench">
     <el-card class="log-card">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">
-            <el-icon><Document /></el-icon>
-            {{ $t('log.title') }}
-          </span>
-        </div>
-      </template>
 
       <div v-if="!workspaceStore.currentPath" class="no-workspace">
         <el-empty :description="$t('log.openWorkspaceFirst')">
@@ -662,7 +654,7 @@ onUnmounted(() => {
 :deep(.log-card > .el-card__body) {
   display: flex;
   flex-direction: column;
-  height: calc(100% - 57px);
+  height: 100%;
   min-height: 0;
 }
 
@@ -721,8 +713,8 @@ onUnmounted(() => {
 }
 
 .author-select :deep(.el-select__wrapper) {
-  height: 40px;
-  min-height: 40px;
+  height: 28px;
+  min-height: 28px;
 }
 
 .author-select :deep(.el-select__wrapper.is-focused),

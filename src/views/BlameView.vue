@@ -1,348 +1,150 @@
 <template>
-  <div class="blame-view">
+  <div class="blame-view compact-workbench">
     <el-card class="blame-card">
       <template #header>
         <div class="card-header">
-          <span class="view-title">
-            <el-icon><Edit /></el-icon>
-            {{ $t('blame.title') }}
-          </span>
+          <span class="view-title"><el-icon><Edit /></el-icon>{{ $t('menu.blame') }}</span>
           <div class="header-actions">
-            <el-input
-              v-model="currentPath"
-              :placeholder="$t('diff.filePath')"
-              clearable
-              class="path-input"
-            >
-              <template #prepend>
-                <el-icon><Document /></el-icon>
-              </template>
-              <template #append>
-                <el-button @click="browseFile">{{ $t('common.browse') }}</el-button>
-              </template>
+            <el-input size="small" v-model="currentPath" :placeholder="$t('diff.filePath')" clearable class="path-input" @keyup.enter="loadHistory">
+              <template #prefix><el-icon><Document /></el-icon></template>
             </el-input>
-            <el-button @click="loadBlame" :loading="loading" type="primary">
-              <el-icon><Edit /></el-icon>
-              {{ $t('blame.load') }}
-            </el-button>
+            <el-button size="small" @click="browseFile">{{ $t('common.browse') }}</el-button>
+            <el-button size="small" @click="loadHistory" :loading="loading" type="primary">{{ $t('blame.load') }}</el-button>
           </div>
         </div>
       </template>
-
-      <div v-if="!blameLines.length && !loading" class="empty-blame">
-        <el-empty :description="$t('blame.selectFileToBlame')">
-          <template #image>
-            <el-icon class="empty-icon"><Edit /></el-icon>
-          </template>
-        </el-empty>
-      </div>
-
-      <div v-else-if="loading" class="loading-blame">
-        <el-skeleton :rows="20" animated />
-      </div>
-
-      <div v-else class="blame-content">
-        <div class="blame-header">
-          <div class="blame-tags">
-            <el-tag class="path-tag" type="primary" :title="currentPath">
-              <el-icon><Document /></el-icon>
-              <span class="path-label">{{ currentPath }}</span>
-            </el-tag>
-            <el-tag type="info" effect="plain">
-              <el-icon><List /></el-icon>
-              {{ blameLines.length }} {{ $t('blame.lines') }}
-            </el-tag>
-          </div>
-        </div>
-
-        <el-table 
-          :data="annotatedBlameLines" 
-          style="width: 100%" 
-          height="100%" 
-          row-key="lineNo"
-          stripe
-          highlight-current-row
-          class="blame-table"
-        >
-          <el-table-column prop="lineNo" label="#" width="72" align="right" fixed>
-            <template #default="{ row }">
-              <span class="line-number">{{ row.lineNo }}</span>
-            </template>
+      <div class="blame-content">
+        <div v-if="loadedFile" class="blame-header"><span :title="loadedFile" class="path-label">{{ loadedFile }}</span></div>
+        <el-table :data="logs" v-loading="loading" height="100%" row-key="revision" stripe class="blame-table" @row-dblclick="openRevision">
+          <el-table-column prop="revision" :label="$t('log.revision')" width="100" align="center">
+            <template #default="{ row }"><el-tag size="small" effect="plain">r{{ row.revision }}</el-tag></template>
           </el-table-column>
-          <el-table-column prop="revision" :label="$t('blame.revision')" width="112" sortable align="center">
-            <template #default="{ row }">
-              <el-tag type="primary" size="small" effect="plain">r{{ row.revision }}</el-tag>
-            </template>
+          <el-table-column prop="author" :label="$t('log.author')" width="150" show-overflow-tooltip />
+          <el-table-column prop="date" :label="$t('log.date')" width="190">
+            <template #default="{ row }">{{ new Date(row.date).toLocaleString() }}</template>
           </el-table-column>
-          <el-table-column prop="author" :label="$t('blame.author')" width="150" show-overflow-tooltip>
-            <template #default="{ row }">
-              <div class="author-cell">
-                <el-icon><User /></el-icon>
-                <span>{{ row.author }}</span>
-              </div>
-            </template>
+          <el-table-column prop="message" :label="$t('log.commitMessage')" min-width="240">
+            <template #default="{ row }"><span class="revision-message">{{ row.message }}</span></template>
           </el-table-column>
-          <el-table-column prop="line" :label="$t('blame.content')">
-            <template #default="{ row }">
-              <code class="code-line">{{ row.line }}</code>
-            </template>
+          <el-table-column width="100" align="center">
+            <template #default="{ row }"><el-button size="small" text @click="openRevision(row)">{{ $t('common.diff') }}</el-button></template>
           </el-table-column>
         </el-table>
+        <div class="history-pagination">
+          <el-button size="small" :disabled="loading || pageIndex === 0" @click="changePage(pageIndex - 1)">{{ $t('log.previousPage') }}</el-button>
+          <span>{{ $t('log.pageNumber', { page: pageIndex + 1 }) }}</span>
+          <el-button size="small" :disabled="loading || !hasMore" @click="changePage(pageIndex + 1)">{{ $t('log.nextPage') }}</el-button>
+        </div>
       </div>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, watch, onBeforeUnmount } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { open } from '@tauri-apps/plugin-dialog'
 import { ElMessage } from 'element-plus/es/components/message/index'
-import { svnBlame } from '@/api/svn'
+import { svnFileLog } from '@/api/svn'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useI18n } from 'vue-i18n'
 import { toWorkspaceRelativePath } from '@/utils/workspacePath'
-import type { BlameLine } from '@/types'
+import type { SvnLogEntry } from '@/types'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const workspaceStore = useWorkspaceStore()
-
 const currentPath = ref('')
+const loadedFile = ref('')
 const loading = ref(false)
-const blameLines = ref<BlameLine[]>([])
+const logs = ref<SvnLogEntry[]>([])
+const pageIndex = ref(0)
+const hasMore = ref(false)
+const cursors = ref<(number | undefined)[]>([undefined])
+const PAGE_SIZE = 20
+let generation = 0
 
-const annotatedBlameLines = computed(() => {
-  return blameLines.value.map((line, index) => ({
-    ...line,
-    lineNo: index + 1,
-  }))
-})
-
-const resolveCurrentFilePath = (): string | null => {
-  const file = currentPath.value || route.query.path as string
-  if (!file || !workspaceStore.currentPath) return null
-
-  const relativePath = toWorkspaceRelativePath(file, workspaceStore.currentPath)
-  if (relativePath === null) {
-    ElMessage.warning(t('diff.fileOutsideWorkspace'))
-    return null
+const changePage = async (page: number) => {
+  const workspace = workspaceStore.currentPath
+  const file = loadedFile.value
+  if (!workspace || !file || page < 0 || page >= cursors.value.length) return
+  const request = ++generation
+  loading.value = true
+  try {
+    const entries = await svnFileLog(workspace, file, PAGE_SIZE + 1, cursors.value[page])
+    if (request !== generation || workspace !== workspaceStore.currentPath) return
+    logs.value = entries.slice(0, PAGE_SIZE)
+    pageIndex.value = page
+    hasMore.value = entries.length > PAGE_SIZE
+    cursors.value = cursors.value.slice(0, page + 1)
+    if (hasMore.value) cursors.value.push(logs.value[PAGE_SIZE - 1].revision - 1)
+  } catch (err) {
+    if (request === generation) ElMessage.error(`${t('common.error')}：${err}`)
+  } finally {
+    if (request === generation) loading.value = false
   }
-  if (!relativePath) return null
-
-  currentPath.value = relativePath
-  return relativePath
 }
 
-const browseFile = async () => {
-  if (!workspaceStore.currentPath) return
-
-  const selected = await open({
-    directory: false,
-    multiple: false,
-    defaultPath: workspaceStore.currentPath,
-    title: t('dialog.selectFile'),
-  })
-
-  if (!selected) return
-
-  const selectedPath = Array.isArray(selected) ? selected[0] : selected
-  const relativePath = toWorkspaceRelativePath(selectedPath, workspaceStore.currentPath)
-  if (relativePath === null || !relativePath) {
+const loadHistory = async () => {
+  const workspace = workspaceStore.currentPath
+  if (!workspace) return
+  const file = toWorkspaceRelativePath(currentPath.value, workspace)
+  if (file === null || file.split('/').includes('..')) {
     ElMessage.warning(t('diff.fileOutsideWorkspace'))
     return
   }
-  currentPath.value = relativePath
+  ++generation
+  logs.value = []; loadedFile.value = file; pageIndex.value = 0; hasMore.value = false
+  cursors.value = [undefined]; loading.value = false
+  if (file) { currentPath.value = file; await changePage(0) }
 }
 
-const loadBlame = async () => {
-  const file = resolveCurrentFilePath()
-  if (!file || !workspaceStore.currentPath) return
-
-  loading.value = true
-  blameLines.value = []
-
-  try {
-    blameLines.value = await svnBlame(workspaceStore.currentPath, file)
-  } catch (err) {
-    blameLines.value = []
-    ElMessage.error(`${t('common.error')}：${err}`)
-  } finally {
-    loading.value = false
-  }
+const browseFile = async () => {
+  const workspace = workspaceStore.currentPath
+  if (!workspace) return
+  const selected = await open({ directory: false, multiple: false, defaultPath: workspace, title: t('dialog.selectFile') })
+  if (!selected || workspace !== workspaceStore.currentPath) return
+  currentPath.value = Array.isArray(selected) ? selected[0] : selected
+  await loadHistory()
 }
 
-watch(() => route.query.path, (path) => {
-  if (path) {
-    currentPath.value = path as string
-    loadBlame()
-  }
+const openRevision = (entry: SvnLogEntry) => {
+  if (!loadedFile.value || loading.value) return
+  sessionStorage.removeItem('orca_diff_files')
+  router.push({ name: 'diff', query: { path: loadedFile.value, revision: String(entry.revision) } })
+}
+
+watch(() => [workspaceStore.currentPath, route.query.path] as const, ([workspace, path], previous) => {
+  ++generation
+  logs.value = []; loadedFile.value = ''; loading.value = false; hasMore.value = false; pageIndex.value = 0
+  currentPath.value = typeof path === 'string' && (!previous || workspace === previous[0]) ? path : ''
+  if (currentPath.value) void loadHistory()
 }, { immediate: true })
+onBeforeUnmount(() => { generation++ })
 </script>
 
 <style scoped>
-.blame-view {
-  height: 100%;
-}
-
-.blame-card {
-  height: 100%;
-  border-radius: var(--app-radius-lg);
-}
-
-:deep(.blame-card > .el-card__body) {
-  display: flex;
-  flex-direction: column;
-  height: calc(100% - 57px);
-  min-height: 0;
-}
-
-.view-title {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--app-spacing-sm);
-  font-weight: 700;
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--app-spacing-sm);
-}
-
-.path-input {
-  width: min(420px, 42vw);
-}
-
-.path-input :deep(.el-input-group__prepend) {
-  border-radius: var(--app-radius-sm) 0 0 var(--app-radius-sm);
-}
-
-.path-input :deep(.el-input-group__append) {
-  border-radius: 0 var(--app-radius-sm) var(--app-radius-sm) 0;
-}
-
-.empty-blame,
-.loading-blame {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--app-spacing-xl) 0;
-}
-
-.empty-icon {
-  font-size: 64px;
-  color: var(--el-text-color-placeholder);
-}
-
-.blame-content {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  flex-direction: column;
-  margin-top: var(--app-spacing-md);
-}
-
-.blame-header {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--app-spacing);
-  margin-bottom: var(--app-spacing);
-}
-
-.blame-tags {
-  display: flex;
-  flex-wrap: wrap;
-  min-width: 0;
-  max-width: 100%;
-  gap: var(--app-spacing-sm);
-}
-
-.path-tag {
-  max-width: min(720px, 100%);
-  min-width: 0;
-}
-
-.path-tag :deep(.el-tag__content) {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-.path-tag .el-icon {
-  flex-shrink: 0;
-}
-
-.path-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.blame-table {
-  border-radius: var(--app-radius-md);
-  overflow: hidden;
-}
-
-:deep(.el-table__cell) {
-  padding: 6px 0;
-}
-
-:deep(.el-table__fixed),
-:deep(.el-table__fixed-right) {
-  box-shadow: 6px 0 14px rgba(31, 35, 64, 0.06);
-}
-
-.line-number {
-  font-family: var(--app-font-family-mono);
-  font-size: var(--app-font-size-sm);
-  color: var(--el-text-color-secondary);
-}
-
-.author-cell {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.author-cell .el-icon {
-  font-size: var(--app-font-size-body);
-  color: var(--el-text-color-secondary);
-}
-
-.code-line {
-  display: block;
-  min-width: max-content;
-  font-family: var(--app-font-family-mono);
-  white-space: pre;
-  font-size: var(--app-font-size-label);
-  line-height: 1.5;
-  color: var(--el-text-color-primary);
-}
-
+.blame-view { height: 100%; min-height: 0; }
+.blame-card { height: 100%; }
+.blame-card :deep(.el-card__body) { display: flex; flex-direction: column; flex: 1; min-height: 0; height: auto; overflow: hidden; }
+.card-header { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.view-title { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; font-size: 12px; font-weight: 600; }
+.header-actions { display: flex; align-items: center; justify-content: flex-end; flex: 1; min-width: 0; gap: 8px; }
+.header-actions > .el-button { flex-shrink: 0; margin-left: 0; }
+.path-input { width: min(420px, 100%); min-width: 0; }
+.blame-content { display: flex; flex: 1; min-height: 0; flex-direction: column; padding: 10px 14px 0; gap: 8px; }
+.blame-header { display: flex; min-width: 0; color: var(--commit-muted); }
+.path-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.blame-table { min-height: 0; flex: 1; }
+.history-pagination { display: flex; justify-content: center; align-items: center; flex-shrink: 0; gap: 12px; padding: 8px 0; border-top: 1px solid var(--commit-border); }
+.revision-message { white-space: pre-wrap; overflow-wrap: anywhere; }
 @media (max-width: 860px) {
-  .path-input {
-    width: 100%;
-  }
-
-  .header-actions {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .blame-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+  .card-header { flex-wrap: wrap; gap: 8px; }
+  .header-actions { flex-basis: 100%; }
+  .path-input { flex: 1; }
+}
+@media (max-width: 420px) {
+  .history-pagination { gap: 6px; }
 }
 </style>
