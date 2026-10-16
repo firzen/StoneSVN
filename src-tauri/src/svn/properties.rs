@@ -235,6 +235,11 @@ fn parse_properties(xml: &str) -> Result<Vec<SvnProperty>, SvnError> {
                             }
                         }
                     }
+                    // SVN translates its reserved text properties to native
+                    // line endings. Keep the editor representation platform-neutral.
+                    if !binary && name.starts_with("svn:") {
+                        value = value.replace("\r\n", "\n").replace('\r', "\n");
+                    }
                     properties.push(SvnProperty {
                         name,
                         value,
@@ -443,6 +448,15 @@ mod tests {
             "<properties><target path=\".\"><property name=\"test:line\">one\r\ntwo\r\n</property><property name=\"test:reference\">a&#13;\r\nb</property></target></properties>"
         ).unwrap();
         assert_eq!(properties[0].value, "one\ntwo\n");
+        assert_eq!(properties[1].value, "a\r\nb");
+    }
+
+    #[test]
+    fn reserved_properties_normalize_native_newlines_without_changing_custom_values() {
+        let properties = parse_properties(
+            "<properties><target path=\".\"><property name=\"svn:ignore\">*.log&#13;\ncache&#13;\n</property><property name=\"test:custom\">a&#13;\nb</property></target></properties>"
+        ).unwrap();
+        assert_eq!(properties[0].value, "*.log\ncache\n");
         assert_eq!(properties[1].value, "a\r\nb");
     }
 
