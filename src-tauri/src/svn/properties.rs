@@ -166,7 +166,10 @@ pub async fn restore_file_revision(
 }
 
 fn parse_properties(xml: &str) -> Result<Vec<SvnProperty>, SvnError> {
-    let mut reader = Reader::from_str(xml);
+    // XML line endings are normalized before entity decoding. Windows SVN
+    // emits CRLF on stdout; explicit &#13; property characters remain intact.
+    let normalized = xml.replace("\r\n", "\n").replace('\r', "\n");
+    let mut reader = Reader::from_str(&normalized);
     let mut properties = Vec::new();
     let mut current: Option<(String, String, bool)> = None;
     loop {
@@ -432,6 +435,15 @@ mod tests {
             assert!(matches[0].directory);
             assert!(!matches[0].expandable);
         }
+    }
+
+    #[test]
+    fn property_xml_normalizes_transport_newlines_but_preserves_encoded_carriage_returns() {
+        let properties = parse_properties(
+            "<properties><target path=\".\"><property name=\"test:line\">one\r\ntwo\r\n</property><property name=\"test:reference\">a&#13;\r\nb</property></target></properties>"
+        ).unwrap();
+        assert_eq!(properties[0].value, "one\ntwo\n");
+        assert_eq!(properties[1].value, "a\r\nb");
     }
 
     #[test]
