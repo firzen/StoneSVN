@@ -22,7 +22,10 @@ function harness() {
     setGitignorePatterns(value) { this.gitignorePatterns = value },
     setGitignoreMtime() {}, setGitignoreWorkspacePath() {}, rememberWorkspace() {},
   }
-  let filter = async list => list
+  const matchContext = { exports: {} }
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/utils/gitignore.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, matchContext)
+  const settings = { gitignoreEnabled: false, filterRules: '.gitignore' }
+  let filter = async (list, patterns) => matchContext.exports.filterByGitignore(list, patterns)
   const mocks = {
     '@/stores/workspace': { useWorkspaceStore: () => store },
     '@/api/svn': {
@@ -30,16 +33,16 @@ function harness() {
       svnLocalRevision: async () => 12,
     },
     '@tauri-apps/plugin-dialog': {},
-    '@/composables/useSettings': { useSettings: () => ({ settings: { gitignoreEnabled: false } }) },
-    '@/utils/gitignore': {},
-    '@/utils/gitignoreWorker': { filterByGitignoreAsync: list => filter(list) },
+    '@/composables/useSettings': { useSettings: () => ({ settings }) },
+    '@/utils/gitignore': matchContext.exports,
+    '@/utils/gitignoreWorker': { filterByGitignoreAsync: (list, patterns) => filter(list, patterns) },
     '@/utils/workspaceSnapshot': { getWorkspaceSnapshot: path => snapshots.get(path) || null, cacheWorkspaceSnapshot: (...args) => writes.push(args), invalidateWorkspaceSnapshot: path => { invalidations.push(path); snapshots.delete(path) } },
     '@/utils/svnInfoCache': { getCachedSvnInfoMetadata: () => ({ url: 'file:///repo' }) },
   }
   const context = { exports: {}, require: name => { assert.ok(name in mocks, name); return mocks[name] } }
   const code = ts.transpileModule(fs.readFileSync('src/composables/useWorkspace.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
   vm.runInNewContext(code, context)
-  return { store, requests, snapshots, writes, invalidations, useWorkspace: context.exports.useWorkspace, setFilter: value => { filter = value } }
+  return { store, settings, requests, snapshots, writes, invalidations, useWorkspace: context.exports.useWorkspace, setFilter: value => { filter = value } }
 }
 
 test('separate consumers share an in-flight refresh and background polls reuse fresh state', async () => {
@@ -178,4 +181,38 @@ test('filesystem-scoped background checks do not satisfy an explicit complete re
   h.requests[0].resolve([{ path: 'old.ts' }])
   assert.equal(await background, false)
   assert.equal(h.store.statusList[0].path, 'verified.ts')
+})
+
+test('refresh applies only global rules, clears them when disabled, and never exposes raw paths', async () => {
+  const h = harness(), workspace = h.useWorkspace()
+  h.settings.gitignoreEnabled = true
+  h.settings.filterRules = '.gitignore\n/_tmp1010/log*'
+  const pendingFilter = deferred()
+  h.setFilter(() => pendingFilter.promise)
+  const first = workspace.refreshStatus()
+  h.requests[0].resolve([{ path: '.gitignore' }, { path: '_tmp1010/log/x' }, { path: 'source.ts' }])
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(h.store.statusList.length, 0)
+  assert.equal(h.store.statusIsStale, true)
+  pendingFilter.resolve([{ path: 'source.ts' }])
+  assert.equal(await first, true)
+  assert.equal(h.store.gitignorePatterns.length, 2)
+  assert.equal(h.store.statusIsStale, false)
+
+  h.settings.gitignoreEnabled = false
+  const second = workspace.refreshStatus()
+  h.requests[1].reject(new Error('offline'))
+  assert.equal(await second, false)
+  assert.equal(h.store.gitignorePatterns.length, 0)
+  assert.equal(h.store.statusIsStale, true)
+})
+
+test('enabled filters select names at any depth and paths only at the workspace root', async () => {
+  const h = harness(), workspace = h.useWorkspace()
+  h.settings.gitignoreEnabled = true
+  h.settings.filterRules = '.gitignore\n/_tmp1010/log*'
+  const refresh = workspace.refreshStatus()
+  h.requests[0].resolve(['.gitignore', 'src/.gitignore', '_tmp1010/logs/x', 'other/_tmp1010/logs/x', 'source.ts'].map(path => ({ path })))
+  assert.equal(await refresh, true)
+  assert.deepEqual(h.store.statusList.map(file => file.path), ['other/_tmp1010/logs/x', 'source.ts'])
 })

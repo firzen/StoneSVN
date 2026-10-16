@@ -14,6 +14,7 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'auto'
   language: string
   gitignoreEnabled: boolean
+  filterRules: string
 }
 
 const STORAGE_KEY = 'orcasvn-settings'
@@ -26,6 +27,7 @@ const defaults: AppSettings = {
   theme: 'auto',
   language: detectSystemLocale(),
   gitignoreEnabled: false,
+  filterRules: '.gitignore',
 }
 
 function httpsOrigin(value: string): string | null {
@@ -56,7 +58,7 @@ function loadSettings(): AppSettings {
           servers[origin] = { legacyTls: true, trustInvalidCertificates: svnLegacyTlsTrustInvalidCertificates === true }
         }
       }
-      return { ...defaults, ...saved, svnServerSecurity: servers }
+      return { ...defaults, ...saved, filterRules: typeof saved.filterRules === 'string' ? saved.filterRules : defaults.filterRules, svnServerSecurity: servers }
     }
   } catch {
     // ignore parse errors

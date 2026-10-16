@@ -47,10 +47,13 @@
             <h3>{{ $t('update.incomingTitle') }}</h3>
             <span>{{ $t('update.incomingHint') }}</span>
           </div>
-          <el-table :data="incomingLogs" stripe class="update-table" max-height="280" row-key="revision">
+          <el-table :data="incomingLogs" stripe class="update-table" max-height="280" row-key="revision"
+            @row-click="showCommitDetails" :row-style="{ cursor: 'pointer' }">
             <el-table-column prop="revision" :label="$t('log.revision')" width="90" align="center">
               <template #default="{ row }">
-                <el-tag type="primary" size="small" effect="plain">r{{ row.revision }}</el-tag>
+                <button type="button" class="revision-link" @click.stop="showCommitDetails(row)">
+                  <el-tag type="primary" size="small" effect="plain">r{{ row.revision }}</el-tag>
+                </button>
               </template>
             </el-table-column>
             <el-table-column prop="author" :label="$t('log.author')" width="140" />
@@ -102,12 +105,46 @@
           </div>
         </section>
       </div>
+      <el-dialog v-model="detailsVisible" :title="$t('log.commitDetails')"
+        width="min(880px, calc(100vw - 32px))" top="8vh" append-to-body destroy-on-close>
+        <div v-if="selectedLog" class="revision-details">
+          <dl class="revision-metadata">
+            <div><dt>{{ $t('log.revision') }}</dt><dd>r{{ selectedLog.revision }}</dd></div>
+            <div><dt>{{ $t('log.author') }}</dt><dd>{{ selectedLog.author }}</dd></div>
+            <div><dt>{{ $t('log.date') }}</dt><dd>{{ formatDate(selectedLog.date) }}</dd></div>
+          </dl>
+          <h4>{{ $t('log.commitMessage') }}</h4>
+          <pre class="revision-message">{{ selectedLog.message }}</pre>
+          <h4>{{ $t('log.changedFiles') }} <span class="detail-count">{{ selectedLog.changed_paths?.length || 0 }}</span></h4>
+          <div class="revision-files" role="table" :aria-label="$t('log.changedFiles')"
+            :aria-rowcount="(selectedLog.changed_paths?.length || 0) + 1">
+            <div class="revision-file-row revision-files-header" role="row">
+              <span role="columnheader">{{ $t('commit.status') }}</span>
+              <span role="columnheader">{{ $t('commit.file') }}</span>
+            </div>
+            <VirtualViewport v-if="selectedLog.changed_paths?.length" :item-count="selectedLog.changed_paths.length"
+              :row-height="32" :reset-key="selectedLog.revision" role="rowgroup">
+              <template #default="{ start, end }">
+                <div v-for="(file, index) in selectedLog.changed_paths.slice(start, end)" :key="file.path"
+                  class="revision-file-row" :class="{ striped: (start + index) % 2 }" role="row" :aria-rowindex="start + index + 2">
+                  <span role="cell"><el-tag size="small" :type="actionTagType(file.action)">
+                    {{ $t(['A', 'D', 'M', 'R'].includes(file.action) ? `log.action${file.action}` : 'log.actionUnknown') }}
+                  </el-tag></span>
+                  <span class="revision-file-path" role="cell" :title="file.path">{{ file.path }}</span>
+                </div>
+              </template>
+            </VirtualViewport>
+            <div v-else class="empty-line" role="row"><span role="cell">{{ $t('common.noData') }}</span></div>
+          </div>
+        </div>
+        <template #footer><el-button @click="detailsVisible = false">{{ $t('common.close') }}</el-button></template>
+      </el-dialog>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onDeactivated, onUnmounted, ref, watch } from 'vue'
+import { computed, onActivated, onDeactivated, onUnmounted, ref, shallowRef, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus/es/components/message/index'
@@ -117,6 +154,7 @@ import { useWorkspace } from '@/composables/useWorkspace'
 import { getStatusClass, getStatusLabelKey } from '@/composables/useSvnStatus'
 import { useSettings } from '@/composables/useSettings'
 import type { SvnLogEntry } from '@/types'
+import VirtualViewport from '@/components/VirtualViewport.vue'
 
 type UpdateStateCache = {
   remoteRevision: number
@@ -135,6 +173,21 @@ const loading = ref(false)
 const updating = ref(false)
 const incomingLogs = ref<SvnLogEntry[]>([])
 const remoteRevision = ref(0)
+const selectedLog = shallowRef<SvnLogEntry | null>(null)
+const detailsVisible = ref(false)
+const showCommitDetails = (entry: SvnLogEntry) => {
+  selectedLog.value = entry
+  detailsVisible.value = true
+}
+const actionTagType = (action: string) => {
+  switch (action) {
+    case 'A': return 'success'
+    case 'D': return 'danger'
+    case 'M': return 'warning'
+    case 'R': return 'primary'
+    default: return 'info'
+  }
+}
 let isActive = false
 let updateStateTimer: number | undefined
 let updateRequestGeneration = 0
@@ -221,6 +274,7 @@ const viewDiff = (path: string) => {
 }
 
 const stopUpdatePolling = () => {
+  detailsVisible.value = false
   isActive = false
   if (updateStateTimer !== undefined) {
     window.clearInterval(updateStateTimer)
@@ -248,6 +302,8 @@ watch(
     updateRequestGeneration += 1
     loading.value = false
     incomingLogs.value = []
+    detailsVisible.value = false
+    selectedLog.value = null
     remoteRevision.value = 0
     if (isActive && path && !applyCachedState(path)) {
       loadUpdateState()
@@ -257,6 +313,23 @@ watch(
 </script>
 
 <style scoped>
+.revision-link { display: inline-flex; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }
+.revision-link:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 3px; }
+.revision-link:hover { filter: brightness(.92); }
+.revision-details { color: var(--el-text-color-primary); }
+.revision-metadata { display: grid; grid-template-columns: 100px minmax(120px, 1fr) minmax(180px, 1fr); gap: 12px; margin: 0; padding: 12px; border: 1px solid var(--el-border-color-light); border-radius: 6px; }
+.revision-metadata dt { color: var(--el-text-color-secondary); font-size: 12px; }
+.revision-metadata dd { margin: 4px 0 0; overflow-wrap: anywhere; font-size: 13px; }
+.revision-details h4 { margin: 16px 0 8px; font-size: 13px; }
+.detail-count { margin-left: 6px; color: var(--el-text-color-secondary); font-weight: 400; }
+.revision-message { margin: 0; padding: 12px; max-height: 140px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--el-border-color-light); border-radius: 6px; background: var(--el-fill-color-light); font: 13px/1.6 var(--app-font-family); }
+.revision-files { display: flex; flex-direction: column; height: 260px; max-height: 36vh; min-height: 100px; overflow: hidden; border: 1px solid var(--el-border-color-light); border-radius: 6px; }
+.revision-file-row { display: grid; grid-template-columns: 82px minmax(0, 1fr); align-items: center; height: 32px; padding: 0 8px; gap: 8px; font-size: 12px; }
+.revision-file-row.striped { background: rgba(127, 127, 127, .07); }
+.revision-files-header { flex-shrink: 0; font-weight: 600; border-bottom: 1px solid var(--el-border-color-light); }
+.revision-file-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 600px) { .revision-metadata { grid-template-columns: 1fr; } }
+
 .update-view {
   height: 100%;
 }

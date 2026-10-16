@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed } from 'vue'
 import type { SvnStatus, SvnInfo } from '@/types'
 import { invalidateWorkspaceSnapshot } from '@/utils/workspaceSnapshot'
 import type { GitignorePattern } from '@/utils/gitignore'
+import { sameStatusSnapshot } from '@/utils/statusSnapshot'
 
 const LAST_WORKSPACE_KEY = 'orcasvn-last-workspace'
 const RECENT_WORKSPACES_KEY = 'orcasvn-recent-workspaces'
@@ -24,13 +25,11 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   const currentPath = ref<string | null>(null)
   const recentWorkspaces = ref<string[]>(readRecentWorkspaces())
   const svnInfo = ref<SvnInfo | null>(null)
-  const statusList = ref<SvnStatus[]>([])
+  const statusList = shallowRef<SvnStatus[]>([])
   const isLoading = ref(false)
   const statusIsStale = ref(false)
   const error = ref<string | null>(null)
   const gitignorePatterns = ref<GitignorePattern[]>([])
-  const gitignoreMtime = ref<number | null>(null)
-  const gitignoreWorkspacePath = ref<string | null>(null)
 
   const hasChanges = computed(() => {
     return statusList.value.some(s => s.status_code !== 'normal' && s.status_code !== '')
@@ -82,7 +81,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   }
 
   function setStatusList(list: SvnStatus[]) {
-    statusList.value = list
+    if (!sameStatusSnapshot(statusList.value, list)) statusList.value = list
   }
 
   function setSvnInfo(info: SvnInfo | null) {
@@ -105,14 +104,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     gitignorePatterns.value = patterns
   }
 
-  function setGitignoreMtime(mtime: number | null) {
-    gitignoreMtime.value = mtime
-  }
-
-  function setGitignoreWorkspacePath(path: string | null) {
-    gitignoreWorkspacePath.value = path
-  }
-
   function clearWorkspace() {
     localStorage.removeItem(LAST_WORKSPACE_KEY)
     currentPath.value = null
@@ -121,8 +112,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     statusIsStale.value = false
     error.value = null
     gitignorePatterns.value = []
-    gitignoreMtime.value = null
-    gitignoreWorkspacePath.value = null
   }
 
   function removeRecentWorkspace(path: string) {
@@ -150,8 +139,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     conflictedCount,
     missingCount,
     gitignorePatterns,
-    gitignoreMtime,
-    gitignoreWorkspacePath,
     setCurrentPath,
     rememberWorkspace,
     removeRecentWorkspace,
@@ -161,8 +148,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     setLoading,
     setError,
     setGitignorePatterns,
-    setGitignoreMtime,
-    setGitignoreWorkspacePath,
     clearWorkspace,
   }
 })

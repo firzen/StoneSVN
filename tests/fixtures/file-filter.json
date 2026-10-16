@@ -1,0 +1,16 @@
+[
+  {"rules":[".gitignore"],"hidden":[".gitignore","src/.gitignore"],"visible":[".gitignore.bak","src/main.ts","existing.log"]},
+  {"rules":["/_tmp1010/log"],"hidden":["_tmp1010/log","_tmp1010/log/a.txt","_tmp1010/log/archive/a.txt"],"visible":["_tmp1010","_tmp1010/logger/a.txt","other/_tmp1010/log/a.txt"]},
+  {"rules":["/_tmp1010/log/*"],"hidden":["_tmp1010/log/a.txt","_tmp1010/log/archive","_tmp1010/log/archive/a.txt","_tmp1010/log/.hidden"],"visible":["_tmp1010/log","_tmp1010/logger/a.txt","other/_tmp1010/log/a.txt"]},
+  {"rules":["_tmp1010/log*"],"hidden":["_tmp1010/log","_tmp1010/log.txt","_tmp1010/logs/a.txt","_tmp1010/logger/debug.log"],"visible":["_tmp1010/mylog.txt","other/_tmp1010/log.txt"]},
+  {"rules":["*.log","temp?.txt"],"hidden":["a.log","deep/a.log","deep/temp1.txt","deep/temp中.txt","deep/logs.log/output.txt"],"visible":["a.log.bak","temp12.txt","temp.txt","logs/a.txt"]},
+  {"rules":["/_tmp1010/**/log"],"hidden":["_tmp1010/log","_tmp1010/a/log","_tmp1010/a/b/log/x"],"visible":["other/_tmp1010/log","_tmp1010/logger","_tmp1010/a/logger"]},
+  {"rules":["/logs/*.txt"],"hidden":["logs/a.txt","logs/folder.txt/deep"],"visible":["logs/deep/a.txt","other/logs/a.txt","logs/a.log"]},
+  {"rules":["_tmp*"],"hidden":["_tmp1010/x","other/_tmp1010/x"],"visible":["tmp1010/x","abc_tmp1010/x"]},
+  {"rules":["  .gitignore  ","", "  ","!keep.log","#notes","[ab].txt"],"hidden":["dir/.gitignore","!keep.log","dir/#notes","[ab].txt"],"visible":["keep.log","a.txt","b.txt"]},
+  {"rules":["/logs/"],"hidden":["logs","logs/a.txt"],"visible":["other/logs/a.txt","logs2/a"]},
+  {"rules":["/日志/*.txt"],"hidden":["日志/记录.txt","日志/中.txt"],"visible":["other/日志/记录.txt","日志/子/记录.txt"]},
+  {"rules":["_tmp1010\\log*"],"hidden":["_tmp1010/log.txt","_tmp1010\\logs\\a.txt"],"visible":["other/_tmp1010/log"]},
+  {"rules":["*.log","!keep.log"],"hidden":["keep.log","!keep.log"],"visible":["keep.txt"]},
+  {"rules":["../secret","/",""],"hidden":[],"visible":["secret","anything"]}
+]

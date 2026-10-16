@@ -93,8 +93,14 @@
           </el-form-item>
 
           <el-form-item :label="$t('settings.gitignore')" class="form-item">
-            <el-switch v-model="settings.gitignoreEnabled" @change="handleGitignoreChange" />
-            <span class="form-item-hint">{{ $t('settings.gitignoreHint') }}</span>
+            <div class="file-filter-settings">
+              <el-switch v-model="settings.gitignoreEnabled" @change="handleGitignoreChange" />
+              <el-input v-model="filterRulesDraft" type="textarea" :rows="5"
+                :aria-label="$t('settings.filterRules')" :placeholder="$t('settings.filterRulesPlaceholder')"
+                @change="handleFilterRulesChange" />
+              <span class="file-filter-hint">{{ $t('settings.gitignoreHint') }}</span>
+              <span class="file-filter-hint">{{ $t('settings.filterWildcardHint') }}</span>
+            </div>
           </el-form-item>
         </div>
       </el-form>
@@ -162,6 +168,7 @@ import { useUpdateCheck } from '@/composables/useUpdateCheck'
 const { t } = useI18n()
 const { setLocale } = useLocale()
 const { settings, updateSettings } = useSettings()
+const filterRulesDraft = ref(settings.filterRules)
 const removingServer = ref<string | null>(null)
 const { refreshStatusAfterMutation } = useWorkspace()
 const { currentVersion: appVersion, state: updateState, latestVersion, checkForUpdates, openReleasePage } = useUpdateCheck()
@@ -180,6 +187,11 @@ const currentLanguage = computed({
 })
 
 const handleGitignoreChange = () => {
+  void refreshStatusAfterMutation()
+}
+
+const handleFilterRulesChange = () => {
+  updateSettings({ filterRules: filterRulesDraft.value })
   void refreshStatusAfterMutation()
 }
 
@@ -263,6 +275,21 @@ onMounted(() => {
 .settings-control {
   width: 260px;
   max-width: 100%;
+}
+
+.file-filter-settings {
+  width: 520px;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--app-spacing-sm);
+}
+
+.file-filter-hint {
+  font-size: var(--app-font-size-sm);
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
 }
 
 .form-item-hint {

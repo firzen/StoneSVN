@@ -10,6 +10,7 @@ export interface WorkspaceSnapshot {
   path: string
   savedAt: number
   gitignoreEnabled: boolean
+  filterRules?: string
   statusList: SvnStatus[]
   svnInfo: SvnInfo
 }
@@ -36,8 +37,9 @@ function readSnapshots(): WorkspaceSnapshot[] {
   } catch { return [] }
 }
 
-export function getWorkspaceSnapshot(path: string, gitignoreEnabled: boolean): WorkspaceSnapshot | null {
-  return readSnapshots().find(entry => entry.path === path && entry.gitignoreEnabled === gitignoreEnabled) || null
+export function getWorkspaceSnapshot(path: string, gitignoreEnabled: boolean, filterRules = ''): WorkspaceSnapshot | null {
+  return readSnapshots().find(entry => entry.path === path && entry.gitignoreEnabled === gitignoreEnabled
+    && (!gitignoreEnabled || (entry.filterRules ?? '') === filterRules)) || null
 }
 
 export function invalidateWorkspaceSnapshot(path: string): void {
@@ -46,13 +48,13 @@ export function invalidateWorkspaceSnapshot(path: string): void {
   } catch { /* Storage is optional. */ }
 }
 
-export function cacheWorkspaceSnapshot(path: string, statusList: SvnStatus[], svnInfo: SvnInfo, gitignoreEnabled: boolean): void {
+export function cacheWorkspaceSnapshot(path: string, statusList: SvnStatus[], svnInfo: SvnInfo, gitignoreEnabled: boolean, filterRules = ''): void {
   try {
     const entries = readSnapshots().filter(entry => entry.path !== path)
     // Persist only small change lists, avoiding synchronous serialization of
     // very large results. Never leave an older snapshot behind when skipped.
     if (statusList.length <= MAX_FILES) {
-      const snapshot = { path, statusList, svnInfo, gitignoreEnabled, savedAt: Date.now() }
+      const snapshot = { path, statusList, svnInfo, gitignoreEnabled, filterRules, savedAt: Date.now() }
       if (JSON.stringify(snapshot).length <= MAX_BYTES) entries.unshift(snapshot)
     }
     entries.splice(MAX_WORKSPACES)

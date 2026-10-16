@@ -37,3 +37,29 @@ export function buildChangeTree(entries: SvnStatus[], scope = ''): ChangeNode[] 
   finish(root)
   return root.targets.length ? [root] : []
 }
+
+// Preserve original targets on visible groups so filtering never silently
+// changes the scope of a directory checkbox or discards hidden selections.
+export function filterChangeTree(nodes: ChangeNode[], visiblePaths: Set<string>): ChangeNode[] {
+  return nodes.filter(node => node.targets.some(path => visiblePaths.has(path))).map(node => ({
+    ...node,
+    children: filterChangeTree(node.children, visiblePaths),
+  }))
+}
+
+export interface ChangeTreeRow {
+  node: ChangeNode
+  depth: number
+}
+
+export function flattenChangeTree(nodes: ChangeNode[], collapsed: ReadonlySet<string> = new Set()): ChangeTreeRow[] {
+  const rows: ChangeTreeRow[] = []
+  const visit = (children: ChangeNode[], depth: number) => {
+    for (const node of children) {
+      rows.push({ node, depth })
+      if (!collapsed.has(node.path)) visit(node.children, depth + 1)
+    }
+  }
+  visit(nodes, 0)
+  return rows
+}

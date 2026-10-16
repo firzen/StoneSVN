@@ -32,10 +32,11 @@ export async function svnUpdate(path: string, revision?: number): Promise<Comman
 export async function svnCommit(
   path: string,
   message: string,
-  files?: string[]
+  files?: string[],
+  filterRules?: string[],
 ): Promise<CommandResult> {
   await checkConnection(path)
-  return invoke<CommandResult>('svn_commit', { path, message, files })
+  return invoke<CommandResult>('svn_commit', { path, message, files, filterRules })
 }
 
 export async function svnStatus(path: string, force = false): Promise<SvnStatus[]> {
@@ -92,8 +93,8 @@ export async function svnBlame(workspacePath: string, file: string): Promise<Bla
   return invokeWithConnectionPrompt<BlameLine[]>('svn_blame', { workspacePath, file })
 }
 
-export async function svnAdd(path: string, files: string[]): Promise<CommandResult> {
-  return invoke<CommandResult>('svn_add', { path, files })
+export async function svnAdd(path: string, files: string[], filterRules?: string[]): Promise<CommandResult> {
+  return invoke<CommandResult>('svn_add', { path, files, filterRules })
 }
 
 export async function svnDelete(path: string, files: string[]): Promise<CommandResult> {
@@ -135,15 +136,6 @@ export async function svnCleanup(path: string): Promise<CommandResult> {
 export async function svnSwitch(path: string, url: string): Promise<CommandResult> {
   await checkConnection(url.includes('://') ? url : path)
   return invoke<CommandResult>('svn_switch', { path, url })
-}
-
-export interface GitignoreData {
-  content: string
-  mtime: number
-}
-
-export async function readGitignore(path: string): Promise<GitignoreData | null> {
-  return invoke<GitignoreData | null>('read_gitignore', { path })
 }
 
 export async function svnMerge(

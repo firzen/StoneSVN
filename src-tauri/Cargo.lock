@@ -9,6 +9,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "quick-xml 0.37.5",
+ "regex",
  "serde",
  "serde_json",
  "tauri",

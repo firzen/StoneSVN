@@ -6,6 +6,28 @@ export interface GitignorePattern {
   dirOnly: boolean
 }
 
+// Global filter rules are names or workspace-root paths, never ignore-file contents.
+// All rules are inclusive; ! and # are ordinary filename characters.
+export function parseFilterRules(content: string): GitignorePattern[] {
+  return content.split('\n').map(line => line.trim().replace(/\\/g, '/')).filter(Boolean).flatMap(rule => {
+    const anchored = rule.includes('/')
+    const pattern = rule.split('/').filter(part => part && part !== '.').join('/')
+    if (!pattern || pattern.split('/').includes('..')) return []
+    let source = ''
+    for (let i = 0; i < pattern.length; i++) {
+      if (pattern[i] === '*') {
+        if (pattern[i + 1] === '*') {
+          while (pattern[i + 1] === '*') i++
+          if (pattern[i + 1] === '/') { source += '(?:.*/)?'; i++ }
+          else source += '.*'
+        } else source += '[^/]*'
+      } else if (pattern[i] === '?') source += '[^/]'
+      else source += pattern[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    }
+    return [{ negation: false, dirOnly: false, regex: new RegExp(`${anchored ? '^' : '(^|/)'}${source}(?:/|$)`, 'su') }]
+  })
+}
+
 export function parseGitignore(content: string): GitignorePattern[] {
   const patterns: GitignorePattern[] = []
 

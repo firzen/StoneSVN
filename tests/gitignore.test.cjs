@@ -48,3 +48,12 @@ test('cached decisions avoid repeated regex work and rule changes use a new matc
   assert.equal(calls, 1)
   assert.equal(createGitignoreMatcher(parseGitignore('!a.ts'))('a.ts'), false)
 })
+
+test('global filters match shared name, root path and wildcard cases without parsing ignore files', () => {
+  const { parseFilterRules, createGitignoreMatcher } = context.exports
+  for (const { rules, hidden, visible } of require('./fixtures/file-filter.json')) {
+    const matches = createGitignoreMatcher(parseFilterRules(rules.join('\n')))
+    for (const path of hidden) assert.equal(matches(path), true, JSON.stringify({ rules, path }))
+    for (const path of visible) assert.equal(matches(path), false, JSON.stringify({ rules, path }))
+  }
+})

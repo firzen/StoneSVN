@@ -1,216 +1,150 @@
 <template>
-  <div class="commit-view">
-    <el-card class="commit-card animate-fade-in">
-      <template #header>
-        <div class="card-header">
-          <span class="card-title">
-            <el-icon><Upload /></el-icon>
-            {{ $t('commit.title') }}
+  <div class="commit-view compact-commit">
+    <div v-if="!workspaceStore.currentPath" class="no-workspace">
+      <el-empty :description="$t('log.openWorkspaceFirst')">
+        <el-button type="primary" @click="openWorkspace">
+          <el-icon><FolderOpened /></el-icon>{{ $t('common.open') }}
+        </el-button>
+      </el-empty>
+    </div>
+
+    <div v-else class="commit-content">
+      <el-alert v-if="workspaceStore.statusIsStale" :title="$t('workspace.cachedStatus')"
+        type="warning" :closable="false" show-icon class="commit-warning" />
+
+      <section class="message-panel" aria-labelledby="commit-message-heading">
+        <div class="section-toolbar">
+          <h2 id="commit-message-heading">{{ $t('commit.commitMessage') }}</h2>
+          <span class="character-count">{{ $t('commit.characterCount', { count: commitMessage.length }) }}</span>
+          <el-dropdown trigger="click" placement="bottom-end" :max-height="280"
+            :disabled="loading || recentMessages.length === 0" @visible-change="loadRecentMessages" @command="useRecentMessage">
+            <el-button size="small" text :aria-label="$t('commit.recentMessages')" :disabled="loading || recentMessages.length === 0">
+              <el-icon><Calendar /></el-icon>{{ $t('commit.recentMessages') }}<el-icon class="recent-arrow"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu class="commit-recent-menu">
+                <el-dropdown-item v-for="entry in recentMessages" :key="entry.id" :command="entry.message" :title="entry.message">
+                  <span class="recent-message-text">{{ entry.message }}</span>
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </div>
+        <el-input v-model="commitMessage" type="textarea" :rows="4" :disabled="loading" resize="none"
+          :aria-label="$t('commit.commitMessage')" :placeholder="$t('commit.enterCommitMessage')" class="commit-textarea" />
+      </section>
+
+      <section class="changes-panel" aria-labelledby="commit-changes-heading">
+        <div class="section-toolbar changes-toolbar">
+          <h2 id="commit-changes-heading">{{ $t('commit.changes') }}</h2>
+          <strong class="selection-count" aria-live="polite" :title="$t('commit.selectedCount', { count: selectedFiles.length })">
+            {{ selectedFiles.length }}<span> / {{ allChangedFiles.length }}</span>
+          </strong>
+          <el-input v-model="searchQuery" :placeholder="$t('commit.searchFiles')" :aria-label="$t('commit.searchFiles')"
+            :disabled="loading" clearable class="search-input" size="small">
+            <template #prefix><el-icon><Search /></el-icon></template>
+          </el-input>
+          <div class="filter-buttons" :aria-label="$t('commit.selectFiles')">
+            <button v-for="filter in fileFilters" :key="filter.value" type="button"
+              :aria-pressed="filterMode === filter.value" :class="{ active: filterMode === filter.value }"
+              :disabled="loading" @click="filterMode = filter.value">{{ $t(filter.label) }}</button>
+          </div>
+        </div>
+        <div v-if="scope" class="scope-bar">
+          <span>{{ $t('commit.scope') }}:</span><span class="scope-path" :title="scope">{{ scope }}</span>
+          <el-button link size="small" :disabled="loading" @click="setScope('')">{{ $t('commit.allDirectories') }}</el-button>
+        </div>
+
+        <div class="file-table-container" role="treegrid" :aria-label="$t('commit.selectFiles')"
+          :aria-rowcount="flatRows.length + 1" aria-colcount="5" :aria-busy="workspaceStore.isLoading">
+          <div class="file-table-heading" role="rowgroup">
+            <div class="commit-columns" role="row" :style="{ transform: `translateX(-${tableScrollLeft}px)` }">
+              <span class="checkbox-cell" role="columnheader">
+                <input type="checkbox" class="commit-checkbox" :checked="allSelected"
+                  :indeterminate="selectedFiles.length > 0 && !allSelected"
+                  :disabled="loading || workspaceStore.statusIsStale || allChangedFiles.length === 0"
+                  :aria-label="$t('commit.selectAll')" @change="toggleAll(($event.target as HTMLInputElement).checked)" />
+              </span>
+              <span role="columnheader">{{ $t('commit.file') }}</span>
+              <span class="status-cell" role="columnheader">{{ $t('commit.status') }}</span>
+              <span role="columnheader">{{ $t('commit.location') }}</span>
+              <span role="columnheader" :aria-label="$t('common.diff')"></span>
+            </div>
+          </div>
+          <VirtualViewport v-if="flatRows.length" ref="fileViewport" class="commit-files" role="rowgroup"
+            :item-count="flatRows.length" :row-height="29" :content-width="640"
+            :reset-key="`${workspaceStore.currentPath}|${scope}|${searchQuery}|${filterMode}`"
+            @scroll="tableScrollLeft = ($event.target as HTMLElement).scrollLeft" @keydown.self="handleRowKey($event, -1)">
+            <template #default="{ start, end }">
+              <div v-for="(row, index) in flatRows.slice(start, end)" :key="row.node.path"
+                class="commit-columns commit-file-row" :class="{ striped: (start + index) % 2 }" role="row"
+                :aria-rowindex="start + index + 2" :aria-level="row.depth + 1" :aria-selected="isChecked(row.node)"
+                :aria-expanded="row.node.children.length ? !collapsedPaths.has(row.node.path) : undefined"
+                :tabindex="(activeRowPath || flatRows[0]?.node.path) === row.node.path ? 0 : -1"
+                :data-row-index="start + index" @focus="activeRowPath = row.node.path"
+                @keydown="handleRowKey($event, start + index)" @click="handleRowClick($event, row.node)">
+                <span class="checkbox-cell" role="gridcell">
+                  <input type="checkbox" class="commit-checkbox" :checked="isChecked(row.node)" :indeterminate="isPartial(row.node)"
+                    :disabled="loading || workspaceStore.statusIsStale" :aria-label="row.node.path"
+                    @click.stop
+                    @change="toggleNode(row.node, ($event.target as HTMLInputElement).checked)" />
+                </span>
+                <span class="name-cell" role="gridcell" :style="{ paddingLeft: `${row.depth * 16 + 8}px` }">
+                  <button v-if="row.node.children.length" type="button" class="expand-button" :disabled="loading"
+                    :aria-expanded="!collapsedPaths.has(row.node.path)"
+                    :aria-label="$t(collapsedPaths.has(row.node.path) ? 'commit.expandDirectory' : 'commit.collapseDirectory', { path: row.node.path })"
+                    @click.stop="toggleExpanded(row.node.path)"><el-icon><ArrowRight v-if="collapsedPaths.has(row.node.path)" /><ArrowDown v-else /></el-icon></button>
+                  <span v-else class="expand-spacer"></span>
+                  <el-icon class="file-icon" :class="{ 'folder-icon': row.node.children.length || !row.node.entry }">
+                    <Folder v-if="row.node.children.length || !row.node.entry" /><Document v-else />
+                  </el-icon>
+                  <span class="tree-name" :class="{ 'directory-name': row.node.children.length || !row.node.entry }" :title="row.node.path">
+                    {{ row.node.path === '.' ? workspaceName : row.node.label }}
+                  </span>
+                  <small v-if="row.node.children.length" class="tree-count">{{ row.node.targets.length }}</small>
+                </span>
+                <span class="status-cell" role="gridcell">
+                  <span v-if="row.node.entry" class="status-badge" :class="getStatusClass(displayStatus(row.node.entry))"
+                    :title="$t(getStatusLabelKey(displayStatus(row.node.entry)))" :aria-label="$t(getStatusLabelKey(displayStatus(row.node.entry)))">
+                    {{ statusSymbol(row.node.entry) }}
+                  </span>
+                </span>
+                <span class="file-location" role="gridcell" :title="parentLocation(row.node.path)">{{ parentLocation(row.node.path) }}</span>
+                <span class="diff-cell" role="gridcell"><button v-if="row.node.entry" type="button" class="diff-link"
+                  :disabled="loading" @click.stop="viewDiff(row.node.entry.path)">{{ $t('common.diff') }}</button></span>
+              </div>
+            </template>
+          </VirtualViewport>
+          <div v-else class="empty-files" role="row"><span role="gridcell">{{ $t('common.noData') }}</span></div>
+        </div>
+      </section>
+
+      <details v-if="output" open class="output-area">
+        <summary>{{ $t('commit.output') }}</summary>
+        <pre role="status">{{ output }}</pre>
+      </details>
+
+      <footer class="commit-footer">
+        <div class="footer-context">
+          <span class="workspace-path" :title="workspaceStore.currentPath">{{ workspaceStore.currentPath }}</span>
+          <span v-if="hiddenSelectedCount > 0" class="hidden-selection" role="status">
+            {{ $t('commit.selectedCountWithHidden', { count: selectedFiles.length, hidden: hiddenSelectedCount }) }}
           </span>
         </div>
-      </template>
-
-      <div v-if="!workspaceStore.currentPath" class="no-workspace">
-        <el-empty :description="$t('log.openWorkspaceFirst')">
-          <el-button type="primary" @click="openWorkspace">
-            <el-icon><FolderOpened /></el-icon>
-            {{ $t('common.open') }}
+        <div class="footer-actions">
+          <el-button size="small" :disabled="loading" @click="resetForm">{{ $t('common.reset') }}</el-button>
+          <el-button type="primary" size="small" @click="doCommit" :loading="loading"
+            :aria-label="$t(hasUnversionedSelection ? 'commit.addAndReview' : 'common.commit')"
+            :disabled="!commitMessage || selectedFiles.length === 0 || workspaceStore.statusIsStale">
+            <el-icon><Upload /></el-icon>{{ $t(hasUnversionedSelection ? 'commit.addAndReview' : 'common.commit') }}
           </el-button>
-        </el-empty>
-      </div>
-
-      <div v-else class="commit-content">
-        <el-alert v-if="workspaceStore.statusIsStale" :title="$t('workspace.cachedStatus')"
-          type="warning" :closable="false" show-icon class="commit-info" />
-        <el-alert
-          :title="$t('commit.commitMessage')"
-          type="info"
-          :closable="false"
-          class="commit-info"
-          show-icon
-        >
-          <template #default>
-            <div class="info-content">
-              <div class="info-item">
-                <span class="info-label">{{ $t('commit.currentWorkspace') }}：</span>
-                <span class="info-value path-text">{{ workspaceStore.currentPath }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">{{ $t('commit.changedFiles') }}：</span>
-                <el-tag type="primary" size="small">
-                  {{ $t('commit.filesCount', { count: changedFiles.length }) }}
-                </el-tag>
-              </div>
-            </div>
-          </template>
-        </el-alert>
-
-        <el-form class="commit-form" label-position="top" :disabled="loading">
-          <div class="commit-toolbar">
-            <el-input
-              v-model="searchQuery"
-              :placeholder="$t('commit.searchFiles')"
-              clearable
-              class="search-input"
-              size="small"
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
-            <div class="filter-tags">
-              <el-tag
-                :type="filterMode === 'all' ? 'primary' : 'info'"
-                effect="plain"
-                size="small"
-                style="cursor:pointer"
-                @click="filterMode = 'all'"
-              >
-                {{ $t('common.all') }}
-              </el-tag>
-              <el-tag
-                :type="filterMode === 'committable' ? 'primary' : 'info'"
-                effect="plain"
-                size="small"
-                style="cursor:pointer"
-                @click="filterMode = 'committable'"
-              >
-                {{ $t('commit.committable') }}
-              </el-tag>
-              <el-tag
-                :type="filterMode === 'unversioned' ? 'primary' : 'info'"
-                effect="plain"
-                size="small"
-                style="cursor:pointer"
-                @click="filterMode = 'unversioned'"
-              >
-                {{ $t('status.unversioned') }}
-              </el-tag>
-            </div>
-          </div>
-
-          <el-form-item class="file-selection">
-            <div class="commit-scope">
-              <span>{{ $t('commit.scope') }}: {{ scope || workspaceStore.currentPath }}</span>
-              <el-button v-if="scope" text @click="setScope('')">{{ $t('commit.allDirectories') }}</el-button>
-              <strong aria-live="polite">{{ $t(hiddenSelectedCount > 0 ? 'commit.selectedCountWithHidden' : 'commit.selectedCount', { count: selectedFiles.length, hidden: hiddenSelectedCount }) }}</strong>
-            </div>
-            <el-tree
-              class="commit-tree"
-              :data="treeData"
-              node-key="path"
-              default-expand-all
-              :expand-on-click-node="false"
-              :filter-node-method="filterTreeNode"
-              ref="commitTree"
-            >
-              <template #default="{ data }">
-                <div class="commit-tree-row">
-                  <el-checkbox
-                    :model-value="isChecked(data)"
-                    :indeterminate="isPartial(data)"
-                    :disabled="loading"
-                    :aria-label="data.path"
-                    @click.stop
-                    @change="toggleNode(data, Boolean($event))"
-                  />
-                  <span class="tree-name" :title="data.path">{{ data.label }}</span>
-                  <span v-if="data.entry" class="status-badge" :class="getStatusClass(data.entry.status_code)">
-                    {{ $t(getStatusLabelKey(data.entry.status_code)) }}
-                  </span>
-                  <span v-if="data.children.length" class="tree-count">{{ data.targets.length }}</span>
-                  <el-button v-if="data.entry" text size="small" :disabled="loading" @click.stop="viewDiff(data.entry.path)">
-                    {{ $t('common.diff') }}
-                  </el-button>
-                </div>
-              </template>
-            </el-tree>
-          </el-form-item>
-
-          <el-form-item :label="$t('commit.commitMessage')" required class="message-input">
-            <el-input
-              v-model="commitMessage"
-              type="textarea"
-              :rows="5"
-              :placeholder="$t('commit.enterCommitMessage')"
-              resize="vertical"
-              class="commit-textarea"
-            />
-            <div class="char-count">
-              <span :class="{ 'warning': commitMessage.length > 500 }">{{ commitMessage.length }}</span>
-              <span>/ 500</span>
-            </div>
-            <div v-if="recentMessages.length > 0" class="recent-messages">
-              <div class="recent-messages-header">
-                <span class="recent-messages-title">
-                  <el-icon><Calendar /></el-icon>
-                  {{ $t('commit.recentMessages') }}
-                </span>
-                <el-button
-                  text
-                  size="small"
-                  :aria-label="$t('commit.refreshRecentMessages')"
-                  @click="loadRecentMessages"
-                >
-                  <el-icon><Refresh /></el-icon>
-                </el-button>
-              </div>
-              <div class="recent-message-list">
-                <button
-                  v-for="entry in recentMessages"
-                  :key="entry.id"
-                  type="button"
-                  class="recent-message-item"
-                  :title="entry.message"
-                  @click="useRecentMessage(entry.message)"
-                >
-                  <span class="recent-message-revision">●</span>
-                  <span class="recent-message-text">{{ entry.message }}</span>
-                </button>
-              </div>
-            </div>
-          </el-form-item>
-
-          <el-form-item class="form-actions">
-            <el-button
-              type="primary"
-              @click="doCommit"
-              :loading="loading"
-              :disabled="!commitMessage || selectedFiles.length === 0 || workspaceStore.statusIsStale"
-            >
-              <el-icon><Upload /></el-icon>
-              {{ $t(hasUnversionedSelection ? 'commit.addAndReview' : 'common.commit') }}
-            </el-button>
-            <el-button @click="resetForm">
-              <el-icon><RefreshLeft /></el-icon>
-              {{ $t('common.reset') }}
-            </el-button>
-          </el-form-item>
-        </el-form>
-
-        <div v-if="output" class="output-area animate-fade-in">
-          <div class="output-header">
-            <span class="output-title">
-              <el-icon><Document /></el-icon>
-              {{ $t('commit.output') }}
-            </span>
-          </div>
-          <el-input
-            v-model="output"
-            type="textarea"
-            :rows="8"
-            readonly
-            class="output-textarea"
-          />
         </div>
-      </div>
-    </el-card>
+      </footer>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ElTree } from 'element-plus/es/components/tree/index'
-import { ElCheckbox } from 'element-plus/es/components/checkbox/index'
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
@@ -218,7 +152,10 @@ import { svnAdd, svnCommit } from '@/api/svn'
 import { useI18n } from 'vue-i18n'
 import { getStatusClass, getStatusLabelKey } from '@/composables/useSvnStatus'
 import { useWorkspace } from '@/composables/useWorkspace'
-import { buildChangeTree, isWithinDirectory, type ChangeNode } from '@/utils/changeTree'
+import { useSettings } from '@/composables/useSettings'
+import type { SvnStatus } from '@/types'
+import VirtualViewport from '@/components/VirtualViewport.vue'
+import { buildChangeTree, filterChangeTree, flattenChangeTree, isWithinDirectory, normalizePath, type ChangeNode } from '@/utils/changeTree'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -232,7 +169,6 @@ interface RecentCommitMessage {
   message: string
 }
 
-const commitTree = ref()
 const selectedFiles = ref<string[]>([])
 const commitMessage = ref('')
 const loading = ref(false)
@@ -243,6 +179,26 @@ const committableStatuses = new Set(['added', 'modified', 'deleted', 'replaced',
 
 const searchQuery = ref('')
 const filterMode = ref<'all' | 'committable' | 'unversioned'>('all')
+const fileViewport = ref<InstanceType<typeof VirtualViewport> | null>(null)
+const collapsedPaths = ref(new Set<string>())
+const activeRowPath = ref('')
+const tableScrollLeft = ref(0)
+const fileFilters = [
+  { value: 'all', label: 'common.all' },
+  { value: 'committable', label: 'commit.committable' },
+  { value: 'unversioned', label: 'status.unversioned' },
+] as const
+const workspaceName = computed(() => normalizePath(workspaceStore.currentPath || '').split('/').pop())
+const parentLocation = (path: string) => {
+  const normalized = normalizePath(path)
+  const separator = normalized.lastIndexOf('/')
+  return separator < 0 ? '.' : normalized.slice(0, separator)
+}
+const displayStatus = (entry: SvnStatus) => entry.prop_status === 'modified'
+  && ['normal', 'none', ''].includes(entry.status_code) ? 'modified' : entry.status_code
+const statusSymbol = (entry: SvnStatus) => ({
+  modified: 'M', added: 'A', deleted: 'D', replaced: 'R', unversioned: '?', missing: '!',
+}[displayStatus(entry)] || '·')
 
 const scope = computed(() => typeof route.query.directory === 'string' ? route.query.directory : '')
 const allChangedFiles = computed(() => {
@@ -252,7 +208,7 @@ const allChangedFiles = computed(() => {
 })
 
 const changedFiles = computed(() => {
-  let files = [...allChangedFiles.value]
+  let files = allChangedFiles.value
 
   if (searchQuery.value) {
     const q = searchQuery.value.toLowerCase()
@@ -265,17 +221,59 @@ const changedFiles = computed(() => {
     files = files.filter(f => f.status_code === 'unversioned')
   }
 
-  files.sort((a, b) => {
-    const aUntracked = a.status_code === 'unversioned' ? 1 : 0
-    const bUntracked = b.status_code === 'unversioned' ? 1 : 0
-    if (aUntracked !== bUntracked) return aUntracked - bUntracked
-    return a.path.localeCompare(b.path)
-  })
-
   return files
 })
 
-const treeData = computed(() => buildChangeTree(allChangedFiles.value, scope.value))
+// Build and sort once per status/scope change, independently of search input.
+const fullTree = computed(() => {
+  const roots = buildChangeTree(allChangedFiles.value, scope.value)
+  return roots.length === 1 && !roots[0].entry ? roots[0].children : roots
+})
+const treeData = computed(() => searchQuery.value || filterMode.value !== 'all'
+  ? filterChangeTree(fullTree.value, visiblePaths.value) : fullTree.value)
+const flatRows = computed(() => flattenChangeTree(treeData.value, collapsedPaths.value))
+const toggleExpanded = (path: string) => {
+  const next = new Set(collapsedPaths.value)
+  if (next.has(path)) next.delete(path)
+  else next.add(path)
+  collapsedPaths.value = next
+}
+const focusRow = async (index: number) => {
+  const target = Math.max(0, Math.min(index, flatRows.value.length - 1))
+  const row = flatRows.value[target]
+  if (!row) return
+  activeRowPath.value = row.node.path
+  fileViewport.value?.scrollToIndex(target)
+  await nextTick()
+  fileViewport.value?.element?.querySelector<HTMLElement>(`[data-row-index="${target}"]`)?.focus()
+}
+const handleRowKey = (event: KeyboardEvent, index: number) => {
+  const row = flatRows.value[index]
+  if (event.key === 'ArrowDown') { event.preventDefault(); void focusRow(index + 1) }
+  else if (event.key === 'ArrowUp') { event.preventDefault(); void focusRow(index - 1) }
+  else if (event.key === 'Home') { event.preventDefault(); void focusRow(0) }
+  else if (event.key === 'End') { event.preventDefault(); void focusRow(flatRows.value.length - 1) }
+  else if (row && event.key === 'ArrowRight') {
+    event.preventDefault()
+    if (row.node.children.length && collapsedPaths.value.has(row.node.path)) toggleExpanded(row.node.path)
+    else if (row.node.children.length) void focusRow(index + 1)
+  } else if (row && event.key === 'ArrowLeft') {
+    event.preventDefault()
+    if (row.node.children.length && !collapsedPaths.value.has(row.node.path)) toggleExpanded(row.node.path)
+    else {
+      let parent = index - 1
+      while (parent >= 0 && flatRows.value[parent].depth >= row.depth) parent--
+      if (parent >= 0) void focusRow(parent)
+    }
+  } else if (row && event.key === ' ' && event.target === event.currentTarget && !loading.value && !workspaceStore.statusIsStale) {
+    event.preventDefault()
+    toggleNode(row.node, !isChecked(row.node))
+  }
+}
+watch(() => workspaceStore.currentPath, () => {
+  collapsedPaths.value = new Set()
+  activeRowPath.value = ''
+})
 const selectedSet = computed(() => new Set(selectedFiles.value))
 const isChecked = (node: ChangeNode) => node.targets.every(path => selectedSet.value.has(path))
 const isPartial = (node: ChangeNode) => !isChecked(node) && node.targets.some(path => selectedSet.value.has(path))
@@ -284,13 +282,20 @@ const toggleNode = (node: ChangeNode, checked: boolean) => {
   node.targets.forEach(path => checked ? selection.add(path) : selection.delete(path))
   selectedFiles.value = [...selection]
 }
+const handleRowClick = (event: MouseEvent, node: ChangeNode) => {
+  if (loading.value || workspaceStore.statusIsStale) return
+  if (event.target instanceof Element && event.target.closest('input, button, a, label')) return
+  toggleNode(node, !isChecked(node))
+  const element = event.currentTarget as HTMLElement
+  element.focus({ preventScroll: true })
+}
 const visiblePaths = computed(() => new Set(changedFiles.value.map(file => file.path)))
 const hiddenSelectedCount = computed(() => selectedFiles.value.filter(path => !visiblePaths.value.has(path)).length)
-const filterTreeNode = (_value: unknown, node: unknown) => (node as ChangeNode).targets.some(path => visiblePaths.value.has(path))
-watch([changedFiles, treeData], async () => {
-  await nextTick()
-  commitTree.value?.filter(searchQuery.value)
-}, { flush: 'post' })
+const allSelected = computed(() => allChangedFiles.value.length > 0
+  && allChangedFiles.value.every(file => selectedSet.value.has(file.path)))
+const toggleAll = (checked: boolean) => {
+  selectedFiles.value = checked ? allChangedFiles.value.map(file => file.path) : []
+}
 const setScope = (directory: string) => {
   router.replace({ name: 'commit', query: directory ? { directory } : {} })
 }
@@ -365,13 +370,15 @@ const doCommit = async () => {
     const files = selectedFiles.value.filter(path => availablePaths.has(path))
     if (files.length === 0) return
 
+    const { settings } = useSettings()
+    const filterRules = settings.gitignoreEnabled ? settings.filterRules.split('\n') : []
     const targetFileSet = new Set(files)
     const unversionedFiles = allChangedFiles.value
       .filter(file => file.status_code === 'unversioned' && targetFileSet.has(file.path))
       .map(file => file.path)
 
     if (unversionedFiles.length > 0) {
-      await svnAdd(workspaceStore.currentPath, unversionedFiles)
+      await svnAdd(workspaceStore.currentPath, unversionedFiles, filterRules)
       await refreshStatusAfterMutation()
       selectedFiles.value = allChangedFiles.value
         .filter(file => targetFileSet.has(file.path) || unversionedFiles.some(parent => isWithinDirectory(file.path, parent)))
@@ -380,7 +387,7 @@ const doCommit = async () => {
       return
     }
 
-    const result = await svnCommit(workspaceStore.currentPath, commitMessage.value, files)
+    const result = await svnCommit(workspaceStore.currentPath, commitMessage.value, files, filterRules)
     if (result.success) recordRecentMessage(workspaceStore.currentPath, commitMessage.value)
     output.value = result.output
     await refreshStatusAfterMutation()
@@ -463,240 +470,91 @@ const useRecentMessage = (message: string) => {
 </script>
 
 <style scoped>
-.commit-scope { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; width: 100%; overflow-wrap: anywhere; margin-bottom: 12px; }
-.recent-messages { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--el-border-color-lighter); border-radius: var(--app-radius-md); background: var(--el-fill-color-lighter); }
-.recent-messages-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-.recent-messages-title { display: inline-flex; align-items: center; gap: 6px; color: var(--el-text-color-regular); font-size: var(--app-font-size-sm); font-weight: 600; }
-.recent-message-list { display: flex; flex-direction: column; gap: 4px; }
-.recent-message-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--app-radius-sm); background: transparent; color: var(--el-text-color-primary); text-align: left; cursor: pointer; }
-.recent-message-item:hover { background: var(--el-fill-color); }
-.recent-message-revision { flex: 0 0 auto; color: var(--el-color-primary); font: 12px/1 var(--app-font-family-mono); }
-.recent-message-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--app-font-size-label); }
-.recent-messages-loading { color: var(--el-text-color-secondary); font-size: var(--app-font-size-sm); }
-.commit-tree { width: 100%; max-height: 420px; overflow: auto; }
-.commit-tree-row { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; padding-right: 8px; }
-.tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-.tree-count { color: var(--el-text-color-secondary); }
-.commit-tree :deep(.el-tree-node__content) { height: 38px; }
-
-.commit-view {
-  max-width: 900px;
-  margin: 0 auto;
-  background: var(--md-sys-color-surface);
-}
-
-.commit-card {
-  border-radius: var(--app-radius-lg);
-  background: var(--md-sys-color-surface);
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card-title {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--app-spacing-sm);
-  font-weight: 700;
-}
-
-.no-workspace {
-  padding: var(--app-spacing-xl) 0;
-}
-
-.commit-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-spacing-lg);
-}
-
-.commit-info {
-  border-radius: var(--app-radius-md);
-}
-
-.info-content {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-spacing-sm);
-  margin-top: var(--app-spacing-sm);
-}
-
-.info-item {
-  display: flex;
-  align-items: center;
-  gap: var(--app-spacing-sm);
-}
-
-.info-label {
-  font-weight: 600;
-  color: var(--el-text-color-regular);
-}
-
-.info-value {
-  color: var(--el-text-color-primary);
-}
-
-.path-text {
-  font-family: var(--app-font-family-mono);
-  font-size: var(--app-font-size-label);
-  word-break: break-all;
-}
-
-.commit-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-spacing-md);
-}
-
-.file-selection {
-  margin-bottom: 0;
-}
-
-.file-table {
-  border-radius: var(--app-radius-md);
+.commit-view.compact-commit {
+  height: 100%;
+  min-width: 0;
   overflow: hidden;
+  flex-direction: column;
+  background: var(--el-bg-color);
 }
 
-.file-path {
-  font-family: var(--app-font-family-mono);
-  font-size: var(--app-font-size-label);
-}
+.no-workspace { display: grid; place-items: center; flex: 1; }
+.commit-content { display: flex; flex: 1; flex-direction: column; min-height: 0; min-width: 0; }
+.commit-warning { flex-shrink: 0; border-radius: 0; }
+.message-panel { flex-shrink: 0; border-bottom: 1px solid var(--el-border-color-light); }
+.section-toolbar { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 14px; background: var(--el-fill-color-light); }
+.section-toolbar h2 { margin: 0; color: var(--el-text-color-regular); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.character-count { margin-left: auto; color: var(--el-text-color-secondary); font-size: 11px; font-variant-numeric: tabular-nums; }
+.section-toolbar :deep(.el-button) { height: 28px; min-height: 28px; padding: 0 6px; font-size: 12px; font-weight: 400; }
+.recent-arrow { margin-left: 6px; }
+.recent-message-text { display: block; max-width: min(420px, 65vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.commit-textarea :deep(.el-textarea__inner) { min-height: 100px; padding: 10px 14px; border-radius: 0; box-shadow: none; background: var(--el-bg-color); font-size: 13px; line-height: 1.55; }
+.commit-textarea :deep(.el-textarea__inner:focus) { box-shadow: inset 3px 0 var(--el-color-primary); }
+.changes-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.changes-toolbar { min-height: 42px; flex-wrap: wrap; padding-top: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--el-border-color-light); }
+.selection-count { color: var(--el-text-color-primary); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.selection-count span { color: var(--el-text-color-secondary); font-weight: 400; }
+.search-input :deep(.el-input__wrapper) { min-height: 28px; height: 28px; border-radius: 5px; }
+.search-input { width: 210px; max-width: 40%; margin-left: auto; }
+.filter-buttons { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--el-border-color-light); border-radius: 5px; background: var(--el-bg-color); }
+.filter-buttons button { min-height: 23px; padding: 0 9px; border: 0; border-radius: 3px; background: transparent; color: var(--el-text-color-regular); font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.filter-buttons button.active { color: var(--el-color-primary); background: var(--el-color-primary-light-9); font-weight: 600; }
+.filter-buttons button:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 1px; }
+.filter-buttons button:disabled { opacity: .5; cursor: default; }
+.scope-bar { display: flex; align-items: center; flex-shrink: 0; gap: 8px; padding: 4px 14px; color: var(--el-text-color-secondary); font-size: 12px; border-bottom: 1px solid var(--el-border-color-lighter); }
+.scope-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scope-bar .el-button { margin-left: auto; }
+.file-table-container { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; font-size: 12px; }
+.file-table-heading { flex-shrink: 0; overflow: hidden; border-bottom: 1px solid var(--el-border-color-light); background: var(--el-bg-color); color: var(--el-text-color-secondary); }
+.commit-columns { display: grid; grid-template-columns: 42px minmax(230px, 1.2fr) 76px minmax(200px, 1fr) 60px; align-items: center; min-width: 640px; }
+.file-table-heading .commit-columns { height: 30px; }
+.commit-columns > [role="columnheader"], .commit-columns > [role="gridcell"] { min-width: 0; padding: 0 8px; }
+.commit-files { background: var(--el-bg-color); }
+.commit-file-row { height: 29px; color: var(--el-text-color-regular); cursor: pointer; }
+.commit-file-row.striped { background: rgba(127, 127, 127, .07); }
+.commit-file-row:hover { background: var(--el-color-primary-light-9); }
+.commit-file-row:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: -2px; }
+.commit-columns > .checkbox-cell { display: flex; align-items: center; justify-content: center; }
+.commit-checkbox { width: 14px; height: 14px; margin: 0; accent-color: var(--el-color-primary); cursor: pointer; }
+.commit-checkbox:disabled { cursor: default; }
+.name-cell { display: flex; align-items: center; gap: 6px; overflow: hidden; }
+.expand-button, .expand-spacer { flex: 0 0 16px; width: 16px; height: 22px; }
+.expand-button { display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 3px; background: transparent; color: var(--el-text-color-secondary); cursor: pointer; }
+.expand-button:hover { color: var(--el-color-primary); background: var(--el-fill-color); }
+.expand-button:focus-visible, .diff-link:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 1px; }
+.tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.directory-name { color: var(--el-text-color-secondary); }
+.file-icon { flex-shrink: 0; color: var(--el-text-color-secondary); font-size: 15px; }
+.folder-icon { color: var(--el-color-primary-light-3); }
+.tree-count { flex-shrink: 0; margin-left: 2px; color: var(--el-text-color-placeholder); font-size: 10px; }
+.status-cell { display: flex; align-items: center; justify-content: center; }
+.file-location { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--el-text-color-secondary); font-size: 11px; }
+.diff-cell { text-align: center; }
+.diff-link { padding: 2px 4px; border: 0; border-radius: 3px; background: transparent; color: var(--el-text-color-regular); font: inherit; font-size: 11px; cursor: pointer; }
+.diff-link:hover { color: var(--el-color-primary); text-decoration: underline; }
+.diff-link:disabled { opacity: .5; cursor: default; }
+.empty-files { display: grid; flex: 1; place-items: center; min-height: 80px; color: var(--el-text-color-secondary); }
+.status-badge { min-height: 19px; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 19px; padding: 0 4px; border-radius: 3px; font: 600 11px/1 var(--app-font-family-mono); }
+.output-area { flex-shrink: 0; border-top: 1px solid var(--el-border-color-light); font-size: 12px; }
+.output-area summary { padding: 5px 14px; cursor: pointer; background: var(--el-fill-color-light); color: var(--el-text-color-regular); }
+.output-area pre { max-height: 100px; overflow: auto; margin: 0; padding: 8px 14px; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.5 var(--app-font-family-mono); }
+.commit-footer { display: flex; align-items: center; flex-shrink: 0; gap: 14px; min-height: 52px; padding: 8px 14px; border-top: 1px solid var(--el-border-color-light); background: var(--el-bg-color); }
+.footer-context { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; font-size: 11px; }
+.workspace-path { color: var(--el-text-color-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hidden-selection { color: var(--el-color-warning); overflow-wrap: anywhere; }
+.footer-actions { display: flex; align-items: center; flex-shrink: 0; gap: 8px; }
+.footer-actions .el-button { height: 30px; min-height: 30px; margin-left: 0; padding: 0 12px; font-size: 12px; }
+.footer-actions .el-button:not(.el-button--primary) { background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); border-color: var(--md-sys-color-outline); }
+.footer-actions .el-icon { margin-right: 5px; }
 
-.file-path-link {
-  max-width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--md-sys-color-primary);
-  font-family: var(--app-font-family-mono);
-  font-size: var(--app-font-size-label);
-  text-align: left;
-  cursor: pointer;
+@media (max-width: 860px) {
+  .changes-toolbar { gap: 6px; }
+  .search-input { width: 150px; }
+  .filter-buttons button { padding: 0 6px; }
 }
-
-.file-path-link:hover {
-  text-decoration: underline;
-}
-
-.message-input {
-  position: relative;
-}
-
-.commit-textarea {
-  font-family: inherit;
-}
-
-.char-count {
-  position: absolute;
-  right: 12px;
-  bottom: 8px;
-  font-size: var(--app-font-size-sm);
-  color: var(--el-text-color-secondary);
-}
-
-.char-count .warning {
-  color: var(--md-sys-color-warning);
-}
-
-.form-actions {
-  margin-bottom: 0;
-}
-
-.output-area {
-  border: 1px solid var(--md-sys-color-outline-variant);
-  border-radius: var(--app-radius-md);
-  overflow: hidden;
-}
-
-.output-header {
-  display: flex;
-  align-items: center;
-  gap: var(--app-spacing-sm);
-  padding: var(--app-spacing) var(--app-spacing-md);
-  background: var(--el-fill-color-light);
-  border-bottom: 1px solid var(--md-sys-color-outline-variant);
-}
-
-.output-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  font-size: var(--app-font-size-label);
-  color: var(--el-text-color-regular);
-}
-
-.output-textarea {
-  font-family: var(--app-font-family-mono);
-}
-
-:deep(.output-textarea .el-textarea__inner) {
-  border: none;
-  border-radius: 0;
-  padding: var(--app-spacing-md);
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 82px;
-  height: 28px;
-  padding: 0 var(--app-spacing);
-  border-radius: var(--app-radius-full);
-  background: var(--md-sys-color-surface-container-low);
-  font-weight: 700;
-  font-size: var(--app-font-size-sm);
-}
-
-.status-added {
-  color: var(--app-color-status-added-text);
-  background: var(--app-color-status-added-bg);
-}
-
-.status-modified {
-  color: var(--app-color-status-modified-text);
-  background: var(--app-color-status-modified-bg);
-}
-
-.status-deleted {
-  color: var(--app-color-status-error-text);
-  background: var(--app-color-status-error-bg);
-}
-
-.status-unversioned {
-  color: var(--app-color-status-unversioned-text);
-  background: var(--app-color-status-unversioned-bg);
-}
-
-.commit-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--app-spacing);
-}
-
-.search-input {
-  width: 240px;
-}
-
-.filter-tags {
-  display: flex;
-  gap: 6px;
-}
-
-@media (max-width: 640px) {
-  .commit-view {
-    padding: 0 var(--app-spacing);
-  }
-  
-  .commit-toolbar, .filter-tags { flex-wrap: wrap; }
-  .search-input { width: 100%; min-width: 0; }
-  .info-item {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+@media (max-height: 650px) {
+  .commit-textarea :deep(.el-textarea__inner) { height: 76px; min-height: 76px; }
+  .section-toolbar { min-height: 30px; }
+  .commit-footer { min-height: 44px; padding-top: 5px; padding-bottom: 5px; }
 }
 </style>

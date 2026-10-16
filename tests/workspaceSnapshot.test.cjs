@@ -49,3 +49,12 @@ test('oversized paths and storage failures cannot block workspace scans', () => 
   assert.doesNotThrow(() => h.cacheWorkspaceSnapshot('/a', [file], info, false))
   assert.doesNotThrow(() => h.invalidateWorkspaceSnapshot('/a'))
 })
+
+test('changing filter rules invalidates matching snapshots even while filtering remains enabled', () => {
+  const h = harness()
+  h.cacheWorkspaceSnapshot('/a', [file], info, true, '.gitignore')
+  assert.ok(h.getWorkspaceSnapshot('/a', true, '.gitignore'))
+  assert.equal(h.getWorkspaceSnapshot('/a', true, '.gitignore\n*.log'), null)
+  h.cacheWorkspaceSnapshot('/a', [file], info, false, '.gitignore')
+  assert.ok(h.getWorkspaceSnapshot('/a', false, '*.log'))
+})

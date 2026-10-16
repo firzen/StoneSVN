@@ -415,29 +415,6 @@ fn resolve_workspace_child(workspace: &Path, file: &str) -> Result<PathBuf, Stri
     Ok(target)
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct GitignoreData {
-    pub content: String,
-    pub mtime: u64,
-}
-
-#[tauri::command]
-async fn read_gitignore(path: String) -> Result<Option<GitignoreData>, String> {
-    let gitignore_path = Path::new(&path).join(".gitignore");
-    if !gitignore_path.exists() {
-        return Ok(None);
-    }
-    let content = fs::read_to_string(&gitignore_path).map_err(|e| e.to_string())?;
-    let mtime = fs::metadata(&gitignore_path)
-        .map_err(|e| e.to_string())?
-        .modified()
-        .map_err(|e| e.to_string())?
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
-    Ok(Some(GitignoreData { content, mtime }))
-}
-
 fn vscode_candidates() -> Vec<PathBuf> {
     let mut candidates = Vec::new();
 
@@ -615,7 +592,15 @@ async fn svn_commit(
     path: String,
     message: String,
     files: Option<Vec<String>>,
+    filter_rules: Option<Vec<String>>,
 ) -> Result<CommandResult, String> {
+    let filter = svn::FileFilter::new(filter_rules.as_deref().unwrap_or_default());
+    if !filter.is_empty() && files.is_none() {
+        return Err("过滤已启用，提交时必须明确选择文件".to_string());
+    }
+    filter
+        .validate_targets(files.as_deref().unwrap_or_default())
+        .map_err(|error| error.to_string())?;
     svn::commit(&path, &message, files.as_deref())
         .await
         .map(|output| CommandResult {
@@ -725,7 +710,15 @@ async fn svn_blame(workspace_path: String, file: String) -> Result<Vec<svn::Blam
 }
 
 #[tauri::command]
-async fn svn_add(path: String, files: Vec<String>) -> Result<CommandResult, String> {
+async fn svn_add(
+    path: String,
+    files: Vec<String>,
+    filter_rules: Option<Vec<String>>,
+) -> Result<CommandResult, String> {
+    let filter = svn::FileFilter::new(filter_rules.as_deref().unwrap_or_default());
+    filter
+        .validate_add(&path, &files)
+        .map_err(|error| error.to_string())?;
     svn::add(&path, &files)
         .await
         .map(|output| CommandResult {
@@ -980,6 +973,146 @@ mod launch_arg_tests {
     }
 }
 
+#[cfg(test)]
+mod file_filter_tests {
+    use super::{svn_add, svn_commit};
+    use std::{fs, process::Command};
+
+    #[test]
+    fn filtered_commands_preserve_excluded_files_in_a_real_repository() {
+        assert!(Command::new("svnadmin")
+            .arg("--version")
+            .output()
+            .unwrap()
+            .status
+            .success());
+        let temp = std::env::temp_dir().join(format!(
+            "orcasvn-filter-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&temp).unwrap();
+        let repository = temp.join("repo");
+        let wc = temp.join("wc");
+        assert!(Command::new("svnadmin")
+            .arg("create")
+            .arg(&repository)
+            .output()
+            .unwrap()
+            .status
+            .success());
+        let url = format!(
+            "file:///{}",
+            repository
+                .to_string_lossy()
+                .replace('\\', "/")
+                .trim_start_matches('/')
+        );
+        let run = |args: &[&str]| {
+            let output = Command::new("svn")
+                .args(args)
+                .current_dir(if wc.exists() { &wc } else { &temp })
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            String::from_utf8_lossy(&output.stdout).into_owned()
+        };
+        run(&["checkout", &url, wc.to_str().unwrap()]);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let workspace = wc.to_string_lossy().into_owned();
+        let rules = Some(vec![".gitignore".into(), "*.log".into()]);
+        fs::create_dir_all(wc.join("new/deep")).unwrap();
+        fs::write(wc.join("new/deep/secret.log"), "local").unwrap();
+        fs::write(wc.join("new/allowed.txt"), "allowed").unwrap();
+        let before = run(&["status"]);
+        let error = runtime
+            .block_on(svn_add(
+                workspace.clone(),
+                vec!["new".into()],
+                rules.clone(),
+            ))
+            .unwrap_err();
+        assert!(error.contains("secret.log"));
+        assert_eq!(run(&["status"]), before);
+        runtime
+            .block_on(svn_add(workspace.clone(), vec!["new".into()], None))
+            .unwrap();
+        runtime
+            .block_on(svn_commit(workspace.clone(), "initial".into(), None, None))
+            .unwrap();
+        fs::write(wc.join("new/deep/secret.log"), "changed").unwrap();
+        fs::write(wc.join("new/allowed.txt"), "changed").unwrap();
+        run(&["propset", "test:filter", "changed", "new"]);
+        // Reject a direct target and implicit whole-workspace commit.
+        assert!(runtime
+            .block_on(svn_commit(
+                workspace.clone(),
+                "blocked".into(),
+                Some(vec!["new/deep/secret.log".into()]),
+                rules.clone()
+            ))
+            .is_err());
+        assert!(runtime
+            .block_on(svn_commit(
+                workspace.clone(),
+                "blocked".into(),
+                None,
+                rules.clone()
+            ))
+            .is_err());
+        // Directory property plus one file commits at depth empty.
+        runtime
+            .block_on(svn_commit(
+                workspace.clone(),
+                "allowed".into(),
+                Some(vec!["new".into(), "new/allowed.txt".into()]),
+                rules.clone(),
+            ))
+            .unwrap();
+        assert_eq!(run(&["cat", "-r", "HEAD", "new/deep/secret.log"]), "local");
+        assert_eq!(run(&["cat", "-r", "HEAD", "new/allowed.txt"]), "changed");
+        assert!(run(&["status"]).contains("secret.log"));
+        // Atomic operations cannot implicitly include a filtered descendant.
+        run(&["update"]);
+        run(&["delete", "--force", "new"]);
+        assert!(runtime
+            .block_on(svn_commit(
+                workspace.clone(),
+                "blocked deletion".into(),
+                Some(vec![
+                    "new".into(),
+                    "new/allowed.txt".into(),
+                    "new/deep".into()
+                ]),
+                rules.clone()
+            ))
+            .is_err());
+        assert!(run(&["list", "-r", "HEAD", &url]).contains("new/"));
+        run(&["revert", "--recursive", "new"]);
+        run(&["copy", "new", "copy"]);
+        assert!(runtime
+            .block_on(svn_commit(
+                workspace,
+                "blocked copy".into(),
+                Some(vec!["copy".into()]),
+                rules
+            ))
+            .is_err());
+        assert!(!run(&["list", "-r", "HEAD", &url]).contains("copy/"));
+        fs::remove_dir_all(temp).unwrap();
+    }
+}
+
 fn main() {
     tracing_subscriber::fmt::init();
 
@@ -1016,7 +1149,6 @@ fn main() {
             delete_unversioned,
             read_unversioned_files,
             restore_unversioned_files,
-            read_gitignore,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

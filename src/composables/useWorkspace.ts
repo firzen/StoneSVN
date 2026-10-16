@@ -1,8 +1,8 @@
 import { useWorkspaceStore } from '@/stores/workspace'
-import { svnStatus, svnInfo, svnLocalRevision, readGitignore } from '@/api/svn'
+import { svnStatus, svnInfo, svnLocalRevision } from '@/api/svn'
 import { open } from '@tauri-apps/plugin-dialog'
 import { useSettings } from '@/composables/useSettings'
-import { parseGitignore } from '@/utils/gitignore'
+import { parseFilterRules } from '@/utils/gitignore'
 import { filterByGitignoreAsync } from '@/utils/gitignoreWorker'
 import { cacheSvnInfoMetadata, getCachedSvnInfoMetadata, type SvnInfoMetadata } from '@/utils/svnInfoCache'
 import { cacheWorkspaceSnapshot, getWorkspaceSnapshot, invalidateWorkspaceSnapshot } from '@/utils/workspaceSnapshot'
@@ -27,46 +27,13 @@ function trackRequest(path: string, operation: () => Promise<boolean>, force = f
   return request.promise
 }
 
-async function loadGitignoreIfNeeded(
-  path: string,
+function loadFilterRules(
   store: ReturnType<typeof useWorkspaceStore>,
   isCurrent: () => boolean,
-): Promise<void> {
+): void {
+  if (!isCurrent()) return
   const { settings } = useSettings()
-  if (!settings.gitignoreEnabled) {
-    if (!isCurrent()) return
-    store.setGitignorePatterns([])
-    store.setGitignoreMtime(null)
-    store.setGitignoreWorkspacePath(null)
-    return
-  }
-
-  try {
-    const data = await readGitignore(path)
-    if (!isCurrent()) return
-    if (!data) {
-      store.setGitignorePatterns([])
-      store.setGitignoreMtime(null)
-      store.setGitignoreWorkspacePath(path)
-      return
-    }
-
-    if (
-      path === store.gitignoreWorkspacePath &&
-      data.mtime === store.gitignoreMtime
-    ) return
-
-    const patterns = parseGitignore(data.content)
-    if (!isCurrent()) return
-    store.setGitignorePatterns(patterns)
-    store.setGitignoreMtime(data.mtime)
-    store.setGitignoreWorkspacePath(path)
-  } catch {
-    if (!isCurrent()) return
-    store.setGitignorePatterns([])
-    store.setGitignoreMtime(null)
-    store.setGitignoreWorkspacePath(null)
-  }
+  store.setGitignorePatterns(settings.gitignoreEnabled ? parseFilterRules(settings.filterRules ?? '.gitignore') : [])
 }
 
 function toSvnInfoMetadata(info: SvnInfo): SvnInfoMetadata {
@@ -112,7 +79,7 @@ export function useWorkspace() {
     const previousSvnInfo = workspaceStore.svnInfo
     const previousStatusIsStale = workspaceStore.statusIsStale
     const { settings } = useSettings()
-    const snapshot = getWorkspaceSnapshot(path, settings.gitignoreEnabled)
+    const snapshot = getWorkspaceSnapshot(path, settings.gitignoreEnabled, settings.filterRules ?? '.gitignore')
     const isCurrentGeneration = () => generation === workspaceRequestGeneration
     const isCurrent = () => (
       isCurrentGeneration() && workspaceStore.currentPath === path
@@ -125,21 +92,20 @@ export function useWorkspace() {
     workspaceStore.setCurrentPath(path, false)
     workspaceStore.setStatusList(snapshot?.statusList || [])
     workspaceStore.setSvnInfo(snapshot?.svnInfo || null)
-    workspaceStore.setStatusIsStale(Boolean(snapshot))
+    workspaceStore.setStatusIsStale(true)
 
     const statusRequest = svnStatus(path)
     // Convert the eager metadata request into a fulfilled result so a status
     // failure cannot leave a second rejected promise unobserved.
     const infoRequest = requestWorkspaceInfo(path, isCurrent)
-    const gitignoreRequest = loadGitignoreIfNeeded(path, workspaceStore, isCurrent)
+    loadFilterRules(workspaceStore, isCurrent)
 
     try {
-      // 变更列表不依赖仓库元数据，status 返回后立即展示。
+      // Keep raw status private until filtering has completed.
       const status = await statusRequest
       if (!isCurrent()) return false
-      workspaceStore.setStatusList(status)
 
-      const [infoResult] = await Promise.all([infoRequest, gitignoreRequest])
+      const infoResult = await infoRequest
       if (!infoResult.ok) throw infoResult.error
       const info = infoResult.info
       if (!isCurrent() || !info) return false
@@ -148,7 +114,7 @@ export function useWorkspace() {
       workspaceStore.setStatusList(filteredStatus)
       workspaceStore.setSvnInfo(info)
       workspaceStore.setStatusIsStale(false)
-      cacheWorkspaceSnapshot(path, filteredStatus, info, useSettings().settings.gitignoreEnabled)
+      cacheWorkspaceSnapshot(path, filteredStatus, info, useSettings().settings.gitignoreEnabled, useSettings().settings.filterRules ?? '.gitignore')
       workspaceStore.rememberWorkspace(path)
       return true
     } catch (err) {
@@ -202,15 +168,15 @@ export function useWorkspace() {
     )
 
     workspaceStore.setLoading(true)
+    workspaceStore.setStatusIsStale(true)
     workspaceStore.setError(null)
     try {
       const statusRequest = svnStatus(path, force)
       const infoRequest = requestWorkspaceInfo(path, isCurrent)
-      const gitignoreRequest = loadGitignoreIfNeeded(path, workspaceStore, isCurrent)
+      loadFilterRules(workspaceStore, isCurrent)
       const status = await statusRequest
       if (!isCurrent()) return false
-      workspaceStore.setStatusList(status)
-      const [infoResult] = await Promise.all([infoRequest, gitignoreRequest])
+      const infoResult = await infoRequest
       if (!infoResult.ok) throw infoResult.error
       const info = infoResult.info
       if (!isCurrent() || !info) return false
@@ -219,7 +185,7 @@ export function useWorkspace() {
       workspaceStore.setStatusList(filteredStatus)
       workspaceStore.setSvnInfo(info)
       workspaceStore.setStatusIsStale(false)
-      cacheWorkspaceSnapshot(path, filteredStatus, info, useSettings().settings.gitignoreEnabled)
+      cacheWorkspaceSnapshot(path, filteredStatus, info, useSettings().settings.gitignoreEnabled, useSettings().settings.filterRules ?? '.gitignore')
       return true
     } catch (err) {
       if (!isCurrent()) return false
