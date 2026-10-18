@@ -818,6 +818,18 @@ async fn svn_add(
 }
 
 #[tauri::command]
+async fn svn_cancel_add(path: String, file: String) -> Result<CommandResult, String> {
+    svn::cancel_add(&path, &file)
+        .await
+        .map(|output| CommandResult {
+            success: true,
+            output,
+            error: None,
+        })
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn svn_delete(path: String, files: Vec<String>) -> Result<CommandResult, String> {
     svn::delete(&path, &files)
         .await
@@ -846,8 +858,19 @@ async fn svn_restore_file_revision(
 }
 
 #[tauri::command]
-async fn svn_revert(path: String, files: Vec<String>) -> Result<CommandResult, String> {
-    svn::revert(&path, &files)
+async fn svn_revert_preview(path: String, file: String) -> Result<Vec<SvnStatus>, String> {
+    svn::revert_preview(&path, &file)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn svn_revert(
+    path: String,
+    files: Vec<String>,
+    preview: Option<Vec<SvnStatus>>,
+) -> Result<CommandResult, String> {
+    svn::revert_reviewed(&path, &files, preview.as_deref())
         .await
         .map(|output| CommandResult {
             success: true,
@@ -864,6 +887,34 @@ async fn svn_resolve(
     strategy: String,
 ) -> Result<CommandResult, String> {
     svn::resolve(&path, &files, &strategy)
+        .await
+        .map(|output| CommandResult {
+            success: true,
+            output,
+            error: None,
+        })
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn svn_move(
+    path: String,
+    source: String,
+    destination: String,
+) -> Result<CommandResult, String> {
+    svn::move_target(&path, &source, &destination)
+        .await
+        .map(|output| CommandResult {
+            success: true,
+            output,
+            error: None,
+        })
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn svn_relocate(path: String, url: String) -> Result<CommandResult, String> {
+    svn::relocate(&path, &url)
         .await
         .map(|output| CommandResult {
             success: true,
@@ -1224,6 +1275,18 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .on_window_event(|_window, _event| {
+            // The source-debug launcher owns its dev server and watcher. On
+            // macOS, closing the last window normally leaves the app running;
+            // end this launcher-owned debug session so it can clean up too.
+            #[cfg(debug_assertions)]
+            if matches!(_event, tauri::WindowEvent::Destroyed)
+                && _window.label() == "main"
+                && env::var_os("STONESVN_DEV_LAUNCHER").is_some()
+            {
+                _window.app_handle().exit(0);
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             system_icons::file_type_icon,
             configure_svn_executable,
@@ -1251,8 +1314,12 @@ fn main() {
             svn_add,
             svn_delete,
             svn_revert,
+            svn_revert_preview,
+            svn_cancel_add,
             svn_restore_file_revision,
             svn_resolve,
+            svn_move,
+            svn_relocate,
             svn_cleanup,
             svn_switch,
             svn_merge,

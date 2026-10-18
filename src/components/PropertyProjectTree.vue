@@ -28,8 +28,8 @@
             <span v-else class="toggle-spacer"></span>
             <FileTypeIcon :path="row.path" :directory="row.directory" />
             <span class="tree-name">{{ row.name }}</span>
-            <span v-if="rowStatus(row)" class="status-badge" :class="getStatusClass(rowStatus(row))"
-              :title="t(getStatusLabelKey(rowStatus(row)))" :aria-label="t(getStatusLabelKey(rowStatus(row)))">{{ statusSymbol(rowStatus(row)) }}</span>
+            <span v-for="status in rowStatuses(row)" :key="status" class="status-badge" :class="getStatusClass(status)"
+              :title="statusTitle(row, status)" :aria-label="statusTitle(row, status)">{{ statusSymbol(status) }}</span>
             <span v-if="hasDraft(row)" class="pending-dot" :title="t('properties.unsaved')">●</span>
 
           </template>
@@ -46,7 +46,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { getStatusClass, getStatusLabelKey } from '@/composables/useSvnStatus'
-import { propertyTreeStatus, statusSymbol } from '@/utils/propertyTreeStatus'
+import { buildPropertyTreeDescendantStatuses, propertyTreeStatuses, propertyTreeStatus, statusSymbol } from '@/utils/propertyTreeStatus'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { propertyTree as tree, canExpandPropertyEntry, type PropertyTreeRow } from '@/composables/usePropertyTree'
 import { propertyDrafts, propertyDraftKey } from '@/utils/propertyDrafts'
@@ -94,6 +94,17 @@ const rows = computed<PropertyTreeRow[]>(() => searchActive.value
 const canToggle = (row: PropertyTreeRow) => !searchActive.value && canExpandPropertyEntry(row)
 const statusByPath = computed(() => new Map(store.statusList.map(entry => [entry.path.replace(/\\/g, '/'), entry])))
 const rowStatus = (row: PropertyTreeRow) => row.workspace === store.currentPath ? propertyTreeStatus(row.path, statusByPath.value) : ''
+const descendantStatuses = computed(() => buildPropertyTreeDescendantStatuses(statusByPath.value))
+const rowDescendantStatuses = (row: PropertyTreeRow) => row.directory && row.workspace === store.currentPath ? descendantStatuses.value.get(row.path) || [] : []
+const rowStatuses = (row: PropertyTreeRow) => propertyTreeStatuses(rowStatus(row), rowDescendantStatuses(row))
+function statusTitle(row: PropertyTreeRow, status: string) {
+  if (!row.directory) return t(getStatusLabelKey(status))
+  const own = rowStatus(row), descendants = rowDescendantStatuses(row)
+  return [
+    own ? t('properties.directoryOwnStatus', { status: statusSymbol(own) }) : '',
+    descendants.length ? t('properties.directoryChildStatuses', { statuses: descendants.map(statusSymbol).join(' ') }) : '',
+  ].filter(Boolean).join('; ')
+}
 const selected = (row: PropertyTreeRow) => row.type === 'entry' && store.currentPath === row.workspace && tree.project(row.workspace).selected === row.path
 function hasDraft(row: PropertyTreeRow) {
   if (propertyDrafts.has(propertyDraftKey(row.workspace, row.path))) return true

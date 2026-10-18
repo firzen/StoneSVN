@@ -9,6 +9,7 @@
       </div>
       <SvnPropertyInspector ref="inspector" class="full-inspector"
         :workspace="store.currentPath" :file="selectedFile" :disabled="store.operationBusy" show-blame
+        actions-target="#property-page-actions" :actions-active="route.name === 'properties'"
         @mutated="refreshAfterTargetAction"
         @blame="router.push({ name: 'blame', query: { path: $event } })"
         :status="store.statusList.find(entry => entry.path.replace(/\\/g, '/') === selectedFile)" />
@@ -21,7 +22,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onBeforeRouteLeave, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useWorkspace } from '@/composables/useWorkspace'
@@ -31,6 +32,7 @@ import PropertyProjectTree from '@/components/PropertyProjectTree.vue'
 
 const { t } = useI18n()
 const router = useRouter()
+const route = useRoute()
 const store = useWorkspaceStore()
 const { openWorkspace, refreshStatus } = useWorkspace()
 const treeView = ref<InstanceType<typeof PropertyProjectTree> | null>(null)

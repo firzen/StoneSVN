@@ -2,16 +2,34 @@
   <aside class="property-inspector" :aria-label="t('properties.title')" :aria-busy="fetching || saving || exporting">
     <header>
       <strong>{{ t('properties.title') }}</strong><span v-if="dirty" class="dirty-dot" :title="t('properties.unsaved')">●</span>
-      <div v-if="showBlame" class="target-actions">
-      <el-button size="small" :disabled="!canExport" :loading="exporting" @click="exportTarget">
-        <el-icon><Download /></el-icon>{{ t('properties.export') }}
-      </el-button>
-      <el-button class="blame-button" size="small" :disabled="!canBlame" @click="openBlame">
-        <el-icon><Edit /></el-icon>{{ t('menu.blame') }}
-      </el-button>
-      <el-button size="small" type="danger" plain :disabled="!canDelete" @click="deleteTarget"><el-icon><Delete /></el-icon>{{ t('common.delete') }}</el-button>
-      <el-button size="small" :disabled="!canRestore" @click="restoreTarget"><el-icon><RefreshLeft /></el-icon>{{ t('properties.restoreTo') }}</el-button>
-      </div>
+      <Teleport :to="actionsTarget || 'body'" :disabled="!actionsTarget">
+        <div v-if="showBlame && file" v-show="actionsActive !== false" class="target-actions">
+          <SvnTargetOperations :workspace="workspace" :file="file" :details="details" :status="status" :disabled="disabled || dirty || fetching || saving || exporting"
+            v-slot="{ canMove, canRevert, hasDraft, moveTarget, revertTarget }" @mutated="targetOperationsMutated">
+            <div v-show="canRevert || canExport || exporting || canBlame" class="action-group">
+              <el-button v-if="canRevert" text size="small" type="danger" :title="t('svnActions.revertLocal')" @click="revertTarget"><el-icon><Back /></el-icon>{{ t('common.revert') }}</el-button>
+              <el-button v-if="canExport || exporting" text size="small" :disabled="exporting" @click="exportTarget">
+                <el-icon :class="{ 'is-loading': exporting }"><Loading v-if="exporting" /><Download v-else /></el-icon>{{ t('properties.export') }}
+              </el-button>
+              <el-button v-if="canBlame" text size="small" @click="openBlame"><el-icon><Edit /></el-icon>{{ t('menu.blame') }}</el-button>
+            </div>
+            <div v-show="canMove || canAdd || canCancelAdd" class="action-group">
+              <el-button v-if="canMove" text size="small" @click="moveTarget(true)"><el-icon><Edit /></el-icon>{{ t('svnActions.rename') }}</el-button>
+              <el-button v-if="canMove" text size="small" @click="moveTarget(false)"><el-icon><FolderOpened /></el-icon>{{ t('svnActions.move') }}</el-button>
+              <el-button v-if="canAdd" text size="small" type="primary" @click="addTarget"><el-icon><Plus /></el-icon>{{ t('properties.addToVersionControl') }}</el-button>
+              <el-button v-if="canCancelAdd" text size="small" :title="t('properties.cancelAddHint')" @click="cancelAddTarget"><el-icon><Minus /></el-icon>{{ t('properties.cancelAdd') }}</el-button>
+            </div>
+            <div v-show="canRestore || (canResolveConflict && !hasDraft)" class="action-group">
+              <SvnConflictActions :workspace="workspace" :file="file" :status="status" :disabled="disabled || dirty || fetching || saving || exporting || hasDraft"
+                @mutated="targetOperationsMutated" />
+              <el-button v-if="canRestore" text size="small" @click="restoreTarget"><el-icon><RefreshLeft /></el-icon>{{ t('properties.restoreTo') }}</el-button>
+            </div>
+            <div v-show="canDelete" class="action-group">
+              <el-button v-if="canDelete" text size="small" type="danger" @click="deleteTarget"><el-icon><Delete /></el-icon>{{ t('common.delete') }}</el-button>
+            </div>
+          </SvnTargetOperations>
+        </div>
+      </Teleport>
     </header>
     <div v-if="!file" class="inspector-empty">{{ t('properties.selectTarget') }}</div>
     <template v-else>
@@ -39,7 +57,7 @@
           <dl><dt>URL</dt><dd>{{ details.info.url }}</dd></dl>
         </section>
         <p v-if="!details.editable" class="inspector-note">{{ t(details.link_target !== null ? 'properties.linkReadOnly' : details.info ? 'properties.readOnly' : 'properties.addFirst') }}</p>
-        <fieldset :disabled="disabled || saving || !details.editable">
+        <fieldset v-if="details.info" :disabled="disabled || saving || !details.editable">
           <section>
             <h3>{{ t('properties.title') }}</h3>
             <label v-for="field in commonFields" :key="field.name" class="property-field">
@@ -78,18 +96,21 @@
 </template>
 
 <script setup lang="ts">
+import SvnTargetOperations from './SvnTargetOperations.vue'
+import SvnConflictActions from './SvnConflictActions.vue'
 import { computed, h, onBeforeUnmount, ref, watch } from 'vue'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { useI18n } from 'vue-i18n'
 import { save as selectExportPath } from '@tauri-apps/plugin-dialog'
 import { propertyDrafts as drafts } from '@/utils/propertyDrafts'
-import { svnPropertyDetails, svnSetProperty, svnDelete, deleteUnversioned, svnRestoreFileRevision, svnExport } from '@/api/svn'
+import { svnPropertyDetails, svnSetProperty, svnDelete, deleteUnversioned, svnRestoreFileRevision, svnExport, svnAdd, svnCancelAdd } from '@/api/svn'
+import { useSettings } from '@/composables/useSettings'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useWorkspace } from '@/composables/useWorkspace'
 import type { PropertyDetails, SvnStatus } from '@/types'
 
-const props = defineProps<{ workspace: string; file: string; status?: SvnStatus; disabled: boolean; showBlame?: boolean }>()
+const props = defineProps<{ workspace: string; file: string; status?: SvnStatus; disabled: boolean; showBlame?: boolean; actionsTarget?: string; actionsActive?: boolean }>()
 const emit = defineEmits<{ busy: [value: boolean]; dirty: [value: boolean]; blame: [file: string]; mutated: [action: 'delete' | 'restore' | 'refresh'] }>()
 const { t } = useI18n()
 const store = useWorkspaceStore()
@@ -127,21 +148,29 @@ let generation = 0
 const key = computed(() => JSON.stringify([props.workspace, props.file]))
 const dirty = computed(() => [...new Set([...Object.keys(original.value), ...Object.keys(values.value)])]
   .some(name => values.value[name] !== original.value[name]))
-const canMutate = computed(() => Boolean(props.file && props.file !== '.' && details.value && !dirty.value
+const canMutate = computed(() => Boolean(props.file && details.value && !dirty.value
   && !fetching.value && !saving.value && !props.disabled && !store.operationBusy && !store.statusIsStale))
-const canDelete = computed(() => canMutate.value && !['deleted', 'missing'].includes(props.status?.status_code || '') && details.value?.info?.schedule !== 'delete')
-const canRestore = computed(() => canMutate.value && canBlame.value && details.value?.editable && details.value.info?.schedule === 'normal')
+const canResolveConflict = computed(() => canMutate.value && (props.status?.status_code === 'conflicted' || props.status?.prop_status === 'conflicted'))
+const canDelete = computed(() => canMutate.value && props.file !== '.' && !['deleted', 'missing'].includes(props.status?.status_code || '') && details.value?.info?.schedule !== 'delete')
+const canRestore = computed(() => canMutate.value && details.value?.editable && !details.value.link_target
+  && (details.value.info?.revision ?? 0) > 0 && details.value.info?.schedule === 'normal')
+const canAdd = computed(() => canMutate.value && props.file !== '.' && !details.value?.info
+  && !['deleted', 'missing', 'external', 'obstructed'].includes(props.status?.status_code || ''))
+const canCancelAdd = computed(() => canMutate.value && details.value?.info?.schedule === 'add' && !props.status?.history)
+const addTarget = () => mutateTarget('add')
+const cancelAddTarget = () => mutateTarget('cancelAdd')
 const deleteTarget = () => mutateTarget('delete')
 const restoreTarget = () => mutateTarget('restore')
-async function mutateTarget(action: 'delete' | 'restore') {
-  if (!(action === 'delete' ? canDelete.value : canRestore.value)) return
+async function mutateTarget(action: 'delete' | 'restore' | 'add' | 'cancelAdd') {
+  if (!({ delete: canDelete.value, restore: canRestore.value, add: canAdd.value, cancelAdd: canCancelAdd.value })[action]) return
   const workspace = props.workspace, file = props.file, targetKey = key.value
   const unversioned = !details.value?.info
+  const actionLabel = action === 'add' ? 'properties.addToVersionControl' : action === 'cancelAdd' ? 'properties.cancelAdd' : 'common.delete'
   let attempted = false, completed = false
   saving.value = true; emit('busy', true); store.setOperationBusy(true); error.value = ''
   try {
     const message = h('div', [
-      h('p', t(action === 'restore' ? 'properties.restoreHint' : unversioned ? 'workspace.deleteUnversionedConfirm' : 'properties.deleteHint')),
+      h('p', t(action === 'add' ? 'properties.addHint' : action === 'cancelAdd' ? 'properties.cancelAddHint' : action === 'restore' ? details.value?.directory ? 'properties.restoreDirectoryHint' : 'properties.restoreHint' : unversioned ? 'workspace.deleteUnversionedConfirm' : 'properties.deleteHint')),
       h('code', { style: 'display:block;overflow-wrap:anywhere' }, file),
     ])
     let revision = 0
@@ -155,14 +184,18 @@ async function mutateTarget(action: 'delete' | 'restore') {
       })
       revision = Number(answer.value)
     } else {
-      await ElMessageBox.confirm(message, t('common.delete'), {
-        type: 'warning', confirmButtonType: 'danger', confirmButtonText: t('common.delete'),
+      await ElMessageBox.confirm(message, t(actionLabel), {
+        type: 'warning', confirmButtonType: action === 'delete' ? 'danger' : 'primary', confirmButtonText: t(actionLabel),
         cancelButtonText: t('common.cancel'), closeOnClickModal: false, distinguishCancelAndClose: true,
       })
     }
-    if (key.value !== targetKey || store.currentPath !== workspace) return
+    if (key.value !== targetKey || store.currentPath !== workspace || store.statusIsStale) return
+    const { settings } = useSettings()
+    const filterRules = settings.gitignoreEnabled ? settings.filterRules.split('\n') : []
     attempted = true
-    const result = action === 'restore' ? await svnRestoreFileRevision(workspace, file, revision)
+    const result = action === 'add' ? await svnAdd(workspace, [file], filterRules)
+      : action === 'cancelAdd' ? await svnCancelAdd(workspace, file)
+      : action === 'restore' ? await svnRestoreFileRevision(workspace, file, revision)
       : unversioned ? await deleteUnversioned(workspace, [file]) : await svnDelete(workspace, [file])
     if (!result.success) throw new Error(result.error || result.output)
     completed = true
@@ -182,13 +215,15 @@ async function mutateTarget(action: 'delete' | 'restore') {
         const failure = error.value
         if (key.value === targetKey) await load()
         error.value ||= failure
-        emit('mutated', completed ? action : 'refresh')
+        emit('mutated', completed && action === 'restore' ? 'restore' : 'refresh')
       }
     }
     if (error.value) ElMessage.error(error.value)
-    if (completed) ElMessage.success(t(action === 'restore' ? 'properties.restored' : unversioned ? 'properties.removed' : 'properties.deleted'))
+    if (completed) ElMessage.success(t(action === 'add' ? 'properties.added' : action === 'cancelAdd' ? 'properties.addCancelled' : action === 'restore' ? 'properties.restored' : unversioned ? 'properties.removed' : 'properties.deleted'))
   }
 }
+
+async function targetOperationsMutated() { await load(); emit('mutated', 'refresh') }
 
 const reportDirty = () => emit('dirty', dirty.value || [...drafts.keys()].some(entry => JSON.parse(entry)[0] === props.workspace))
 watch(values, () => {
@@ -282,10 +317,17 @@ onBeforeUnmount(() => { if (dirty.value) drafts.set(key.value, { ...values.value
 
 <style scoped>
 .property-inspector { width: 300px; flex: 0 0 300px; min-height: 0; overflow: auto; border-left: 1px solid var(--commit-border); background: var(--el-bg-color); color: var(--commit-text); font-size: 12px; }
-header { position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 42px; padding: 6px 14px; background: var(--commit-toolbar); border-bottom: 1px solid var(--commit-border); }
-.target-actions { margin-left: auto; display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
-.target-actions > .el-button { margin-left: 0; }
-.target-actions > .el-button--danger { color: var(--el-color-danger); border-color: var(--el-color-danger-light-5); }
+header { position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-height: 36px; box-sizing: border-box; padding: 4px 12px; background: var(--commit-toolbar); border-bottom: 1px solid var(--commit-border); }
+header > strong { flex-shrink: 0; white-space: nowrap; }
+.target-actions { margin-left: auto; display: flex; align-items: center; gap: 12px; flex: 0 0 auto; min-width: 0; direction: ltr; }
+.action-group { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.target-actions :deep(.el-button) { height: 26px; min-height: 26px; margin-left: 0; padding: 0 8px; border: 1px solid var(--el-border-color); border-radius: 4px; background: var(--el-fill-color-blank); font-size: 12px; white-space: nowrap; }
+.target-actions :deep(.el-button:not(.is-disabled):hover) { border-color: var(--el-color-primary-light-5); background: var(--el-color-primary-light-9); color: var(--el-color-primary); }
+.target-actions :deep(.el-button--danger) { border-color: var(--el-color-danger-light-5); background: var(--el-color-danger-light-9); color: var(--el-color-danger); }
+.target-actions :deep(.el-button--danger:not(.is-disabled):hover) { border-color: var(--el-color-danger); background: var(--el-color-danger-light-8); color: var(--el-color-danger); }
+.target-actions :deep(.el-button--warning) { border-color: var(--el-color-warning-light-5); background: var(--el-color-warning-light-9); color: var(--el-color-warning); }
+.target-actions :deep(.el-button--warning:not(.is-disabled):hover) { border-color: var(--el-color-warning); background: var(--el-color-warning-light-8); color: var(--el-color-warning); }
+.target-actions :deep(.el-icon) { font-size: 14px; }
 section { padding: 14px; border-bottom: 1px solid var(--el-border-color-lighter); }
 h3 { margin: 0 0 12px; font-size: 12px; font-weight: 600; }
 dl { display: grid; grid-template-columns: 65px minmax(0, 1fr); gap: 7px 10px; margin: 0; line-height: 1.5; }

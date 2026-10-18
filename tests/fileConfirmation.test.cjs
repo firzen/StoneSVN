@@ -13,14 +13,16 @@ function deferred() {
 function harness(status = 'modified', path = 'file.ts') {
   const confirmation = deferred(), dialogs = [], operations = [], previews = []
   const file = { path, status_code: status, prop_status: 'none' }
-  const store = vue.reactive({ currentPath: '/wc', statusList: [file], error: null, setError(error) { this.error = error } })
+  const store = vue.reactive({ currentPath: '/wc', statusList: [file], error: null, operationBusy: false, setOperationBusy(value) { this.operationBusy = value }, setError(error) { this.error = error } })
   let refreshes = 0, operation = async () => {}, unmount
   const mocks = {
     vue: { ...vue, onMounted() {}, onBeforeUnmount(fn) { unmount = fn } },
     'vue-router': { useRouter: () => ({}) },
     'vue-i18n': { useI18n: () => ({ t: key => key }) },
     '@/stores/workspace': { useWorkspaceStore: () => store },
+    '@/components/RevertImpactTree.vue': { default: { name: 'RevertImpactTree' } },
     '@/api/svn': {
+      svnRevertPreview: async () => [file],
       svnFilePreview: (...args) => { const request = { args, ...deferred() }; previews.push(request); return request.promise },
       svnRevert: async (...args) => { operations.push({ type: 'revert', args }); await operation() },
       deleteUnversioned: async (...args) => { operations.push({ type: 'delete', args }); await operation() },
@@ -130,6 +132,7 @@ test('workspace changes discard queued previews and late active results', async 
 test('revert waits for explicit confirmation and displays the target as escaped text', async () => {
   const h = harness('modified', '<img src=x onerror=alert(1)>.ts')
   const pending = h.handleFileAction(h.file)
+  await new Promise(setImmediate)
   assert.equal(h.operations.length, 0)
   assert.equal(h.dialogs.length, 1)
   const [message, title, options] = h.dialogs[0]
@@ -137,6 +140,8 @@ test('revert waits for explicit confirmation and displays the target as escaped 
   assert.equal(message.children[0].children, 'workspace.revertFileConfirm')
   assert.equal(message.children[1].children, '/wc/<img src=x onerror=alert(1)>.ts')
   assert.equal(message.children[1].props.innerHTML, undefined)
+  assert.equal(message.children[2].type.name, 'RevertImpactTree')
+  assert.equal(message.children[2].props.entries[0].path, h.file.path)
   assert.equal(options.closeOnClickModal, false)
   assert.equal(options.autofocus, false)
   h.confirmation.resolve('confirm')
@@ -152,6 +157,7 @@ test('unversioned targets use Delete labels and the permanent deletion warning',
   const h = harness('unversioned', 'new-directory')
   assert.equal(h.fileActionLabel(h.file), 'common.delete')
   const pending = h.handleFileAction(h.file)
+  await new Promise(setImmediate)
   assert.equal(h.dialogs[0][0].children[0].children, 'workspace.deleteUnversionedConfirm')
   assert.equal(h.dialogs[0][2].confirmButtonText, 'common.delete')
   h.confirmation.resolve('confirm')
@@ -163,6 +169,7 @@ test('cancel and close leave files and error state unchanged', async () => {
   for (const action of ['cancel', 'close']) {
     const h = harness()
     const pending = h.handleFileAction(h.file)
+  await new Promise(setImmediate)
     h.confirmation.reject(action)
     await pending
     assert.equal(h.operations.length, 0)
@@ -175,6 +182,7 @@ test('cancel and close leave files and error state unchanged', async () => {
 test('a workspace switch, even away and back, invalidates the confirmation', async () => {
   const h = harness()
   const pending = h.handleFileAction(h.file)
+  await new Promise(setImmediate)
   h.store.currentPath = '/another'
   h.store.currentPath = '/wc'
   h.confirmation.resolve('confirm')
@@ -186,6 +194,7 @@ test('removed or changed SVN status requires a new confirmation', async () => {
   for (const change of [h => { h.store.statusList = [] }, h => { h.store.statusList[0].status_code = 'added' }]) {
     const h = harness('unversioned')
     const pending = h.handleFileAction(h.file)
+  await new Promise(setImmediate)
     change(h)
     h.confirmation.resolve('confirm')
     await pending
@@ -212,6 +221,7 @@ test('operation failures retain their error and unlock file actions', async () =
   const h = harness()
   h.setOperation(async () => { throw new Error('SVN failed') })
   const pending = h.handleFileAction(h.file)
+  await new Promise(setImmediate)
   h.confirmation.resolve('confirm')
   await pending
   assert.equal(h.store.error, 'Error: SVN failed')
@@ -222,6 +232,7 @@ test('operation failures retain their error and unlock file actions', async () =
 test('unmounting the view invalidates a pending confirmation', async () => {
   const h = harness()
   const pending = h.handleFileAction(h.file)
+  await new Promise(setImmediate)
   h.unmount()
   h.confirmation.resolve('confirm')
   await pending
@@ -236,6 +247,7 @@ test('unverified cached status cannot start or confirm a destructive file action
   assert.equal(h.dialogs.length, 0)
   h.store.statusIsStale = false
   const pending = h.handleFileAction(h.file)
+  await new Promise(setImmediate)
   h.store.statusIsStale = true
   h.confirmation.resolve('confirm')
   await pending

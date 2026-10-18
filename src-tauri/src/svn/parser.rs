@@ -16,6 +16,7 @@ pub fn parse_status_xml(xml: &str) -> Result<Vec<SvnStatus>, SvnError> {
     let mut locked = false;
     let mut switched = false;
     let mut history = false;
+    let mut tree_conflicted = false;
 
     loop {
         match reader.read_event_into(&mut buf) {
@@ -46,6 +47,7 @@ pub fn parse_status_xml(xml: &str) -> Result<Vec<SvnStatus>, SvnError> {
                             b"props" => {
                                 prop_status = String::from_utf8_lossy(&attr.value).to_string();
                             }
+                            b"tree-conflicted" => tree_conflicted = attr.value.as_ref() == b"true",
                             b"locked" => {
                                 locked = attr.value.as_ref() == b"true";
                             }
@@ -63,6 +65,9 @@ pub fn parse_status_xml(xml: &str) -> Result<Vec<SvnStatus>, SvnError> {
             },
             Ok(Event::End(ref e)) => {
                 if e.name().as_ref() == b"entry" && in_entry {
+                    if tree_conflicted {
+                        status_code = "conflicted".into();
+                    }
                     statuses.push(SvnStatus {
                         path: current_path.clone(),
                         directory: false,
@@ -84,6 +89,7 @@ pub fn parse_status_xml(xml: &str) -> Result<Vec<SvnStatus>, SvnError> {
                     locked = false;
                     switched = false;
                     history = false;
+                    tree_conflicted = false;
                 }
             }
             Ok(Event::Eof) => break,

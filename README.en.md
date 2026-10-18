@@ -12,9 +12,9 @@ Built with Tauri, Rust, and Vue 3, it uses the local SVN CLI and preserves SVN's
 
 ![StoneSVN application interface](docs/images/orcasvn-workspace.png)
 
-Development UI from the current source, captured on 2026-10-16 with fictional projects, paths, and diffs. No real repository or personal data is shown. [Dark theme](docs/images/orcasvn-workspace-dark.png).
+Development UI from the current source, captured on 2026-10-18 with fictional projects, paths, and diffs. No real repository or personal data is shown. [Dark theme](docs/images/orcasvn-workspace-dark.png).
 
-Current stable version: **1.0.1**. See the [release notes](docs/releases/v1.0.1.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
+Current stable version: **1.1.0**. See the [release notes](docs/releases/v1.1.0.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
 
 ## Highlights
 
@@ -47,7 +47,7 @@ StoneSVN's history view does not provide line-by-line Blame, and image previews 
 
 > StoneSVN uses the locally installed `svn` command-line tool; it does not implement the SVN protocol itself.
 
-Switch, general-purpose Merge, and conflict Resolve currently require another SVN client or the command line. Refresh StoneSVN afterward. The workspace Delete button removes unversioned files; the Properties page can schedule versioned files or directories for deletion, followed by a separate commit.
+Switch and general-purpose Merge still require another SVN client or the command line. Conflict actions now support keeping manually resolved content or choosing the local/repository version; directory and tree conflicts require manual file organization first. Properties supports rename/move with history, recursive revert with an affected-file preview, restoring clean files or directories to a revision, and adding or cancelling plain additions while retaining local files. Rename, move, property edits and restored content need a separate commit. Repository relocation supports address changes within the same repository.
 
 ## Installation
 

@@ -122,7 +122,10 @@
             <strong :title="repositoryName">{{ repositoryName }}</strong>
             <span class="route-page">/ {{ currentRouteTitle }}</span>
           </div>
-          <span class="route-repository">{{ workspaceStore.operationBusy ? $t('workspace.operationRunning') : repositoryRevision }}</span>
+          <div class="route-header-tools">
+            <div id="property-page-actions" v-show="routeName === 'properties'" class="route-header-actions"></div>
+            <span class="route-repository">{{ workspaceStore.operationBusy ? $t('workspace.operationRunning') : repositoryRevision }}</span>
+          </div>
         </header>
         <div class="workspace-feedback">
           <el-alert v-if="workspaceStore.error" :title="workspaceStore.error" type="error" show-icon :closable="false" />
@@ -226,10 +229,7 @@ const navigateTo = (name: string) => {
 
 const switchProject = async (path: string) => {
   if (workspaceStore.operationBusy || path === workspaceStore.currentPath) return
-  // Keep the property browser open when switching its working copy.
-  const request = loadWorkspace(path)
-  if (routeName.value !== 'properties') await router.replace({ name: 'workspace' })
-  if (!(await request) && workspaceStore.error) ElMessage.error(workspaceStore.error)
+  if (!(await loadWorkspace(path)) && workspaceStore.error) ElMessage.error(workspaceStore.error)
 }
 
 const addProject = async () => {
@@ -633,6 +633,7 @@ onUnmounted(() => {
 
 .route-workbench {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: var(--app-size-page-header) auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
@@ -645,6 +646,8 @@ onUnmounted(() => {
 }
 
 .route-header {
+  min-width: 0;
+  gap: 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -656,6 +659,7 @@ onUnmounted(() => {
 }
 
 .route-title {
+  flex: 1 1 0;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -668,6 +672,10 @@ onUnmounted(() => {
 .route-accent {
   display: none;
 }
+
+.route-header-tools { display: flex; flex: 0 1 auto; align-items: center; justify-content: flex-end; gap: 12px; min-width: 0; max-width: calc(100% - 120px); }
+.route-header-actions { display: flex; flex: 0 1 auto; align-items: center; min-width: 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; direction: rtl; }
+.route-header-tools > .route-repository { flex-shrink: 0; white-space: nowrap; }
 
 .route-repository {
   color: var(--md-sys-color-on-surface-variant);

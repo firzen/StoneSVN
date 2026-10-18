@@ -118,6 +118,10 @@ export async function svnAdd(path: string, files: string[], filterRules?: string
   return invoke<CommandResult>('svn_add', { path, files, filterRules })
 }
 
+export async function svnCancelAdd(path: string, file: string): Promise<CommandResult> {
+  return invoke<CommandResult>('svn_cancel_add', { path, file })
+}
+
 export async function svnDelete(path: string, files: string[]): Promise<CommandResult> {
   return invoke<CommandResult>('svn_delete', { path, files })
 }
@@ -126,8 +130,12 @@ export async function svnRestoreFileRevision(path: string, file: string, revisio
   return invokeWithConnectionPrompt<CommandResult>('svn_restore_file_revision', { path, file, revision })
 }
 
-export async function svnRevert(path: string, files: string[]): Promise<CommandResult> {
-  return invoke<CommandResult>('svn_revert', { path, files })
+export async function svnRevertPreview(path: string, file: string): Promise<SvnStatus[]> {
+  return invoke<SvnStatus[]>('svn_revert_preview', { path, file })
+}
+
+export async function svnRevert(path: string, files: string[], preview?: SvnStatus[]): Promise<CommandResult> {
+  return invoke<CommandResult>('svn_revert', { path, files, preview })
 }
 
 export async function deleteUnversioned(path: string, files: string[]): Promise<CommandResult> {
@@ -152,6 +160,15 @@ export async function svnResolve(
   strategy: string
 ): Promise<CommandResult> {
   return invoke<CommandResult>('svn_resolve', { path, files, strategy })
+}
+
+export async function svnMove(path: string, source: string, destination: string): Promise<CommandResult> {
+  return invoke<CommandResult>('svn_move', { path, source, destination })
+}
+
+export async function svnRelocate(path: string, url: string): Promise<CommandResult> {
+  await checkConnection(url)
+  return invoke<CommandResult>('svn_relocate', { path, url })
 }
 
 export async function svnCleanup(path: string): Promise<CommandResult> {

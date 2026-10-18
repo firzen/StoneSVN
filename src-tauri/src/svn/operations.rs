@@ -307,9 +307,37 @@ pub async fn commit(
                 continue;
             }
             if entry.history && Path::new(path).join(&entry.path).is_dir() {
-                return Err(SvnError::InvalidArguments(format!(
-                    "复制或移动的目录 {} 包含隐式子项，暂不支持通过部分提交处理；请使用 SVN 客户端提交完整的复制或移动操作", entry.path
-                )));
+                let origin = super::working_copy::moved_from(path, &entry.path)
+                    .await?
+                    .ok_or_else(|| {
+                        SvnError::InvalidArguments(format!(
+                            "复制的目录 {} 包含隐式子项，暂不支持部分提交",
+                            entry.path
+                        ))
+                    })?;
+                if !selected.contains(&origin)
+                    || !statuses.iter().any(|source| {
+                        normalize_svn_path(&source.path) == origin
+                            && source.status_code == "deleted"
+                    })
+                {
+                    return Err(SvnError::InvalidArguments(format!(
+                        "移动目录 {} 时必须同时选择源目录 {}",
+                        entry.path, origin
+                    )));
+                }
+                let prefix = format!("{target}/");
+                if statuses.iter().any(|child| {
+                    let child_path = normalize_svn_path(&child.path);
+                    child_path.starts_with(&prefix)
+                        && !matches!(child.status_code.as_str(), "unversioned" | "ignored")
+                        && !selected.contains(&child_path)
+                }) {
+                    return Err(SvnError::InvalidArguments(format!(
+                        "移动目录 {} 必须包含全部子项变更",
+                        entry.path
+                    )));
+                }
             }
             if matches!(entry.status_code.as_str(), "deleted" | "replaced") {
                 let prefix = format!("{}/", target);
@@ -837,19 +865,57 @@ pub async fn delete(path: &str, files: &[String]) -> Result<String, SvnError> {
 }
 
 pub async fn revert(path: &str, files: &[String]) -> Result<String, SvnError> {
-    let mut args: Vec<String> = vec!["revert".to_string()];
-    append_targets(&mut args, files);
+    if files.is_empty() {
+        return Err(SvnError::InvalidArguments(
+            "Select at least one item to revert".into(),
+        ));
+    }
+    let targets = files
+        .iter()
+        .map(|file| super::working_copy::local_target(path, file))
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut args: Vec<String> = vec![
+        "revert".into(),
+        "--depth".into(),
+        "infinity".into(),
+        "--".into(),
+    ];
+    args.extend(targets);
     let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
     execute_svn(&args_refs, Some(path)).await
 }
 
 pub async fn resolve(path: &str, files: &[String], strategy: &str) -> Result<String, SvnError> {
+    if files.is_empty() || !matches!(strategy, "working" | "mine-full" | "theirs-full") {
+        return Err(SvnError::InvalidArguments(
+            "Select conflicts and a supported resolution strategy".into(),
+        ));
+    }
+    let mut targets = Vec::new();
+    for file in files {
+        let target = super::working_copy::local_target(path, file)?;
+        let xml = execute_svn(
+            &["status", "--xml", "--depth", "empty", "--", &target],
+            Some(path),
+        )
+        .await?;
+        if !parse_status_xml(&xml)?
+            .iter()
+            .any(|entry| entry.status_code == "conflicted" || entry.prop_status == "conflicted")
+        {
+            return Err(SvnError::InvalidArguments(
+                "The selected item no longer has a conflict".into(),
+            ));
+        }
+        targets.push(target);
+    }
     let mut args: Vec<String> = vec![
         "resolve".to_string(),
         "--accept".to_string(),
         strategy.to_string(),
     ];
-    append_targets(&mut args, files);
+    args.extend(["--depth".into(), "empty".into(), "--".into()]);
+    args.extend(targets);
     let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
     execute_svn(&args_refs, Some(path)).await
 }

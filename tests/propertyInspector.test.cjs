@@ -20,6 +20,8 @@ function harness(api = {}) {
     'element-plus/es/components/message/index': { ElMessage: { success() {}, error() {} } },
     '@tauri-apps/plugin-dialog': { save: api.destination || (async () => '/exports/new') },
     '@/api/svn': {
+      svnAdd: async (...args) => { calls.push(['add', ...args]); if (api.add) await api.add(...args); return { success: true } },
+      svnCancelAdd: async (...args) => { calls.push(['cancelAdd', ...args]); if (api.cancelAdd) await api.cancelAdd(...args); return { success: true } },
       svnExport: async (...args) => { calls.push(['export', ...args]); if (api.export) await api.export(...args); return { success: true } },
       svnPropertyDetails: api.read || (async () => detail([property('test:value', 'original')])),
       svnDelete: async (...args) => { calls.push(['delete', ...args]); if (api.remove) await api.remove(...args); return { success: true } },
@@ -27,6 +29,7 @@ function harness(api = {}) {
       svnRestoreFileRevision: async (...args) => { calls.push(['restore', ...args]); if (api.restore) await api.restore(...args); return { success: true } },
       svnSetProperty: async (...args) => { calls.push(args); if (api.write) await api.write(...args) },
     },
+    '@/composables/useSettings': { useSettings: () => ({ settings: { gitignoreEnabled: true, filterRules: '.gitignore\ncache' } }) },
     '@/composables/useSvnStatus': {},
     '@/utils/propertyDrafts': { propertyDrafts: vue.reactive(new Map()) },
     '@/stores/workspace': { useWorkspaceStore: () => store },
@@ -36,7 +39,7 @@ function harness(api = {}) {
   const script = source.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   const context = { exports: {}, defineExpose() {}, defineProps: () => props, defineEmits: () => (...args) => events.push(args), require: name => { assert.ok(name in mocks, name); return mocks[name] } }
   const scope = vue.effectScope()
-  scope.run(() => vm.runInNewContext(ts.transpileModule(script + '\nexports.actions = { details, values, original, dirty, fetching, saving, error, save, setValue, resetValues, load, canExport, exportTarget, exporting, canBlame, openBlame, canDelete, canRestore, deleteTarget, restoreTarget };', { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, context))
+  scope.run(() => vm.runInNewContext(ts.transpileModule(script + '\nexports.actions = { details, values, original, dirty, fetching, saving, error, save, setValue, resetValues, load, canExport, exportTarget, exporting, canBlame, openBlame, canDelete, canRestore, deleteTarget, restoreTarget, canAdd, canCancelAdd, addTarget, cancelAddTarget };', { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, context))
   return { ...context.exports.actions, props, store, calls, events, refreshes: () => refreshes, stop: () => scope.stop() }
 }
 
@@ -210,4 +213,81 @@ test('symbolic links cannot export, blame or restore their target through the in
   assert.equal(h.calls.length, 0)
   assert.equal(h.events.some(event => event[0] === 'blame'), false)
   h.stop()
+})
+
+
+test('property actions add unversioned files and directories with configured filters', async () => {
+  for (const directory of [false, true]) {
+    const h = harness({ read: async () => ({ ...detail(), info: null, editable: false, directory, size: directory ? null : 10 }) })
+    await flush()
+    assert.equal(h.canAdd.value, true)
+    assert.equal(h.canCancelAdd.value, false)
+    await h.addTarget()
+    assert.deepEqual(JSON.parse(JSON.stringify(h.calls[0])), ['add', '/wc', ['a.txt'], ['.gitignore', 'cache']])
+    assert.equal(h.refreshes(), 1)
+    assert.equal(h.store.operationBusy, false)
+    assert.ok(h.events.some(event => event[0] === 'mutated' && event[1] === 'refresh'))
+    h.stop()
+  }
+})
+
+test('cancel addition is limited to plain additions and refreshes the inspected target', async () => {
+  const h = harness({ read: async () => ({ ...detail(), info: { schedule: 'add' } }) })
+  await flush()
+  assert.equal(h.canAdd.value, false)
+  assert.equal(h.canCancelAdd.value, true)
+  h.props.status = { status_code: 'added', history: true }
+  assert.equal(h.canCancelAdd.value, false)
+  await h.cancelAddTarget()
+  assert.equal(h.calls.length, 0)
+  h.props.status.history = false
+  await flush()
+  await h.cancelAddTarget()
+  assert.deepEqual(h.calls[0], ['cancelAdd', '/wc', 'a.txt'])
+  assert.equal(h.refreshes(), 1)
+  assert.equal(h.store.operationBusy, false)
+  h.stop()
+})
+
+test('add dialogs respect cancellation and target changes; failed unadds refresh and unlock', async () => {
+  for (const confirm of [async () => { throw 'cancel' }, async () => { h.props.file = 'b.txt' }]) {
+    var h = harness({ read: async () => ({ ...detail(), info: null }), confirm })
+    await flush(); await h.addTarget()
+    assert.equal(h.calls.length, 0)
+    assert.equal(h.refreshes(), 0)
+    assert.equal(h.store.operationBusy, false)
+    h.stop()
+  }
+  const failed = harness({ read: async () => ({ ...detail(), info: { schedule: 'add' } }), cancelAdd: async () => { throw Error('copy cannot be unadded') } })
+  await flush(); await failed.cancelAddTarget()
+  assert.match(failed.error.value, /copy cannot be unadded/)
+  assert.equal(failed.refreshes(), 1)
+  assert.equal(failed.store.operationBusy, false)
+  failed.store.statusIsStale = true
+  assert.equal(failed.canCancelAdd.value, false)
+  failed.store.statusIsStale = false
+  failed.setValue('test:draft', 'pending')
+  assert.equal(failed.canCancelAdd.value, false)
+  failed.stop()
+})
+
+
+test('restore supports versioned directories and workspace root while blame stays file-only', async () => {
+  for (const file of ['dir/nested', '.']) {
+    let hint
+    const h = harness({ read: async () => ({ ...detail(), directory: true, info: { revision: 42, schedule: 'normal' } }), prompt: async message => { hint = message.children[0].children; return { value: '7' } } })
+    h.props.file = file
+    await flush()
+    assert.equal(h.canBlame.value, false)
+    assert.equal(h.canRestore.value, true)
+    await h.restoreTarget()
+    assert.deepEqual(h.calls[0], ['restore', '/wc', file, 7])
+    assert.equal(hint, 'properties.restoreDirectoryHint')
+    assert.equal(h.refreshes(), 1)
+    assert.ok(h.events.some(event => event[0] === 'mutated' && event[1] === 'restore'))
+    assert.equal(h.store.operationBusy, false)
+    h.setValue('test:draft', 'pending')
+    assert.equal(h.canRestore.value, false)
+    h.stop()
+  }
 })

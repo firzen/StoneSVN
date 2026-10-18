@@ -50,6 +50,7 @@
               :disabled="loading" @click="filterMode = filter.value">{{ $t(filter.label) }}</button>
           </div>
         </div>
+        <p v-if="hasMovedDirectorySelection" class="scope-bar">{{ $t('svnActions.moveCommitHint') }}</p>
         <div v-if="scope" class="scope-bar">
           <span>{{ $t('commit.scope') }}:</span><span class="scope-path" :title="scope">{{ scope }}</span>
           <el-button link size="small" :disabled="loading" @click="setScope('')">{{ $t('commit.allDirectories') }}</el-button>
@@ -211,6 +212,8 @@ const allChangedFiles = computed(() => {
     s => isWithinDirectory(s.path, scope.value) && s.status_code !== 'conflicted' && s.prop_status !== 'conflicted' && (committableStatuses.has(s.status_code) || s.prop_status === 'modified')
   )
 })
+
+const hasMovedDirectorySelection = computed(() => allChangedFiles.value.some(file => file.history && file.directory && selectedFiles.value.includes(file.path)))
 
 const changedFiles = computed(() => {
   let files = allChangedFiles.value

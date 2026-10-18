@@ -39,7 +39,7 @@
       <aside class="left-panel">
         <div class="repository-name">
           <strong>{{ workspaceName }}</strong>
-          <button :aria-label="$t('workspace.closeWorkspace')" :title="$t('workspace.closeWorkspace')" @click="closeWorkspace"><el-icon><Close /></el-icon></button>
+          <button :aria-label="$t('workspace.closeWorkspace')" :title="$t('workspace.closeWorkspace')" :disabled="workspaceStore.operationBusy" @click="closeWorkspace"><el-icon><Close /></el-icon></button>
         </div>
         <div class="sidebar-section">
           <div class="sidebar-heading">{{ $t('workspace.workingCopy') }}</div>
@@ -69,6 +69,7 @@
           <div><span>{{ $t('workspace.revision') }}</span><strong>r{{ workspaceStore.svnInfo.revision }}</strong></div>
         </div>
         <div class="sidebar-actions">
+          <SvnRelocateAction />
           <button @click="doCleanup"><el-icon><Brush /></el-icon>{{ $t('common.cleanup') }}</button>
         </div>
       </aside>
@@ -154,6 +155,8 @@
                   @keydown.end.prevent="focusFile(filteredFiles.length - 1)"
                 >{{ file.path }}</button>
                 <div class="file-actions">
+                  <span @click.stop><SvnConflictActions :workspace="workspaceStore.currentPath!" :file="file.path" :status="file"
+                    :disabled="pendingFileAction !== null" @mutated="refreshStatusAfterMutation" /></span>
                   <el-tooltip :content="$t('common.diff')" placement="top" :show-after="150">
                     <span class="file-action-trigger" :title="$t('common.diff')" @click.stop>
                       <el-button text size="small" :aria-label="$t('common.diff')" @click="viewDiff(file.path)">
@@ -238,10 +241,13 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref, computed, nextTick, onBeforeUnmount, onMounted, reactive, watch } from 'vue'
+import RevertImpactTree from '@/components/RevertImpactTree.vue'
+import SvnConflictActions from '@/components/SvnConflictActions.vue'
+import SvnRelocateAction from '@/components/SvnRelocateAction.vue'
+import { h, getCurrentInstance, ref, computed, nextTick, onBeforeUnmount, onMounted, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { deleteUnversioned, revealWorkspaceFile, svnCleanup, svnRevert, svnFilePreview } from '@/api/svn'
+import { deleteUnversioned, revealWorkspaceFile, svnCleanup, svnRevert, svnRevertPreview, svnFilePreview } from '@/api/svn'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
@@ -255,6 +261,7 @@ import { writeClipboardText } from '@/utils/clipboard'
 import type { SvnStatus, FilePreviewResult } from '@/types'
 
 const { t } = useI18n()
+const messageContext = getCurrentInstance()?.appContext
 const router = useRouter()
 const workspaceStore = useWorkspaceStore()
 const { openWorkspace: openWorkspaceDialog, refreshStatus, refreshStatusAfterMutation } = useWorkspace()
@@ -368,6 +375,7 @@ const getStatusLabel = (code: string) => {
 const openWorkspace = () => openWorkspaceDialog(t('dialog.selectSVNWorkspaceDirectory'))
 
 const closeWorkspace = () => {
+  if (workspaceStore.operationBusy) return
   diffRequestGeneration += 1
   workspaceStore.clearWorkspace()
   selectedFile.value = null
@@ -380,7 +388,7 @@ const doCheckout = () => router.push({ name: 'checkout' })
 const doCommit = () => router.push({ name: 'commit' })
 
 const doCleanup = async () => {
-  if (!workspaceStore.currentPath) return
+  if (!workspaceStore.currentPath || workspaceStore.operationBusy) return
   try {
     await svnCleanup(workspaceStore.currentPath)
     await refreshStatusAfterMutation()
@@ -390,6 +398,7 @@ const doCleanup = async () => {
 }
 
 const viewDiff = (path: string) => {
+  if (workspaceStore.operationBusy) return
   hideFileContextMenu()
   router.push({ name: 'diff', query: { path } })
 }
@@ -502,7 +511,7 @@ const fileActionLabel = (file: SvnStatus) => t(file.status_code === 'unversioned
 const handleFileAction = async (file: SvnStatus) => {
   hideFileContextMenu()
   const workspacePath = workspaceStore.currentPath
-  if (!workspacePath || pendingFileAction.value !== null || workspaceStore.statusIsStale) return
+  if (!workspacePath || pendingFileAction.value !== null || workspaceStore.statusIsStale || workspaceStore.operationBusy) return
   const path = file.path
   const statusCode = file.status_code
   const propStatus = file.prop_status
@@ -510,17 +519,25 @@ const handleFileAction = async (file: SvnStatus) => {
   const generation = fileActionWorkspaceGeneration
   const isCurrent = () => generation === fileActionWorkspaceGeneration && workspaceStore.currentPath === workspacePath
   pendingFileAction.value = path
+  let ownsBusy = false
+  let revertPreview: SvnStatus[] | undefined
   try {
+    if (!isUnversioned) {
+      revertPreview = await svnRevertPreview(workspacePath, path)
+      if (!isCurrent() || workspaceStore.statusIsStale) return
+      if (!revertPreview.length) return
+    }
     try {
       await ElMessageBox.confirm(
         h('div', [
-          h('p', t(isUnversioned ? 'workspace.deleteUnversionedConfirm' : 'workspace.revertFileConfirm')),
+          h('p', t(isUnversioned ? 'workspace.deleteUnversionedConfirm' : file.directory ? 'svnActions.revertDirectoryHint' : 'workspace.revertFileConfirm')),
           h('code', { class: 'workspace-file-confirm__path' }, joinWorkspacePath(workspacePath, path)),
+          ...(revertPreview ? [h(RevertImpactTree, { entries: revertPreview, root: path })] : []),
         ]),
         t(isUnversioned ? 'common.delete' : 'common.revert'),
         {
           type: 'warning',
-          customClass: 'workspace-file-confirm',
+          customClass: isUnversioned ? 'workspace-file-confirm' : 'workspace-file-confirm svn-revert-confirm',
           confirmButtonText: t(isUnversioned ? 'common.delete' : 'common.revert'),
           confirmButtonType: 'danger',
           cancelButtonText: t('common.cancel'),
@@ -528,18 +545,20 @@ const handleFileAction = async (file: SvnStatus) => {
           autofocus: false,
           distinguishCancelAndClose: true,
         },
+        messageContext,
       )
     } catch (action) {
       if (action === 'cancel' || action === 'close') return
       throw action
     }
-    if (!isCurrent() || workspaceStore.statusIsStale) return
+    if (!isCurrent() || workspaceStore.statusIsStale || workspaceStore.operationBusy) return
     // A background refresh can remove the target or change its SVN state while
     // the dialog is open. Such a target requires a new confirmation.
     const currentFile = workspaceStore.statusList.find(entry => entry.path === path)
     if (!currentFile || currentFile.status_code !== statusCode || currentFile.prop_status !== propStatus) return
+    workspaceStore.setOperationBusy(true); ownsBusy = true
     if (isUnversioned) await deleteUnversioned(workspacePath, [path])
-    else await svnRevert(workspacePath, [path])
+    else await svnRevert(workspacePath, [path], revertPreview)
     if (!isCurrent()) return
     await refreshStatusAfterMutation()
     if (isCurrent() && selectedFile.value === path) {
@@ -551,6 +570,7 @@ const handleFileAction = async (file: SvnStatus) => {
   } catch (err) {
     if (isCurrent()) workspaceStore.setError(String(err))
   } finally {
+    if (ownsBusy) workspaceStore.setOperationBusy(false)
     pendingFileAction.value = null
   }
 }

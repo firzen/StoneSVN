@@ -28,7 +28,7 @@ fn target_path(workspace: &str, file: &str) -> Result<PathBuf, SvnError> {
 
 // Inspection may read a link entry, but must still validate its parent.
 // Listing and mutations continue to validate the resolved target itself.
-fn checked_target_path(
+pub(super) fn checked_target_path(
     workspace: &str,
     file: &str,
     inspect_link: bool,
@@ -140,15 +140,25 @@ pub async fn restore_file_revision(
     revision: u64,
 ) -> Result<String, SvnError> {
     let target = target_path(workspace, file)?;
-    if revision == 0 || !target.is_file() || target.is_symlink() {
+    if revision == 0 || (!target.is_file() && !target.is_dir()) || target.is_symlink() {
         return Err(SvnError::InvalidArguments(
-            "Select a versioned file and a revision greater than zero".into(),
+            "Select a versioned file or directory and a revision greater than zero".into(),
         ));
     }
+    let directory = target.is_dir();
     let merge_target = super::operations::normalize_svn_path(&target.to_string_lossy());
     let target = super::operations::normalize_svn_target(&merge_target);
     let status = execute_svn(
-        &["status", "--xml", "--depth", "empty", "--", &target],
+        &[
+            "status",
+            "--xml",
+            "--verbose",
+            "--no-ignore",
+            "--depth",
+            if directory { "infinity" } else { "empty" },
+            "--",
+            &target,
+        ],
         Some(workspace),
     )
     .await?;
@@ -158,10 +168,11 @@ pub async fn restore_file_revision(
             !matches!(entry.status_code.as_str(), "normal" | "none" | "")
                 || entry.prop_status == "modified"
                 || entry.prop_status == "conflicted"
+                || entry.switched
         })
     {
         return Err(SvnError::InvalidArguments(
-            "The file has local changes. Commit, stash or revert them before restoring a revision"
+            "The target or its children have local changes, untracked items or switched paths. Commit, stash or revert changes before restoring a revision"
                 .into(),
         ));
     }
@@ -169,8 +180,35 @@ pub async fn restore_file_revision(
     let info = super::parser::parse_info_xml(&info_xml)?;
     if info.revision == 0 || info.schedule != "normal" {
         return Err(SvnError::InvalidArguments(
-            "Select an existing versioned file".into(),
+            "Select an existing versioned file or directory".into(),
         ));
+    }
+    if directory {
+        let tree_info = execute_svn(
+            &["info", "--xml", "--depth", "infinity", "--", &target],
+            Some(workspace),
+        )
+        .await?;
+        validate_restore_directory(&tree_info, info.revision)?;
+        let source = format!("{}@{}", merge_target, info.revision);
+        let range = format!("{}:{}", info.revision, revision);
+        // Use the selected directory as cwd and an explicit '.' target so paths
+        // containing @ work and no sibling or parent directory is merged.
+        return execute_svn(
+            &[
+                "merge",
+                "--ignore-ancestry",
+                "--depth",
+                "infinity",
+                "-r",
+                &range,
+                "--",
+                &source,
+                ".",
+            ],
+            Some(&merge_target),
+        )
+        .await;
     }
     // A local file source also selects that exact file as the implicit target.
     // Passing an explicit target breaks filenames containing @ in SVN merge.
@@ -181,6 +219,45 @@ pub async fn restore_file_revision(
         Some(workspace),
     )
     .await
+}
+
+// A range based on the selected directory's BASE revision is only exact
+// when every child shares that revision and all directories are fully present.
+fn validate_restore_directory(xml: &str, revision: u64) -> Result<(), SvnError> {
+    let mut reader = Reader::from_str(xml);
+    let mut in_depth = false;
+    loop {
+        match reader
+            .read_event()
+            .map_err(|e| SvnError::ParseError(e.to_string()))?
+        {
+            Event::Start(e) if e.name().as_ref() == b"entry" => {
+                let base = e
+                    .try_get_attribute("revision")
+                    .map_err(|e| SvnError::ParseError(e.to_string()))?
+                    .and_then(|attr| std::str::from_utf8(&attr.value).ok()?.parse::<u64>().ok());
+                if base != Some(revision) {
+                    return Err(SvnError::InvalidArguments(
+                        "Update the directory to a single revision before restoring it".into(),
+                    ));
+                }
+            }
+            Event::Start(e) if e.name().as_ref() == b"depth" => in_depth = true,
+            Event::Text(e) if in_depth => {
+                if e.unescape()
+                    .map_err(|e| SvnError::ParseError(e.to_string()))?
+                    != "infinity"
+                {
+                    return Err(SvnError::InvalidArguments(
+                        "Fully check out the directory and its children before restoring it".into(),
+                    ));
+                }
+            }
+            Event::End(e) if e.name().as_ref() == b"depth" => in_depth = false,
+            Event::Eof => return Ok(()),
+            _ => {}
+        }
+    }
 }
 
 fn parse_properties(xml: &str) -> Result<Vec<SvnProperty>, SvnError> {
@@ -336,6 +413,52 @@ pub async fn property_details(workspace: &str, file: &str) -> Result<PropertyDet
             .and_then(|m| m.modified().ok())
             .map(|time| chrono::DateTime::<chrono::Local>::from(time).to_rfc3339()),
     })
+}
+
+// A plain add can be reverted without removing local files. Reverting copies or
+// moves can remove their contents, so reject those before touching metadata.
+pub async fn cancel_add(workspace: &str, file: &str) -> Result<String, SvnError> {
+    let target = checked_target_path(workspace, file, true)?;
+    let svn_target = super::operations::normalize_svn_target(&target.to_string_lossy());
+    let xml = execute_svn(&["info", "--xml", "--", &svn_target], Some(workspace)).await?;
+    let info = super::parser::parse_info_xml(&xml)?;
+    if info.schedule != "add" {
+        return Err(SvnError::InvalidArguments(
+            "Only items scheduled for addition can be unadded".into(),
+        ));
+    }
+    let xml = execute_svn(
+        &[
+            "status",
+            "--xml",
+            "--verbose",
+            "--depth",
+            "infinity",
+            "--",
+            &svn_target,
+        ],
+        Some(workspace),
+    )
+    .await?;
+    let entries = super::parser::parse_status_xml(&xml)?;
+    if entries.is_empty()
+        || entries.iter().any(|entry| {
+            entry.history
+                || !matches!(
+                    entry.status_code.as_str(),
+                    "added" | "unversioned" | "ignored"
+                )
+        })
+    {
+        return Err(SvnError::InvalidArguments(
+            "Cannot cancel addition of copied, moved or mixed-status items while preserving local files".into(),
+        ));
+    }
+    execute_svn(
+        &["revert", "--depth", "infinity", "--", &svn_target],
+        Some(workspace),
+    )
+    .await
 }
 
 pub async fn set_property(
@@ -505,6 +628,265 @@ mod tests {
         assert!(properties[0].binary);
         assert_eq!(properties[1].value, "");
         assert_eq!(properties[2].value, "  a & b\n第二行  ");
+    }
+
+    #[test]
+    fn cancel_add_keeps_files_and_rejects_versioned_items_and_copies() {
+        use std::process::Command;
+        let id = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root =
+            std::env::temp_dir().join(format!("orca-cancel-add-{}-{id}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        struct Cleanup(PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(root.clone());
+        let repository = root.join("repo");
+        let wc = root.join("wc");
+        let run = |args: &[&str]| {
+            let output = Command::new("svn").args(args).output().unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        };
+        assert!(Command::new("svnadmin")
+            .arg("create")
+            .arg(&repository)
+            .status()
+            .unwrap()
+            .success());
+        run(&[
+            "checkout",
+            &format!("file://{}", repository.to_string_lossy()),
+            wc.to_str().unwrap(),
+        ]);
+        fs::write(wc.join("tracked.txt"), "base").unwrap();
+        run(&["add", wc.join("tracked.txt").to_str().unwrap()]);
+        run(&["commit", wc.to_str().unwrap(), "-m", "initial"]);
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let workspace = wc.to_str().unwrap();
+                fs::write(wc.join("new@file.txt"), "new content").unwrap();
+                crate::svn::add(workspace, &["new@file.txt".into()])
+                    .await
+                    .unwrap();
+                cancel_add(workspace, "new@file.txt").await.unwrap();
+                assert_eq!(
+                    fs::read_to_string(wc.join("new@file.txt")).unwrap(),
+                    "new content"
+                );
+                assert!(property_details(workspace, "new@file.txt")
+                    .await
+                    .unwrap()
+                    .info
+                    .is_none());
+                fs::create_dir_all(wc.join("new-dir/nested")).unwrap();
+                fs::write(wc.join("new-dir/nested/file"), "nested content").unwrap();
+                crate::svn::add(workspace, &["new-dir".into()])
+                    .await
+                    .unwrap();
+                cancel_add(workspace, "new-dir").await.unwrap();
+                assert_eq!(
+                    fs::read_to_string(wc.join("new-dir/nested/file")).unwrap(),
+                    "nested content"
+                );
+                assert!(property_details(workspace, "new-dir")
+                    .await
+                    .unwrap()
+                    .info
+                    .is_none());
+                fs::write(wc.join("tracked.txt"), "local edits").unwrap();
+                assert!(cancel_add(workspace, "tracked.txt").await.is_err());
+                assert_eq!(
+                    fs::read_to_string(wc.join("tracked.txt")).unwrap(),
+                    "local edits"
+                );
+                run(&[
+                    "copy",
+                    wc.join("tracked.txt").to_str().unwrap(),
+                    wc.join("copy.txt").to_str().unwrap(),
+                ]);
+                assert!(cancel_add(workspace, "copy.txt").await.is_err());
+                assert_eq!(
+                    fs::read_to_string(wc.join("copy.txt")).unwrap(),
+                    "local edits"
+                );
+                // A plain added parent can also contain a copied child.
+                fs::create_dir(wc.join("mixed")).unwrap();
+                crate::svn::add(workspace, &["mixed".into()]).await.unwrap();
+                run(&[
+                    "copy",
+                    wc.join("tracked.txt").to_str().unwrap(),
+                    wc.join("mixed/copy.txt").to_str().unwrap(),
+                ]);
+                assert!(cancel_add(workspace, "mixed").await.is_err());
+                assert_eq!(
+                    fs::read_to_string(wc.join("mixed/copy.txt")).unwrap(),
+                    "local edits"
+                );
+                assert!(cancel_add(workspace, "../repo").await.is_err());
+            });
+    }
+
+    #[test]
+    fn restores_directory_tree_as_local_changes_without_touching_siblings() {
+        use std::process::Command;
+        let id = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root =
+            std::env::temp_dir().join(format!("orca-restore-dir-{}-{id}", std::process::id()));
+        fs::create_dir_all(&root).unwrap();
+        struct Cleanup(PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+        let _cleanup = Cleanup(root.clone());
+        let repository = root.join("repo");
+        let wc = root.join("wc");
+        assert!(Command::new("svnadmin")
+            .arg("create")
+            .arg(&repository)
+            .status()
+            .unwrap()
+            .success());
+        let run = |args: &[&str]| {
+            let output = Command::new("svn")
+                .args(args)
+                .current_dir(&root)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        };
+        run(&[
+            "checkout",
+            &format!("file://{}", repository.to_string_lossy()),
+            wc.to_str().unwrap(),
+        ]);
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let workspace = wc.to_str().unwrap();
+                let dir = "目录@tree";
+                fs::create_dir_all(wc.join(dir).join("nested")).unwrap();
+                fs::write(wc.join(dir).join("nested/file.txt"), "old content").unwrap();
+                fs::write(wc.join(dir).join("old.txt"), "restore me").unwrap();
+                fs::write(wc.join("sibling.txt"), "old sibling").unwrap();
+                crate::svn::add(workspace, &[dir.into(), "sibling.txt".into()])
+                    .await
+                    .unwrap();
+                set_property(workspace, dir, "svn:ignore", Some("*.tmp"))
+                    .await
+                    .unwrap();
+                run(&["commit", workspace, "-m", "initial"]);
+                fs::write(wc.join(dir).join("nested/file.txt"), "new content").unwrap();
+                fs::write(wc.join(dir).join("new.txt"), "delete me").unwrap();
+                fs::write(wc.join("sibling.txt"), "new sibling").unwrap();
+                crate::svn::add(workspace, &[format!("{dir}/new.txt")])
+                    .await
+                    .unwrap();
+                crate::svn::delete(workspace, &[format!("{dir}/old.txt")])
+                    .await
+                    .unwrap();
+                set_property(workspace, dir, "test:directory", Some("new"))
+                    .await
+                    .unwrap();
+                set_property(
+                    workspace,
+                    &format!("{dir}/nested/file.txt"),
+                    "test:file",
+                    Some("new"),
+                )
+                .await
+                .unwrap();
+                run(&["commit", workspace, "-m", "second"]);
+                // Committing leaves untouched children at their older BASE revision.
+                assert!(restore_file_revision(workspace, dir, 1).await.is_err());
+                run(&["update", workspace]);
+                for loose in ["untracked.txt", "ignored.tmp"] {
+                    let path = wc.join(dir).join(loose);
+                    fs::write(&path, "keep me").unwrap();
+                    assert!(restore_file_revision(workspace, dir, 1).await.is_err());
+                    assert_eq!(fs::read_to_string(&path).unwrap(), "keep me");
+                    fs::remove_file(path).unwrap();
+                }
+                let child = format!("{dir}/nested/file.txt");
+                fs::write(wc.join(&child), "local edits").unwrap();
+                assert!(restore_file_revision(workspace, dir, 1).await.is_err());
+                assert_eq!(fs::read_to_string(wc.join(&child)).unwrap(), "local edits");
+                crate::svn::revert(workspace, &[child.clone()])
+                    .await
+                    .unwrap();
+                set_property(workspace, &child, "test:local", Some("pending"))
+                    .await
+                    .unwrap();
+                assert!(restore_file_revision(workspace, dir, 1).await.is_err());
+                crate::svn::revert(workspace, &[child.clone()])
+                    .await
+                    .unwrap();
+                let escaped_dir = format!("{}@", wc.join(dir).to_string_lossy());
+                run(&["update", "--set-depth", "empty", &escaped_dir]);
+                assert!(restore_file_revision(workspace, dir, 1).await.is_err());
+                run(&["update", "--set-depth", "infinity", &escaped_dir]);
+                assert!(restore_file_revision(workspace, dir, 99999).await.is_err());
+                restore_file_revision(workspace, dir, 1).await.unwrap();
+                assert_eq!(fs::read_to_string(wc.join(&child)).unwrap(), "old content");
+                assert_eq!(
+                    fs::read_to_string(wc.join(dir).join("old.txt")).unwrap(),
+                    "restore me"
+                );
+                assert!(!wc.join(dir).join("new.txt").exists());
+                assert_eq!(
+                    fs::read_to_string(wc.join("sibling.txt")).unwrap(),
+                    "new sibling"
+                );
+                let details = property_details(workspace, dir).await.unwrap();
+                assert_eq!(details.info.unwrap().revision, 2);
+                assert!(!details
+                    .properties
+                    .iter()
+                    .any(|p| p.name == "test:directory"));
+                assert!(property_details(workspace, &child)
+                    .await
+                    .unwrap()
+                    .properties
+                    .is_empty());
+                let statuses = crate::svn::status(workspace).await.unwrap();
+                assert!(statuses
+                    .iter()
+                    .any(|e| e.path == format!("{dir}/old.txt") && e.status_code == "added"));
+                assert!(statuses
+                    .iter()
+                    .any(|e| e.path == format!("{dir}/new.txt") && e.status_code == "deleted"));
+                assert!(!statuses.iter().any(|e| e.path == "sibling.txt"));
+                // The same operation also supports the working-copy root.
+                run(&["revert", "--depth", "infinity", workspace]);
+                restore_file_revision(workspace, ".", 1).await.unwrap();
+                assert_eq!(
+                    fs::read_to_string(wc.join("sibling.txt")).unwrap(),
+                    "old sibling"
+                );
+            });
     }
 
     #[test]
@@ -692,7 +1074,6 @@ mod tests {
                     .unwrap()
                     .success());
                 assert!(restore_file_revision(wc, file, 0).await.is_err());
-                assert!(restore_file_revision(wc, "dir", 1).await.is_err());
                 assert!(restore_file_revision(wc, "../repo", 1).await.is_err());
                 assert!(restore_file_revision(wc, "loose.txt", 1).await.is_err());
                 fs::write(workspace.join(file), "uncommitted\n").unwrap();
