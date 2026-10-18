@@ -640,6 +640,11 @@ mod tests {
         let root =
             std::env::temp_dir().join(format!("orca-cancel-add-{}-{id}", std::process::id()));
         fs::create_dir_all(&root).unwrap();
+        // Use one spelling for CLI and canonicalized application targets. On
+        // Windows TEMP can contain an 8.3 alias (for example RUNNER~1).
+        let root = PathBuf::from(super::super::operations::normalize_svn_path(
+            &fs::canonicalize(root).unwrap().to_string_lossy(),
+        ));
         struct Cleanup(PathBuf);
         impl Drop for Cleanup {
             fn drop(&mut self) {
@@ -749,6 +754,11 @@ mod tests {
         let root =
             std::env::temp_dir().join(format!("orca-restore-dir-{}-{id}", std::process::id()));
         fs::create_dir_all(&root).unwrap();
+        // Use one spelling for CLI and canonicalized application targets. On
+        // Windows TEMP can contain an 8.3 alias (for example RUNNER~1).
+        let root = PathBuf::from(super::super::operations::normalize_svn_path(
+            &fs::canonicalize(root).unwrap().to_string_lossy(),
+        ));
         struct Cleanup(PathBuf);
         impl Drop for Cleanup {
             fn drop(&mut self) {

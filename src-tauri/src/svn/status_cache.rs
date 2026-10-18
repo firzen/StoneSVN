@@ -445,7 +445,6 @@ mod tests {
         #[cfg(unix)]
         std::os::unix::fs::symlink("/", root.join("outside")).unwrap();
         let before = status_snapshot::capture(&root).unwrap();
-        #[cfg(unix)]
         let original_time = fs::metadata(root.join("file")).unwrap().modified().unwrap();
         // Restoring mtime leaves ctime as the edit signal. Let the filesystem
         // clock advance so both writes cannot share one timestamp tick.
@@ -458,6 +457,18 @@ mod tests {
             .open(root.join("file"))
             .unwrap()
             .set_times(fs::FileTimes::new().set_modified(original_time))
+            .unwrap();
+        // Windows can coalesce timestamps for back-to-back writes. Give this
+        // metadata-invalidation test a deterministic, observable mtime change.
+        #[cfg(windows)]
+        fs::File::options()
+            .write(true)
+            .open(root.join("file"))
+            .unwrap()
+            .set_times(
+                fs::FileTimes::new()
+                    .set_modified(original_time + std::time::Duration::from_secs(2)),
+            )
             .unwrap();
         let after = status_snapshot::capture(&root).unwrap();
         assert_eq!(

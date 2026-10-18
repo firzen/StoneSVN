@@ -317,6 +317,9 @@ mod tests {
                 std::process::id()
             ));
             fs::create_dir_all(&root).unwrap();
+            let root = PathBuf::from(normalize_svn_path(
+                &fs::canonicalize(root).unwrap().to_string_lossy(),
+            ));
             let repo = root.join("repo");
             let wc = root.join("wc");
             assert!(Command::new("svnadmin")
