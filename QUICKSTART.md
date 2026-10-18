@@ -4,7 +4,7 @@ English | [简体中文](QUICKSTART.zh-CN.md)
 
 An illustrated guide from opening a project to completing a reviewed commit. See the [user guide](docs/user-guide.md) for the complete interface reference.
 
-Applies to version 1.1.2. Updated: 2026-10-18.
+Applies to version 1.1.3. Updated: 2026-10-19.
 
 This guide is for new StoneSVN users and anyone looking up everyday steps. Follow the environment setup, workspace, update, and commit sections in order to complete your first change. Use the conflict and stash sections when those situations arise.
 

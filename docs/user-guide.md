@@ -2,7 +2,7 @@
 
 English | [简体中文](user-guide.zh-CN.md)
 
-Applies to the current 1.1.2 source. Updated: 2026-10-18. Older releases may have a different interface.
+Applies to the current 1.1.3 source. Updated: 2026-10-19. Older releases may have a different interface.
 
 This guide covers checkout, reviewing changes, committing, updating, and browsing history for code, documents, and other SVN-managed files. No implementation knowledge is required.
 

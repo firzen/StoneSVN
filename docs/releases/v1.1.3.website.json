@@ -1,0 +1,42 @@
+{
+  "en": {
+    "title": "More reliable releases and clearer documentation",
+    "items": [
+      "Publish only after checks and packaging succeed on all four desktop targets, with nine distribution files verified.",
+      "Improve macOS DMG build retries, Windows version preparation, and release metadata validation.",
+      "Expand illustrated guides and language-matched screenshots; synchronize website content and captures from the published source."
+    ]
+  },
+  "zh-CN": {
+    "title": "更可靠的发布，更清楚的文档",
+    "items": [
+      "四个桌面目标全部通过检查与打包后发布，并校验九个分发文件。",
+      "改进 macOS DMG 构建重试、Windows 版本准备与发布元数据校验。",
+      "扩充图文指南及对应语言截图，官网内容与截图随已发布源码同步。"
+    ]
+  },
+  "zh-TW": {
+    "title": "更可靠的發布，更清楚的文件",
+    "items": [
+      "四個桌面目標全部通過檢查與打包後發布，並驗證九個散布檔案。",
+      "改善 macOS DMG 建置重試、Windows 版本準備與發布中繼資料驗證。",
+      "擴充圖文指南與對應語言截圖，官網內容與截圖隨已發布原始碼同步。"
+    ]
+  },
+  "ja": {
+    "title": "リリースの信頼性とドキュメントを改善",
+    "items": [
+      "4つのデスクトップ環境すべてで検証とパッケージ作成が成功し、9つの配布ファイルを確認してから公開します。",
+      "macOS DMG ビルドの再試行、Windows でのバージョン更新、リリース情報の検証を改善しました。",
+      "図解ガイドと言語に対応するスクリーンショットを拡充し、公開済みソースに合わせて公式サイトを同期します。"
+    ]
+  },
+  "ko": {
+    "title": "더 안정적인 릴리스와 명확한 문서",
+    "items": [
+      "네 가지 데스크톱 대상에서 검사와 패키징을 모두 통과하고 배포 파일 9개를 검증한 후 공개합니다.",
+      "macOS DMG 빌드 재시도, Windows 버전 준비 및 릴리스 메타데이터 검증을 개선했습니다.",
+      "그림 가이드와 언어별 스크린샷을 보강하고, 공개된 소스에 맞춰 웹사이트 콘텐츠와 스크린샷을 동기화합니다."
+    ]
+  }
+}
