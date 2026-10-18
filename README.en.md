@@ -2,7 +2,7 @@
 
 [Official website](https://stonesvn.github.io)
 
-[简体中文](README.md) | [繁體中文](README.zh-TW.md) | English | [日本語](README.ja.md) | [한국어](README.ko.md)
+English | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 StoneSVN is an open-source SVN desktop client for Windows, macOS, and Linux, released under the MIT license. It organizes daily work around reviewing changes, inspecting diffs, and choosing what to commit, with multiple working copies, directory-based commit selection, and local stashes of selected text hunks in one workspace.
 
@@ -55,9 +55,11 @@ Download installers for Windows, macOS, and Linux from [GitHub Releases](https:/
 
 For macOS, choose the `x64` DMG for an Intel Mac or `aarch64` for an Apple Silicon Mac. Check About This Mac if unsure.
 
-macOS builds use free ad-hoc signing and are not notarized by Apple. Drag StoneSVN into Applications. If the first launch is blocked, go to System Settings → Privacy & Security → Open Anyway, then confirm Open. Managed Macs may require IT approval. See the [macOS build and distribution guide (Chinese)](docs/macos-distribution.md).
+macOS builds use free ad-hoc signing and are not notarized by Apple. Drag StoneSVN into Applications. If the first launch is blocked, go to System Settings → Privacy & Security → Open Anyway, then confirm Open. Managed Macs may require IT approval. See the [macOS build and distribution guide](docs/macos-distribution.md).
 
 The app uses an external SVN CLI. On Windows, multilingual paths and property values depend on that CLI’s Unicode and code-page support.
+
+StoneSVN detects SVN in PATH and common installation locations on Windows, macOS, and Linux. If detection fails, select or enter the executable path and validate it before opening a workspace. Invalid paths are not saved. You can also set the full path in Settings.
 
 After installation, make sure the SVN CLI is available:
 
@@ -72,7 +74,7 @@ svn --version --quiet
 3. Select a file to inspect its diff, then review and commit your changes from the Commit page.
 4. Run Update before committing and resolve any conflicts first.
 
-For usage instructions, see the [quick start](QUICKSTART.md) and [user guide](docs/user-guide.md) (Simplified Chinese).
+For usage instructions, see the [quick start](QUICKSTART.md) and [user guide](docs/user-guide.md).
 
 ## Global Ignore Rules
 
@@ -142,6 +144,8 @@ src-tauri/src/
 - **Review before change:** Status and diffs are shown before committing or reverting changes.
 - **Safe argument boundaries:** File targets are separated from command options with `--`.
 - **Clear feedback:** Errors retain the original SVN context to make diagnosis easier.
+
+See the [visual design system](docs/visual-design-system.md) for interface colors, typography, spacing, and component sizes.
 
 ## License
 

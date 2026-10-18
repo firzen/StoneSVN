@@ -1,102 +1,111 @@
-# OrcaSVN 性能优化记录
+# OrcaSVN performance optimization record
 
-## 日志分页
+English | [简体中文](performance-optimization.zh-CN.md)
 
-日志页使用修订号游标分页，每页显示 20 条，只通过“上一页 / 下一页”切换；滚动和容器高度不再触发请求。普通查询、作者、关键词和日期筛选都请求最多 21 条匹配记录，其中额外一条用于判断是否还有下一页。下一页从当前页最后一条修订号减一开始，避免跳过额外查询的记录。
+This technical record describes the implementation and measurements at the time of the changes. Historical ignore-rule behavior is not the current Settings filter contract; see the [user guide](user-guide.md#settings-and-display).
 
-翻页替换当前列表，不再累计历史记录。已访问页面使用最多 50 项、有效期 5 分钟的缓存；变更筛选条件、工作区或手动查询时回到第一页。请求代次防止旧查询覆盖新页面。
+## Log pagination
 
-作者列宽度为 180px，提交信息列最小宽度为 220px；长文本保持单行省略，使用原生悬停提示展示完整作者名和提交信息。完整信息仍保留在行数据与详情中。
+Log uses revision cursors and explicit Previous/Next navigation with 20 entries per page. Scrolling/container height no longer triggers requests. Ordinary, author, keyword, and date queries request at most 21 matches; the extra entry detects a next page. Next starts at the last displayed revision minus one, retaining the extra match.
 
-关键词和作者仍在 Rust 端按批次过滤，而非直接使用 `svn log --search`，以保持既有匹配语义。每页返回数量有上限，但稀疏匹配或无匹配时仍可能扫描较多历史；分页不意味着扫描耗时有固定上限。
+Navigation replaces rather than accumulates records. Visited pages use a 50-entry, five-minute cache. Filter/workspace changes and manual queries reset to page one; request generations prevent stale responses overwriting a new page.
 
-## 忽略规则计算
+Author width is 180px and message minimum width 220px. Long text stays on one line with native full-text hover hints; row data/details retain complete values.
 
-工作区在 Web Worker 中匹配忽略规则，避免大量正则测试占用界面主线程。匹配从最后一条规则向前查找，找到匹配即返回，保留“最后匹配的规则生效”和取反规则的语义。
+Rust still filters author/keyword in batches rather than `svn log --search` to retain existing semantics. Page size is bounded, but sparse/no matches may scan substantial history; pagination does not bound query time.
 
-Worker 保存最多 10,000 条路径的匹配结果，并在规则内容变化时重建缓存。异步结果写回前检查工作区和请求代次，防止旧 Worker 回复覆盖新状态。未启用忽略规则时直接返回状态列表。
+## Ignore matching
 
-## SVN 进程执行
+A Web Worker matches rules instead of blocking the UI with regular expressions. Searching backward preserves last-match-wins and negation semantics of this historical implementation.
 
-执行器使用 `tokio::process::Command` 异步等待进程结束，移除原先每 100 毫秒一次的结束状态轮询及每个命令的两个管道读取线程。标准输出和错误输出由 Tokio 同时读取。
+The worker caches up to 10,000 paths and rebuilds when rule content changes. Workspace/generation checks reject outdated replies. Disabled filtering directly returns the list.
 
-保留 120 秒超时、非交互参数、工作目录和 Windows 隐藏命令窗口。超时丢弃等待任务时，通过 `kill_on_drop` 终止子进程。非零退出状态保留标准输出和错误输出用于诊断。
+## SVN execution
 
-## 工作区刷新
+`tokio::process::Command` asynchronously waits for completion, replacing 100ms polling and two pipe-reader threads per command. Tokio drains stdout/stderr concurrently.
 
-同一工作区的进行中加载或刷新请求由多个调用者共享。后台轮询复用刚完成的状态：全局刷新周期为 60 秒，更新页为 30 秒。失败请求不会标记为新鲜。
+Retain the 120-second timeout, noninteractive options, working directory, and hidden Windows command window. `kill_on_drop` terminates a child when the timeout drops its wait task. Nonzero exits preserve both output streams for diagnosis.
 
-提交、加入版本控制、还原、暂存、更新及忽略设置改变后的刷新必须启动新的扫描，不能复用变更前的请求。请求代次阻止被取代的扫描写回。
+## Workspace refresh
 
-更新页通过激活和停用生命周期管理轮询。离开缓存的更新页时清除计时器，恢复页面时重新查询远端状态。正在执行的更新完成后，即使页面已停用仍强制刷新共享工作区状态并失效旧的更新页缓存；页面停用时不继续查询远端。
+Concurrent load/refresh callers for one workspace share requests. Background polling reuses fresh results: global interval 60 seconds and Update interval 30 seconds. Failures are never marked fresh.
 
-## 工作区与 Diff 虚拟滚动
+Commit, Add, Revert, Stash, Update, and ignore-setting mutations require new scans rather than pre-mutation requests. Generations prevent superseded scans writing back.
 
-工作区文件列表、工作区 Diff 预览、独立 Diff 页面及其文件导航侧栏共用固定行高的 VirtualViewport。仅挂载可见范围及上下各 6 行缓冲，使用占位高度保留连续滚动；ResizeObserver 更新视口尺寸，筛选或切换数据时重置或约束滚动位置。
+Update polling follows activation/deactivation. Leaving a cached page clears timers; returning queries remote state. A completed update forces shared workspace refresh and invalidates old Update cache even when inactive, without continuing remote polling while inactive.
 
-文件选择以路径保存，支持方向键、Home/End 跳转，保留右键菜单和文件操作。Diff 侧栏在前后导航时滚动到当前文件。
+## Workspace and diff virtualization
 
-两处 Diff 共用 DiffViewer。数据层保存原始文本及 Uint32Array 行偏移，仅为可见行生成展示对象；增删统计覆盖全文。超过 200,000 个 UTF-16 码元的文本在 Worker 中建立索引及执行查找，替换文本或卸载时终止旧 Worker，检查代次以丢弃迟到回复。
+Workspace files, inline diffs, standalone Diff, and its navigation sidebar share a fixed-height VirtualViewport. Only visible rows plus six buffered rows above/below are mounted. Spacer heights preserve continuous scrolling, ResizeObserver tracks size, and filtering/data changes reset or constrain scroll.
 
-查看器提供区分大小写的全文查找、前后匹配循环、Ctrl/Cmd+F、Enter/Shift+Enter，以及完整 Diff 复制。未渲染的行仍可被查找和复制。横向滚动宽度包含屏外长行、制表符及宽字符；Diff 保持不换行。
+Selection is path-based, supports arrows/Home/End, and retains context menus/actions. Diff navigation scrolls to the selected file.
 
-提交树虚拟化、默认折叠和勾选统计优化按用户要求暂缓，已记录到 todo.md。
+Both diff surfaces share DiffViewer. Raw text and Uint32Array offsets remain in the data layer; only visible rows get display objects, while statistics cover the full text. Over 200,000 UTF-16 code units, a worker builds indexes/searches. Replacing text or unmounting terminates old workers, and generations reject late replies.
 
-## 验证
+Search is case-sensitive and supports cyclic previous/next, Ctrl/Cmd+F, Enter/Shift+Enter, and copying the entire diff. Unrendered lines remain searchable/copyable. Horizontal extent accounts for offscreen long lines, tabs, and wide characters; diffs do not wrap.
 
-运行 `npm run check` 验证前端构建、单元测试、Rust 格式和测试。
+Commit-tree virtualization, default collapse, and selection-count optimization were deferred at user request; see [TODO](../todo.md).
 
-回归测试覆盖分页游标、前后翻页、筛选分页、空页和边界页、过期响应、忽略规则顺序及缓存、刷新请求共享、失败重试、工作区切换、变更后的新扫描，以及大输出读取和超时子进程终止。虚拟滚动测试覆盖大列表的渲染范围、数据收缩和窗口缩放；Diff 测试覆盖全文统计、可见行提取、CRLF、空行、宽字符和查找循环。
+## Validation
 
-浏览器交互验证使用模拟 Tauri IPC，检查真实 Worker 过滤、每页行数、滚动不请求、上一页缓存、筛选翻页和更新页轮询生命周期。真实仓库和远端网络耗时应另外在桌面应用中测量。
+Run `npm run check` for frontend build/tests and Rust formatting/tests.
 
-虚拟滚动浏览器压力验证使用 50,000 个文件和 100,000 行 Diff 的模拟数据，检查行数保持在几十行、滚动到末尾、屏外查找及完整复制、长行横向滚动、键盘选择、右键菜单、筛选收缩、窗口缩放、暗色主题、文件导航和滚动位置重置。生产构建同时在桌面应用 CSP 下验证 Worker。
+Regressions cover pagination cursors, navigation/filtering, empty/boundary pages, stale replies, ignore order/cache, shared refresh, retry, switching, post-mutation scans, large output, and timeout child termination. Virtualization covers large ranges, shrinking data, and resizing. Diff tests cover complete statistics, visible extraction, CRLF, empty/wide lines, and cyclic search.
 
-## 文件系统与 SVN 状态持久缓存
+Browser interaction uses mocked Tauri IPC to check actual worker filtering, row counts, no requests on scroll, previous-page cache, filtered pagination, and Update polling lifecycle. Measure real repositories/network separately in the desktop app.
 
-Windows 的 SVN XML 状态路径在解析时统一为 `/`，与文件系统清单和定向查询目标一致，避免还原文件后因 `\` 与 `/` 比较不匹配而残留旧状态。原生快照格式在 0.6.3 中升级为 v6，使旧路径格式及缺少上级管理状态的磁盘缓存失效并重新核对；Unix 路径不做反斜杠替换。
+Stress checks use 50,000 fictional files and 100,000 diff lines: mounted rows stay in the tens, end scrolling, offscreen search/full copy, long-line horizontal scrolling, keyboard/context actions, shrinking filters, resizing, dark theme, file navigation, and scroll reset. Production workers are also checked under desktop CSP.
 
-原生层在应用缓存目录的 `workspace-status` 下保存成对的文件系统清单和原始 SVN 状态。缓存按规范化工作副本路径区分，保留最近 5 个工作副本，24 小时过期；单个快照上限 64 MiB，清单上限 500,000 项。前端显示用的工作区快照继续负责立即显示旧结果，原生缓存负责验证结果。
+## Persistent filesystem and SVN status cache
 
-应用重新启动或内存缓存被淘汰后，先比较当前文件路径、类型、大小、修改时间、符号链接目标，以及 Unix 的 ctime。不读取工作区文件正文，不跟随符号链接，不遍历 `.svn/pristine` 和 `.svn/tmp`。文件系统未变化时直接复用 SVN 状态；不超过 256 条普通文件路径变化时，使用 `svn status --xml --depth empty -- <paths>` 核对这些路径，再合并原始状态。清单比较按排序路径线性合并，避免重复构建全部路径集合。
+Windows XML status paths normalize to `/` for consistency with manifests/targeted paths, preventing stale entries after revert due to slash mismatches. Native snapshots upgraded to v6 in 0.6.3, invalidating older path formats and snapshots lacking ancestor administration state. Unix backslashes remain unchanged.
 
-选择工作副本子目录时，额外向上查找最近的 `.svn` / `_svn` 管理目录，并保存其非 pristine/tmp 文件的元数据。普通扫描、Windows USN 快路径和写盘复核均检查这份上级管理清单；上级 wc.db 等文件变化时回退完整 SVN 查询，避免漏掉外部属性编辑、加入版本控制或还原。根目录工作区继续使用自身清单中的管理文件。
+Native `workspace-status` cache stores paired manifests/raw SVN states by canonical working-copy path: five recent copies, 24-hour expiry, 64MiB snapshot maximum, and 500,000 manifest entries. Frontend snapshots show old content immediately; native cache validates it.
 
-目录结构变化、SVN 元数据变化、SVN 配置指纹变化、缓存缺失/过期/损坏、清单无法可靠读取、变更范围过大或定向命令失败时，回退完整扫描。手动刷新和文件操作后的强制刷新仍完整检查。配置缓存只保存指纹，不保存配置正文。
+After restart or memory eviction, compare path, type, size, mtime, symlink target, and Unix ctime without reading file content, following symlinks, or traversing `.svn/pristine`/`.svn/tmp`. Unchanged filesystems reuse status; up to 256 ordinary changed paths use `svn status --xml --depth empty -- <paths>` and merge raw status. Sorted manifests merge linearly without repeated whole-path sets.
 
-每次定时刷新都先在阻塞任务中检查目录和文件元数据，再与内存基线比较；重新打开时可恢复磁盘基线。没有文件变化就复用 SVN 状态，有普通文件变化就定向核对；保留每 5 分钟一次的完整核对。已移除递归监视器及 notify 依赖，也不再等待 25 ms 合并系统通知。
+For working-copy subdirectories, find the nearest ancestor `.svn`/`_svn` and retain non-pristine/tmp metadata. Ordinary scans, Windows USN, and prewrite validation check this ancestor manifest. Changes to ancestor wc.db trigger a full query to detect external property/add/revert changes. Root workspaces use their own manifest.
 
-清单采用连续排序数组。Unix 下额外缓存每个目录的 mtime、ctime、设备号、inode 和直接子项索引；目录时间与身份一致且时间已稳定至少一秒时，复用子项索引，不再调用 read_dir。目录发生变化时，只重新枚举该目录；删除和跨目录移动会由相关父目录的子项变化识别。所有目录不变时直接沿用排序路径和索引，仅检查文件自身元数据，避免重新排序、分组和解析文件名。
+Fall back to full scans for directory-structure, SVN metadata/configuration fingerprint changes; missing/expired/corrupt cache; unreliable metadata; excessive scope; or failed targeted commands. Manual/forced post-operation refresh remains complete. Configuration cache stores fingerprints, not contents.
 
-Windows 继续使用目录枚举返回的 DirEntry 元数据，避免按缓存路径逐个 stat 反而增加系统调用。Unix 目录 ctime 只有整秒精度、时间尚未稳定、目录身份变化或增量检查失败时会重新枚举。每 5 分钟以及手动强制刷新都会完整枚举目录；后台写盘复核也始终完整枚举。缓存读取校验目录索引范围、所属父目录、完整性和排序，损坏时重新生成。
+Each scheduled refresh checks metadata in a blocking task against memory; reopening can restore a disk baseline. Reuse unchanged status, target ordinary changes, and perform a full check every five minutes. Recursive watchers/notify and the 25ms notification-coalescing wait were removed.
 
-遍历逐目录携带 SVN 管理目录标志，避免为每个文件解析完整路径的所有组件。普通文件仍检查自身 mtime、大小等字段，不能因为父目录没变化而跳过内容编辑检查。缓存格式升级后旧清单会重新生成一次。
+Manifests are contiguous sorted arrays. Unix also caches directory mtime/ctime/device/inode and direct-child indexes. Stable directory identity/times for at least one second permit index reuse without read_dir. Reenumerate only changed directories; parent changes detect deletions/cross-directory moves. With all directories unchanged, reuse sorting/indexes and check individual file metadata.
 
-完整扫描和所有有变化的定向核对都会更新内存并安排磁盘快照写入。文件系统清单在 SVN 查询前采集，后台再次采集确认一致后，才原子替换磁盘快照。第二次采集和写盘不阻塞结果显示；期间有变化则放弃写入，下一次定时刷新继续与查询前的基线比较并核对变化。未完成写入时退出，下一次最多回退到旧基线或完整扫描。
+Windows uses DirEntry enumeration metadata instead of statting every cached path. Unix reenumerates for coarse second-resolution ctime, unstable timestamps, identity changes, or incremental failure. Five-minute/manual checks and background prewrite checks always enumerate fully. Cache reads validate index ranges, parent ownership, completeness, and order; corrupt indexes regenerate.
 
-真实 SVN 测试覆盖退出期间修改、还原、重命名、删除、忽略文件、目录新增、外部 SVN 属性修改、损坏缓存，以及 Unix 下保留修改时间的同大小编辑和符号链接。目录复用测试还覆盖不枚举目录时的内容编辑、还原父目录 mtime 后的删除、跨目录移动、嵌套新增/删除、目录索引损坏、粗精度时间和目录身份变化。重开仍需遍历当前文件系统，成本与仓库文件数相关；它减少 SVN 核对范围，并不保证在每种存储设备上快于完整 SVN 扫描。
+Traversal carries the administration-directory flag per directory instead of parsing every path component per file. Files still check their own mtime/size even when the parent is unchanged. Cache upgrades regenerate manifests once.
 
-移除监视器前的历史基准（2026-09-30）：在 Linux 热文件系统上，用导入同一原生 SVN 源码的独立 release 测试程序测量真实 SVN 1.14.3 工作副本（200 个目录、20,000 个文件、40 处修改）：首次完整检查及快照落盘 282.1 ms；清除内存缓存后，恢复磁盘缓存并核对 40 条变化 211.4 ms，无变化恢复 131.2 ms；运行中定向刷新 42.8 ms，无变化内存复用 0.1 ms。作为参考，单独完整 SVN 查询为 116.5 ms，不包含监视器建立和快照处理。重开计时包含监视器建立、清单遍历和 JSON 读取，不包含后台快照更新；基准在下一次重开前等待更新完成。这组结果没有证明磁盘缓存重开比完整查询更快，不能据此宣称大仓库加载延迟已全部解决。桌面 WebView、冷文件系统和用户真实仓库尚未测量。
+Full scans and changed targeted checks update memory and schedule disk snapshots. Capture the manifest before SVN; recapture in the background and atomically replace the disk snapshot only if stable. Revalidation/writing does not block display. Changes during this interval cancel the write; the next poll compares against the prequery baseline. Exiting before writing may restore an older baseline or require a full scan next time.
 
-移除监视器后的同类 release 基准：单独文件系统清单遍历 49.0 ms；运行中 40 条变化的遍历及定向查询 71.2 ms，无变化遍历及复用 47.7 ms；清除内存后，磁盘缓存恢复及 40 条变化核对 84.9 ms，无变化恢复 65.3 ms；单独完整 SVN 查询 109.4 ms，首次完整检查及快照落盘 206.6 ms。测试断言运行中变化和重开变化均使用 40 条路径的定向分支，无变化重开使用复用分支，结果与完整 SVN 查询一致。前台计时不包含后台复核和写盘，下一次重开前会等待落盘完成。这是一次 Linux 热盘测量，不代表冷盘、Windows、桌面整体加载或所有真实仓库的固定耗时。
+Real-SVN tests cover edits during shutdown, revert/rename/delete, ignored files, new directories, external properties, corrupt cache, Unix same-size preserved-mtime edits, and symlinks. Directory reuse tests add edits without enumeration, deletion after restoring parent mtime, cross-directory moves, nested additions/deletions, index corruption, coarse time, and identity changes. Reopening still traverses the filesystem; reduced SVN scope is not guaranteed faster than full SVN on every storage device.
 
-目录索引复用后的同类 release 基准：完整枚举清单 52.2 ms，增量清单检查 38.2 ms（重新枚举 0 个目录、复用 202 个目录、检查 20,004 个文件及 SVN 元数据文件）；运行中 40 条变化核对 60.2 ms，无变化检查 38.3 ms；磁盘缓存重开 40 条变化核对 75.5 ms，无变化重开 58.4 ms；单独完整 SVN 查询 102.7 ms，首次完整检查及落盘 215.8 ms。基准在测量前等待目录时间稳定一秒，前台计时仍不包含后台完整枚举复核和写盘。已确认定向分支只核对 40 条路径，结果与完整 SVN 查询一致。这组 Linux 热盘结果没有验证 Windows、冷盘或桌面整体加载性能。
+### Historical benchmark before watcher removal 2026-09-30
 
+Linux warm filesystem, standalone Release harness importing the same native source, SVN 1.14.3, 200 directories/20,000 files/40 edits: first full check plus persistence 282.1ms; after clearing memory, disk restore/40-path validation 211.4ms and unchanged restore 131.2ms; running targeted refresh 42.8ms and unchanged memory reuse 0.1ms. Standalone full SVN was 116.5ms without watcher/snapshot work. Reopening includes watcher setup, traversal, and JSON reads but excludes background updates, which finished before the next reopening. This did not establish that disk reopening beat a full query or solve all large-repository latency. Desktop WebView, cold storage, and real user repositories were not measured.
 
-## Windows NTFS USN 增量查询
+### After watcher removal
 
-Windows 在本地 NTFS 卷且当前权限可读取 USN 日志时，优先使用变更日志。首次完整扫描建立卷 GUID、卷序列号、根目录文件 ID、Journal ID、USN 游标及文件 ID/父目录 ID 到工作区路径的索引，一并保存到原生磁盘快照。索引通过 `FILE_ID_BOTH_DIR_INFO` 批量枚举建立，避免逐文件打开句柄取得 ID；目录句柄和卷句柄只在查询期间使用，不建立常驻监视器。当前进程不请求提权、不创建或修改系统日志。
+Comparable Release results: manifest traversal 49.0ms; running 40-path traversal/query 71.2ms; unchanged traversal/reuse 47.7ms; memory-cleared disk restore/40-path validation 84.9ms; unchanged restore 65.3ms; standalone full SVN 109.4ms; first full check/persistence 206.6ms. Assertions confirmed exactly 40 targeted paths for changes and Reuse for unchanged reopening, equivalent to full SVN. Foreground times exclude background revalidation/write, awaited before the next reopening. This single warm Linux measurement does not represent cold disks, Windows, complete desktop load, or fixed times for all repositories.
 
-刷新和重开读取缓存游标之后的 USN V2 记录，先固定本轮结束游标，只处理结束游标之前的记录；之后的新记录留给下轮。`ReturnOnlyOnClose=0`、`BytesToWaitFor=0`，不等待文件关闭或未来事件。文件修改、创建、删除及重命名生成候选路径，最多 256 条，交给现有定向 SVN 查询；候选依据是 USN 原因，mtime/大小即使没变也会核对。文件 ID 索引保留工作区内全部硬链接路径，仓库外的同 ID 硬链接编辑也会核对已知路径。普通数据记录出现 DOS 短文件名时继续使用已索引路径，避免重复清单项。
+### After directory-index reuse
 
-工作区目录创建、删除、移动，SVN 管理文件变化、配置变化、根目录或卷身份不符、Journal ID 改变、日志截断、游标失效、未知记录版本、解析失败、重解析点或候选路径过多时回退完整文件系统检查及 SVN 扫描。FAT/exFAT、网络共享、不支持 USN 的卷和无卷读取权限时使用现有元数据扫描；含重解析点的工作区不启用 USN 快路径。单轮卷日志重放上限 16 MiB / 2 秒，避免无关卷活动过多时长时间等待；超限也回退。每 5 分钟以及手动强制刷新仍完整检查。
+Comparable Release results: full enumeration 52.2ms; incremental manifest 38.2ms (zero enumerated/202 reused directories, 20,004 files/metadata checked); running 40-path check 60.2ms, unchanged 38.3ms; disk reopening with 40 edits 75.5ms, unchanged 58.4ms; standalone SVN 102.7ms; first full/persisted check 215.8ms. Directory times stabilized for one second before measuring. Foreground excludes background full reenumeration/write. Exactly 40 paths were validated and matched full SVN. Windows, cold storage, and full desktop startup remain unverified.
 
-定向核对后仅更新候选文件的元数据及相关父目录清单，不遍历其余文件。无工作区变化但卷游标前进时，也在后台保存检查点，避免下次重开重复读取旧的无关记录。写盘前再次读取后续日志；期间存在相关变化就放弃写入，保留查询前游标供下轮核对。日志不可用时完整扫描的快照仍采用前后清单一致性检查。
+## Windows NTFS USN incremental queries
 
-Linux 回归测试覆盖 USN V2 对齐/UTF-16 解析、损坏/未知版本、累积重命名原因、删除、外部硬链接、短名称、无关及关闭记录过滤、目录/SVN 元数据回退、范围上限、日志重建/截断及游标越界，并保持原有 SVN 集成测试通过。Windows 原生模块及测试通过 x86_64-pc-windows-gnu 交叉编译检查；当前 Linux 环境无法执行 Windows NTFS 运行测试，未验证真实 Windows 权限、命中率或耗时。另提供原生 Windows NTFS 测试，环境不支持时报告跳过；设置 `ORCASVN_REQUIRE_USN_TEST=1` 可要求此测试必须运行成功。
+On local NTFS with journal-read permission, prefer USN. A full scan establishes volume GUID/serial, root ID, Journal ID, cursor, and file/parent-ID-to-path index, persisted in the snapshot. `FILE_ID_BOTH_DIR_INFO` bulk enumeration avoids opening every file. Directory/volume handles exist only during queries; no resident watcher, elevation request, journal creation, or journal modification.
 
-接口依据：[USN 变更日志](https://learn.microsoft.com/en-us/windows/win32/fileio/change-journals)、[USN 读取参数](https://learn.microsoft.com/en-us/windows/win32/api/winioctl/ns-winioctl-read_usn_journal_data_v0)、[USN V2 记录](https://learn.microsoft.com/en-us/windows/win32/api/winioctl/ns-winioctl-usn_record_v2)、[批量文件 ID 枚举](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_id_both_dir_info)。
+Refresh/reopening reads V2 records after the saved cursor, pins an end cursor, and leaves newer records for next time. `ReturnOnlyOnClose=0` and `BytesToWaitFor=0` do not wait for close/future events. Edit/create/delete/rename records produce at most 256 candidate paths for targeted SVN. Reasons trigger checks even with unchanged size/mtime. The ID index retains every in-workspace hard-link path and validates known links after outside hard-link edits. DOS short-name data records reuse indexed paths rather than duplicate entries.
 
-## 与 v0.6.2 的正式版对照
+Fall back to full filesystem/SVN scans for directory create/delete/move, SVN metadata/config changes, root/volume identity mismatch, journal recreation/truncation, invalid cursors, unknown versions, parse failures, reparse points, or too many candidates. FAT/exFAT, network shares, unsupported volumes, and denied access use metadata fallback. Workspaces with reparse points disable USN. Replay is capped at 16MiB/two seconds to bound unrelated volume activity; exceeding it also falls back. Five-minute/manual checks remain full.
 
-2026-10-08 在 Linux aarch64 热文件系统上，使用 Release 构建、真实的 1,000 / 10,000 文件本地工作副本比较 v0.6.2 与 c7dfd6b。在 10,000 文件场景，原生数据阶段的无变化刷新中位数由 100.7 ms 降至 20.4 ms，缓存重开由 100.7 ms 降至 29.5 ms；无应用缓存首次加载仅由 101.0 ms 降至 82.8 ms。首次加载仍需完整清单和 SVN 检查，不宣称大工作区首次打开已全面加速。完整方法、汇总数据与重跑入口见[工作区性能基准](workspace-startup-benchmark.md)。
+After targeted validation, update only candidate metadata/related parent manifests. If unrelated volume activity advances the cursor, persist a background checkpoint to avoid replay on reopening. Before writing, read subsequent records; relevant changes cancel persistence and retain the prequery cursor. Without journals, full snapshots retain before/after manifest consistency checks.
+
+Linux regressions cover V2 alignment/UTF-16, malformed/unknown records, accumulated rename reasons, deletions, external hard links, short names, unrelated/close filtering, directory/metadata fallback, bounds, journal recreation/truncation, and out-of-range cursors. SVN integration tests still pass. Windows modules/tests pass x86_64-pc-windows-gnu cross-compilation, but Linux cannot execute NTFS runtime tests; actual permissions, hit rates, and timings remain unverified. Native Windows NTFS tests report skipped when unsupported. Set `ORCASVN_REQUIRE_USN_TEST=1` to require success.
+
+References: [change journals](https://learn.microsoft.com/en-us/windows/win32/fileio/change-journals), [read parameters](https://learn.microsoft.com/en-us/windows/win32/api/winioctl/ns-winioctl-read_usn_journal_data_v0), [V2 records](https://learn.microsoft.com/en-us/windows/win32/api/winioctl/ns-winioctl-usn_record_v2), [bulk file IDs](https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_id_both_dir_info).
+
+## Comparison against stable v0.6.2
+
+On 2026-10-08, Linux aarch64 Release/warm local 1,000/10,000-file copies compared v0.6.2 and c7dfd6b. At 10,000 files, native unchanged-refresh median fell from 100.7 to 20.4ms and cached reopening from 100.7 to 29.5ms; uncached first load improved only from 101.0 to 82.8ms. First load still performs full manifest/SVN checks; this is not a claim of comprehensive first-open acceleration. See [methodology, aggregates, and rerun instructions](workspace-startup-benchmark.md).

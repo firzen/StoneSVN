@@ -1,287 +1,283 @@
-# StoneSVN 用户手册
+# StoneSVN user guide
 
-适用版本：当前源码版本 0.6.4（已改名为 StoneSVN）。更新日期：2026-10-16。较旧发行版可能与文中界面不同。
+English | [简体中文](user-guide.zh-CN.md)
 
-本手册面向使用 SVN 管理代码、文档和其他项目文件的用户。无需了解软件实现即可完成检出、审阅修改、提交、更新及查询历史。
+Applies to the current 1.1.2 source. Updated: 2026-10-18. Older releases may have a different interface.
 
-## 目录
+This guide covers checkout, reviewing changes, committing, updating, and browsing history for code, documents, and other SVN-managed files. No implementation knowledge is required.
 
-- [开始使用](#开始使用)
-- [认识界面](#认识界面)
-- [管理工作区](#管理工作区)
-- [查看与处理文件状态](#查看与处理文件状态)
-- [提交修改](#提交修改)
-- [获取远端更新](#获取远端更新)
-- [查看代码差异](#查看代码差异)
-- [查询提交历史](#查询提交历史)
-- [暂时保存修改：贮藏](#暂时保存修改贮藏)
-- [逐行追溯](#逐行追溯)
-- [设置与显示](#设置与显示)
-- [常见问题](#常见问题)
-- [功能边界](#功能边界)
+## Contents
 
-## 开始使用
+- [Getting started](#getting-started)
+- [Interface overview](#interface-overview)
+- [Manage workspaces](#manage-workspaces)
+- [Understand file status](#understand-file-status)
+- [Commit changes](#commit-changes)
+- [Get remote updates](#get-remote-updates)
+- [Compare changes](#compare-changes)
+- [Browse commit history](#browse-commit-history)
+- [Stash unfinished changes](#stash-unfinished-changes)
+- [Trace file history](#trace-file-history)
+- [Settings and display](#settings-and-display)
+- [Troubleshooting](#troubleshooting)
+- [Feature boundaries](#feature-boundaries)
 
-### 准备软件和 SVN
+## Getting started
 
-StoneSVN 是 SVN 桌面客户端，需要本机已安装 SVN 命令行工具。软件本身不代替 SVN 服务端，也不创建远端仓库。
+### Prepare StoneSVN and SVN
 
-1. 从项目的 [发行下载页](https://github.com/firzen/StoneSVN/releases) 选择适合操作系统的安装包。
-2. 安装 SVN 命令行工具。在终端运行 `svn --version --quiet`，应输出版本号。
-3. 启动 StoneSVN。若找不到 SVN，进入“设置”，在“SVN 可执行文件”中填写实际程序路径，例如 `C:\Tools\Subversion\bin\svn.exe`。
+StoneSVN requires a local SVN CLI. It does not replace an SVN server or create remote repositories.
 
-路径应指向程序文件，而不是安装目录。留空时使用系统环境中的 `svn`。连接受限仓库前，准备好仓库地址及团队要求的访问权限；认证失败时按 SVN 错误信息检查凭据或联系仓库管理员。当前没有独立的账号管理页面。
+1. Download the appropriate installer from [Releases](https://github.com/firzen/StoneSVN/releases).
+2. Install the SVN CLI and verify that `svn --version --quiet` prints a version.
+3. Start StoneSVN. If SVN is not found, set SVN Executable in Settings to the actual program, such as `C:\Tools\Subversion\bin\svn.exe`.
 
-### 已经有本地项目
+Specify an executable file rather than its installation directory. An empty setting uses system `svn`. Prepare the repository URL and required permissions before connecting. Use the SVN error to diagnose authentication or contact your repository administrator. There is no separate account-management page.
 
-点击“打开工作区”，选择已有 SVN 工作副本目录。通常这是含有 `.svn` 元数据的项目根目录，例如 `D:\projects\eagle`。普通文件夹不会因为被打开就自动成为 SVN 工作副本。
+### Open an existing local project
 
-### 第一次取得项目
+Select Add Local Copy and choose an SVN working copy, normally the project root containing `.svn`, such as `D:\projects\eagle`. Opening a normal folder does not turn it into a working copy. Older versions call this action Open Workspace.
 
-进入“检出”页面：
+### Check out a project
 
-| 字段 | 如何填写 |
+Select Add Remote Copy to open Checkout:
+
+| Field | Value |
 | --- | --- |
-| 仓库 URL | 团队提供的地址，例如 `https://svn.example.com/repo/trunk` |
-| 目标目录 | 本地保存项目的目录；建议使用专用的新目录 |
-| 版本 | 留空取得最新版本，或输入需要检出的历史版本号 |
+| Repository URL | The team's address, such as `https://svn.example.com/repo/trunk`. |
+| Destination | A dedicated local directory, preferably new. |
+| Revision | Empty for the latest revision, or a historical revision number. |
 
-点击“开始检出”，等待输出结果。失败时先阅读错误信息，再检查地址、访问权限、网络和目标目录。检出是从仓库取得文件；打开工作区是使用已经检出的本地文件。
+Start checkout and wait for the result. On failure, read the error before checking the URL, permissions, network, and destination. Checkout retrieves files; opening a workspace uses files already checked out.
 
-### 第一次修改并提交
+### Make your first commit
 
-1. 打开工作区，在“更新”页面检查并取得远端修改。
-2. 使用编辑器修改项目文件。
-3. 回到 StoneSVN，点击“刷新”，在工作区选择文件查看差异。
-4. 进入“提交”，核对勾选范围，填写提交说明。
-5. 点击提交，成功后回到工作区确认剩余修改。
+1. Open the workspace and obtain remote changes in Update.
+2. Edit files in your editor.
+3. Return to StoneSVN, refresh, and select files to inspect diffs.
+4. Open Commit, verify the selected scope, and write a message.
+5. Commit, then check remaining workspace changes.
 
-例如：只修复 `trunk/app.ini` 中的配置时，提交页只勾选这个文件，说明写为“修正默认连接超时时间”，其余尚未完成的修改留在本地。
+For a change only to `trunk/app.ini`, select that file and describe the configuration fix. Leave unrelated unfinished edits local.
 
-## 认识界面
+## Interface overview
 
-以下截图摄于 2026-10-02 的发布前开发阶段，在本地浏览器中使用示例工作区数据截取，尺寸为 1440 × 900。展示 0.6.3 的主要布局与主题；路径、版本号和代码差异均为示例。
+The screenshots show the 1.1.2 Vue development interface with fictional data, captured at 1440 × 900 on 2026-10-18. Paths, revisions, and diffs are examples, not real repositories. They use the Simplified Chinese locale; the instructions use English labels.
 
-浅色主题：左侧为导航，中间为文件状态，右侧显示选中文件的代码差异。
+![Light workspace and diff](images/orcasvn-workspace.png)
 
-![浅色主题下的工作区与代码差异](images/orcasvn-workspace.png)
+![The same workspace in dark theme](images/orcasvn-workspace-dark.png)
 
-深色主题：相同工作区、相同文件与差异内容。
-
-![深色主题下的工作区与代码差异](images/orcasvn-workspace-dark.png)
-
-| 区域 | 用途 |
+| Area | Purpose |
 | --- | --- |
-| 顶部工具栏 | 刷新、打开方式、工作区切换、提交、更新、设置和语言 |
-| 侧边导航 | 工作区、日志、提交、更新、对比、贮藏、追溯、检出、设置 |
-| 工作区文件列表 | 按状态筛选本地文件，选择文件查看差异 |
-| 代码差异面板 | 显示选中文件的差异和增删统计 |
-| 底部状态栏 | 显示当前工作区等状态信息 |
+| Project sidebar | Add local/remote copies and switch working copies. |
+| Top toolbar | Workspace, Timeline, Properties, Update, Commit, Stash, Trace, Refresh, Open With, Settings, and language. |
+| Status list | Filter local file states and select a diff. |
+| Diff panel | Review changes and addition/deletion counts. |
+| Status bar | Identify the current workspace and related status. |
 
-窗口较窄时，导航改为横向滚动。工作区文件列表和代码差异上下排列，可滚动查看。选择文件时使用背景高亮；键盘移动到按钮时会有独立的焦点提示。
+In narrow windows, navigation can scroll horizontally and file/diff panels stack vertically. Selected files use background highlighting; keyboard-focused controls have a separate focus indicator.
 
-## 管理工作区
+## Manage workspaces
 
-通过顶部工作区切换器使用最近打开的路径。切换前核对当前目录，尤其是同一仓库的多个工作副本。工作副本之间的本地修改不会自动同步，只有提交到仓库后的内容才能通过更新取得。
+Switch between added paths in the project sidebar. Confirm the directory first, particularly when one repository has multiple working copies. Local edits do not synchronize between working copies; committed content becomes available through Update.
 
-“打开方式”提供资源管理器、VS Code 和终端入口。相应外部程序需在本机可用。工作区文件的右键菜单可在资源管理器中定位文件、复制相对路径或绝对路径。
+Open With provides file-manager, VS Code, and terminal actions when those programs are installed. File context menus can reveal files or copy relative/absolute paths.
 
-### 刷新与缓存提示
+### Refresh and cached status
 
-“刷新”核对本地工作副本状态，不会把远端修改更新到本地，也不会提交修改。
+Refresh checks the local working copy; it neither updates remote changes nor commits.
 
-再次打开工作区时，软件可能先显示之前保存的文件列表，再核对实际状态。出现缓存或未验证提示时，列表不一定反映当前磁盘内容；提交、创建贮藏以及工作区还原/删除暂时不可用。等待验证完成，或点击刷新。验证失败时应处理错误，不能把旧列表当作最新状态。
+Reopening may display a saved file list before checking the actual disk state. A cached/unverified notice means the list may be stale. Commit, stash creation, and workspace revert/delete are temporarily unavailable. Wait or refresh. If validation fails, address the error rather than trusting the old list.
 
-也可以打开工作副本中的子目录；刷新会同时核对所属工作副本的 SVN 管理状态。升级到 0.6.3 后，原生状态缓存会重新建立一次，首次打开可能需要完整扫描。
+Working-copy subdirectories are supported; validation also checks their parent SVN administration metadata. The 0.6.3 native cache-format upgrade requires rebuilding old caches once and may cause an initial full scan.
 
-工作区加载时间取决于文件数量、磁盘、杀毒软件及文件系统状态等。提交历史条数与本地状态检查不是同一件事；仓库历史很多，不一定意味着本地加载同样慢。
+Loading cost depends on file count, disk, antivirus, and filesystem state. Repository history length and local status checking are separate factors.
 
-## 查看与处理文件状态
+## Understand file status
 
-| 状态 | 含义 | 下一步 |
+| Status | Meaning | Next step |
 | --- | --- | --- |
-| 修改 | 已纳入版本控制的文件存在本地修改 | 审阅差异后提交、贮藏或还原 |
-| 新增 | 已安排加入版本控制，但尚未提交 | 确认文件应进入仓库后提交 |
-| 删除 | 已安排从版本控制中删除，尚未提交 | 核对删除范围后提交，或还原 |
-| 替换 | 原条目被新的条目替换 | 检查完整操作范围 |
-| 未跟踪 | 文件存在，但尚未纳入版本控制 | 在提交页加入版本控制，或保留在本地 |
-| 冲突 | 修改不能自动合并 | 在变更列表或属性页点击“解决冲突…”；手动解决或选择本地／仓库版本 |
-| 缺失 | 受版本控制的文件在磁盘上不存在 | 恢复文件，或用 SVN 工具安排版本控制删除 |
-| 阻塞 | 文件系统中的条目妨碍 SVN 操作 | 阅读 SVN 错误并检查路径、文件类型与工作副本状态 |
+| Modified | Local edits to a versioned file | Review, then commit, stash, or revert. |
+| Added | Scheduled addition, not yet committed | Confirm it belongs in the repository and commit. |
+| Deleted | Scheduled deletion, not yet committed | Check the scope, then commit or revert. |
+| Replaced | An original entry has been replaced | Review the complete operation. |
+| Unversioned | Present locally but not versioned | Add before committing, or keep local. |
+| Conflicted | Automatic reconciliation failed | Use Resolve Conflicts in the list or Properties. |
+| Missing | A versioned item is absent from disk | Restore it or schedule versioned deletion. |
+| Obstructed | A filesystem item blocks SVN | Read the error and inspect path, item type, and working-copy state. |
 
-顶部分类帮助缩小列表；“变更”包含修改、新增、删除和替换，“未跟踪”独立显示。工作区列表不是所有项目文件的文件浏览器，正常且无修改的文件可能不在其中。
+Changes groups modified, added, deleted, and replaced entries. Unversioned is separate. The workspace is not an all-files browser; unchanged files may be absent.
 
-### 还原已纳入版本控制的文件
+### Revert versioned files
 
-点击文件行的还原按钮，阅读警告及完整路径，再确认“还原”。还原丢弃该目标的本地修改，不会撤销已经提交到仓库的历史。需要保留修改时，先创建适用的贮藏或另外备份文件。
+Select Revert on the file row, read the warning and full path, then confirm. This discards local changes, not committed history. Save a supported stash or independent backup first if needed.
 
-### 删除未跟踪文件
+### Delete unversioned files
 
-未跟踪文件行的删除按钮会永久删除本地目标；删除目录也会删除其中内容，不进入回收站。它与“把受控文件的删除提交到仓库”不同。确认框中核对路径，点击“取消”或关闭即可退出；点击遮罩不会关闭确认框。
+Delete permanently removes the local target and directory contents without using the recycle bin. It is different from committing a versioned deletion. Check the path. Cancel or Close exits; clicking the overlay does not dismiss the confirmation.
 
-## 提交修改
+## Commit changes
 
-提交把勾选的本地变更发送到仓库，成功后生成新的仓库版本。没有勾选的修改继续留在工作副本。
+Commit sends selected local changes to the repository and creates a revision. Ordinary unselected edits remain local.
 
-提交页顶部填写说明，右上角的「最近提交信息」下拉菜单可回填历史说明。中部树形表格按文件、状态和相对位置排列；状态短标记可悬停查看完整含义。底部固定显示提交操作，文件列表独立滚动。
+Write the message at the top; Recent Commit Messages can refill previous text. The tree lists files, states, and relative locations. Hover over short status marks for their meaning. The bottom action area stays fixed while the file list scrolls.
 
-表头复选框全选或取消当前提交范围内的全部项目，包含被搜索或分类筛选隐藏的项目。顶部显示「已选 / 总数」，存在隐藏选择时，底部额外提示数量。
+The header checkbox selects or clears the entire current scope, including items hidden by search or filters. Selected/Total shows the count, and a bottom notice identifies hidden selections. Scrolling and collapsing nodes do not deselect them.
 
-滚动或折叠目录不会取消已选项目。聚焦文件行后，上下方向键移动，Home / End 跳到首尾；左右方向键展开、折叠或返回上级，空格键切换勾选。
+With a file row focused, Up/Down moves, Home/End jumps, Left/Right collapses, expands, or returns to the parent, and Space toggles selection.
 
-### 选择范围
+### Choose the scope
 
-1. 进入“提交”，查看当前工作区路径与文件树。
-2. 点击文件行或复选框切换勾选；目录行会联动其下可提交子项，也可逐项取消。展开箭头和「对比」按钮不改变勾选。
-3. 使用搜索和分类过滤列表，检查顶部已选数量。
-4. 审阅差异，返回提交页后核对勾选和说明。
-5. 输入说明并提交。
+1. Check the working-copy path and file tree.
+2. Select files and directories deliberately. Use Include Descendants for a complete directory scope; expanding nodes or selecting Diff does not change selection.
+3. Search/filter as needed, while checking the selected count.
+4. Review diffs, then recheck selections and the message.
+5. Commit.
 
-搜索或筛选隐藏的已选文件仍计入提交，不会因为当前看不见就自动取消。提交前以已选总数和实际范围为准，避免带入无关修改。
+Hidden selected files remain included. Use the actual selected count and scope rather than only the visible list.
 
-### 新文件和新目录
+### New files and directories
 
-未跟踪文件需要先加入版本控制。未跟踪目录通过“加入版本控制并预览”展开后，检查其内容再提交。加入版本控制只是安排新增，不等于已经提交到远端；若之后取消提交，仍需检查工作区中的新增状态。
+Add unversioned items first. Use Add to Version Control and Preview for directories, inspect their contents, then commit. Adding schedules the change; it does not upload it. Cancelling a commit may leave Added status.
 
-### 目录操作的限制
+### Directory limitations
 
-删除或替换目录时，必须完整选择所需子项。复制或移动目录暂不支持部分提交；遇到相关提示，请用其他 SVN 客户端处理完整操作。不要为了通过提交检查而忽略提示中的目录关系。
+Deleted/replaced directories require all related descendants. Copied directories do not support partial commits, and moved directories require the source, destination, and related changes. Follow the scope warning or use another SVN client for the complete operation.
 
-### 提交说明
+### Commit messages
 
-说明应回答“改了什么、为什么改”。例如：
+Explain what changed and why:
 
 ```text
-修复配置文件中默认超时时间错误
+Correct the default connection timeout
 
-将默认值调整为团队约定值，避免首次连接过早超时。
+Use the team-agreed value to avoid timing out the first connection too early.
 ```
 
-页面提供最近提交说明，复用前应修改为适合本次内容的文字。提交失败时保留错误信息，并刷新确认当前状态；不要直接假定已经成功或完全没有产生变化。
+Adapt reused messages. After failure, retain the error and refresh to check the actual result rather than assuming complete success or no changes.
 
-## 获取远端更新
+## Get remote updates
 
-更新开始后可以切换到其他页面；操作完成时仍会刷新工作区的本地版本和变更列表。离开更新页后暂停自动远端查询，返回时恢复。
+An update can continue after you change pages. Completion refreshes the shared local revision and status. Leaving Update pauses automatic remote polling; returning resumes it.
 
-“更新”页面显示本地版本、远端版本、列出的远端提交以及本地更改。
+The page shows local/remote revisions, listed remote commits, and local edits.
 
-1. 点击“检查”，审阅远端提交和本地更改。
-2. 需要暂时保存本地工作时，先备份或贮藏支持的修改。
-3. 点击“更新”，等待操作结束。
-4. 回到工作区刷新，检查冲突和剩余修改。
+1. Select Check and review remote commits and local changes.
+2. Back up or stash supported unfinished work when needed.
+3. Select Update and wait.
+4. Check the workspace for conflicts and remaining edits.
 
-“远端提交”数量是页面当前列出的记录数量，不应当作整个仓库历史总数。更新可能合并本地修改，也可能产生冲突；它不会自动提交你的本地工作。
+The remote commit count refers to the currently listed records, not the entire history. Update may merge local edits or produce conflicts; it does not commit local work.
 
-## 查看代码差异
+## Compare changes
 
-工作区选择文件可直接预览差异，也可进入“对比”页面，选择当前工作区内的文件。
+Select a file for inline preview or use the diff page to choose a file inside the workspace.
 
-| 模式 | 比较内容 |
+| Mode | Comparison |
 | --- | --- |
-| 工作副本 vs 基准 | 本地内容与 SVN 工作副本基准的差异 |
-| 版本间差异 | 同一目标在旧版本、新版本之间的差异；两个版本号都要填写 |
-| 提交 rN | 从日志详情进入，查看该次提交涉及的变化 |
+| Working copy vs base | Local content against the SVN working-copy base. |
+| Between revisions | The same target at two explicitly supplied revisions. |
+| Commit rN | The changes in a commit opened from its history details. |
 
-新增行有 `+`，删除行有 `-`，上下文行帮助定位修改。行内查找区分大小写，使用上一个/下一个匹配定位；复制按钮复制完整 Diff。没有差异与加载失败是不同状态，应结合页面提示判断。
+Added lines have `+`; removed lines have `-`. Context helps locate the edit. Search is case-sensitive with previous/next navigation; Copy copies the full diff. Distinguish no differences from a load failure.
 
-从提交页审阅多个文件时，可用“上一个”“下一个”切换，再点击“返回提交”。二进制内容不一定能显示逐行文本差异。
+When reviewing several files from Commit, use Previous/Next and Return to Commit. Binary content may not provide a line-by-line text diff.
 
-## 查询提交历史
+## Browse commit history
 
-进入“日志”，默认每页显示 20 条提交。使用上一页、下一页浏览；作者、关键词、日期范围可组合筛选，填写后点击“查询”，点击“重置”清除条件。
+Timeline shows 20 commits per page. Use Previous/Next, combine author/keyword/date conditions, then Query; Reset clears them.
 
-表格显示版本、作者、日期、提交信息等。长作者名和提交信息省略显示，悬停查看全文。点击记录打开详情，查看完整说明和涉及路径，再选择相关文件查看提交差异。
+Records show revision, author, date, and message. Hover over truncated fields for full text. Open a record for its full message and changed paths, then choose a file for the commit diff.
 
-筛选结果为空时，先检查日期范围、作者和关键词，再重置条件。日志显示的是已提交历史，尚未提交的本地修改应在工作区查看。
+If no records match, check filters or reset. Uncommitted edits appear in the workspace rather than the timeline.
 
-## 暂时保存修改：贮藏
+## Stash unfinished changes
 
-贮藏用于中断当前工作后再恢复，例如临时处理紧急任务。它保存在当前设备的软件本地数据中，按工作区路径区分，不是仓库提交，也不是团队共享备份。
+Stashes interrupt and resume a task. They are stored locally by working-copy path, not committed or shared with teammates.
 
-### 创建
+### Create
 
-1. 打开“贮藏”，点击“创建贮藏”。
-2. 查看文本差异，按文件或分块勾选要保存的修改。
-3. 按整文件选择需要保存的未跟踪文件或目录。
-4. 输入容易辨识的名称。
-5. 点击“保存并从工作副本移除”。
+1. Open Stash and select Create Stash.
+2. Review text diffs and select files or hunks.
+3. Select unversioned files/directories as whole files.
+4. Enter a recognizable name.
+5. Select Save and Remove from Working Copy.
 
-选中的修改保存后从工作副本移除，未选中的修改留在原处。未跟踪文件恢复后仍保持未跟踪状态。受控文件的冲突、仅属性修改及非文本变更暂不支持按此方式贮藏；以实际可选择内容和提示为准。
+Selected changes are removed after saving; unselected edits remain. Restored unversioned files stay unversioned. Conflicted versioned content, property-only changes, and non-text versioned changes are not supported by this flow; follow the actual preview.
 
-### 恢复与管理
+### Restore and manage
 
-| 操作 | 结果 |
+| Action | Result |
 | --- | --- |
-| 应用 | 将内容恢复到原工作区，保留贮藏记录 |
-| 弹出并删除 | 应用成功后删除贮藏记录 |
-| 删除 | 只删除贮藏记录，不修改当前工作副本 |
-| 复制 patch / 导出 patch 文件 | 复制或导出文本补丁部分 |
+| Apply | Restore to the original workspace, retaining the record. |
+| Pop and Delete | Delete the record after successful application. |
+| Delete | Delete only the record, leaving the working copy unchanged. |
+| Copy/export patch | Export only the text-patch portion. |
 
-patch 导出不包含贮藏中另存的未跟踪文件内容；仅有未跟踪文件时可能没有可导出的 patch。需要迁移或备份这些文件时，应另行保存完整文件。
+Patch exports omit separately stored unversioned file content. A stash containing only unversioned files may have no exportable text patch. Back up those files separately when moving or preserving them.
 
-若提示“贮藏已保存，但未能从工作副本移除改动”，记录已保留，先刷新检查实际残留。应用失败时也应检查工作区，不要连续重复应用。清除软件本地数据可能使贮藏记录丢失；重要工作应提交或做独立备份。
+If saving succeeds but removing local edits fails, the record is retained: refresh and inspect remaining changes. After application failure, inspect before retrying. Clearing application data may erase stashes; commit important work or keep independent backups.
 
-## 逐行追溯
+## Trace file history
 
-在“追溯”页面选择或输入文件，点击“加载”。表格显示行号、最后修改版本、作者和内容，用于定位某一行的历史来源，再结合日志理解修改原因。
+Choose or enter a file in Trace and load its revisions, authors, dates, and messages. Open a revision's diff to understand its changes. The current interface provides file commit history, not line-by-line annotations. Use `svn blame` or another supporting client for each line's last revision/author. Use workspace diffs for uncommitted edits.
 
-追溯反映版本控制历史，不等同于当前尚未提交修改的作者归属。查看本地修改请使用工作区和差异页面。
+## Settings and display
 
-## 设置与显示
-
-| 设置 | 说明 |
+| Setting | Meaning |
 | --- | --- |
-| 语言 | 简体中文、繁体中文、英语、日语、韩语；顶部也有语言入口 |
-| 主题 | 浅色、深色、自动；自动跟随系统外观 |
-| SVN 可执行文件 | 留空使用系统 `svn`，或填写实际程序路径 |
-| 已记住的服务器 | 查看连接时确认的 TLS 或证书例外，可逐项移除 |
-| 默认编码 | UTF-8、GBK、GB2312；用于相关内容解码，不会自动改写项目文件编码 |
-| 文件过滤 | 全局规则，每行一条；默认关闭，默认规则为 `.gitignore` |
+| Language | Simplified/Traditional Chinese, English, Japanese, Korean; also accessible from the toolbar. |
+| Theme | Light, Dark, or System. |
+| SVN executable | Empty for system `svn`, or an actual executable path. |
+| Remembered servers | Inspect/remove saved TLS or certificate exceptions. |
+| Default encoding | UTF-8, GBK, or GB2312 for decoding; does not rewrite file encodings. |
+| File filtering | Global rules, one per line, disabled by default; initial rule is `.gitignore`. |
 
-文件过滤使用设置中的规则，不读取 `.gitignore` 内容。默认规则仅过滤 `.gitignore` 文件本身。启用后，匹配项不出现在变更列表和提交候选中；关闭后可重新查看。规则保存在本机，适用于所有工作区，不修改 SVN 忽略属性、受控状态或更新行为。
+Filtering reads Settings rules, not `.gitignore` content. The initial rule hides that file itself. Enabled matches are omitted from changes and commit candidates; disable to reveal them. Rules are local across workspaces and do not alter SVN ignore properties, versioning, or updates.
 
-- 不带 `/` 的名称匹配任意层级，例如 `.gitignore`、`*.log`、`temp?.txt`。
-- 带 `/` 的路径从当前工作区根目录匹配，开头的 `/` 可省略。例如 `/_tmp1010/log*` 与 `_tmp1010/log*` 等价，不匹配 `other/_tmp1010/log`。
-- `*` 不跨目录，`?` 匹配一个非路径分隔符字符，`**` 可跨目录。例如 `/_tmp1010/**/log` 包含零层或多层中间目录。
-- 匹配目录后包含其全部子项。`/_tmp1010/log/*` 过滤 `log` 内的直接子项及其后代，保留 `log` 本身；`/_tmp1010/log` 连目录本身一起过滤。路径按完整路径段匹配，不会把 `log` 当作 `logger`。
-- 任意规则匹配即过滤，不支持 `!` 取反；`!`、`#`、方括号按普通名称字符处理。忽略空行、首尾空白；不使用 `..` 跳出目录。
+- A name without `/` matches at any depth, for example `.gitignore`, `*.log`, or `temp?.txt`.
+- Paths containing `/` match from the workspace root; the leading slash is optional. `/_tmp1010/log*` equals `_tmp1010/log*`, but does not match `other/_tmp1010/log`.
+- `*` stays within a directory, `?` matches one non-separator, and `**` spans directories. `/_tmp1010/**/log` includes zero or more intermediate directories.
+- A matched directory includes descendants. `/_tmp1010/log/*` filters direct children and their descendants but retains `log`; `/_tmp1010/log` filters the directory too. Complete path segments prevent `log` from matching `logger`.
+- Any matching rule filters the item. `!` negation is unsupported; `!`, `#`, and brackets are literal characters. Blank lines and surrounding whitespace are ignored. `..` cannot escape the workspace.
 
-添加和提交前会再次检查过滤规则。递归添加目录若会带入过滤项，会在添加前阻止整个操作并提示路径；目录删除、替换、复制或移动无法安全拆分时也会阻止提交。此过滤只约束 StoneSVN 的操作，其他 SVN 客户端不读取这些规则。
+Add and Commit recheck rules. A recursive add containing filtered items is blocked before adding and identifies the path. Directory deletion, replacement, copy, or move is blocked when its required scope cannot be safely split. Other SVN clients do not read these rules.
 
-连接服务器时无需预先配置兼容选项。遇到 TLS 握手失败时，软件会显示出错服务器的主机名和端口，询问是否启用旧版 TLS 兼容；遇到证书验证失败时，会单独询问是否信任无效证书。确认后会重试连接；取消则保留原错误。账号认证失败不会触发这两种提示。
+There is no need to preconfigure server compatibility. A TLS handshake failure can prompt for legacy TLS compatibility for the displayed host and port. Certificate validation failure prompts separately for trusting an invalid certificate. Confirmation retries the connection; cancelling retains the error. Authentication failure does not trigger either prompt.
 
-允许旧版 TLS 或接受过期、自签名、主机名不匹配的证书会降低连接安全性，仅应对信任的服务器确认。选择按主机名和端口分别保存，支持多个服务器，重启后自动恢复；可在设置的“已记住的服务器”中移除，下一次连接重新验证。之前保存的手动设置会自动迁移。
+Legacy TLS and expired, self-signed, or mismatched certificate exceptions reduce connection security. Confirm only for trusted servers. Decisions are saved per host/port and restored after restart; remove them from Remembered Servers to revalidate. Previous manual settings migrate automatically.
 
-TLS 兼容使用 [OpenSSL 的进程配置](https://docs.openssl.org/3.5/man5/config/)，需要基于 OpenSSL 的 SVN；仅信任证书时不会同时降低 TLS 安全级别。配置只传给匹配服务器的 SVN 命令，不会改写系统 OpenSSL/SVN 配置，也不会代替账号认证。提交、检出、切换和合并在执行前先进行只读连接检查，实际变更命令不会因 TLS 提示自动重复执行。原先使用兼容启动脚本时，可将 SVN 可执行文件改回普通 `svn` 路径。
+TLS compatibility uses [OpenSSL process configuration](https://docs.openssl.org/3.5/man5/config/) and requires an OpenSSL-based SVN. Trusting a certificate alone does not lower the TLS security level. Configuration is passed only to matching SVN processes, does not rewrite system configuration, and does not replace authentication. Commit, Checkout, Switch, and Merge perform a read-only connection check first; mutation commands are not automatically repeated after TLS prompts. Replace an older compatibility launcher with the normal `svn` path if needed.
 
-系统开启减少动态效果时，界面会减少动画，加载文字仍然显示。工作区文件按钮可通过 Tab 获得焦点，用方向键、Home、End 移动；Enter 激活当前按钮。软件没有在本手册中承诺额外的全局快捷键。
+Reduced-motion system preferences reduce animation while preserving loading text. Workspace controls support Tab, arrow keys, Home/End, and Enter on the focused action. This guide does not promise additional global shortcuts.
 
-## 常见问题
+## Troubleshooting
 
-| 问题 | 建议处理 |
+| Problem | Action |
 | --- | --- |
-| 找不到 SVN | 在终端验证 `svn`，检查设置中的程序路径；环境变更后重新启动软件 |
-| 目录不是工作副本 | 选择正确的 `.svn` 工作副本根目录，或先检出项目 |
-| 提交、贮藏或还原按钮不可用 | 检查缓存验证提示、是否已有操作进行、是否选择了可操作内容 |
-| 新文件不在变更分类中 | 查看未跟踪分类；需要提交时在提交页加入版本控制 |
-| 列表缺少文件 | 检查状态筛选及 文件过滤，刷新核对；正常文件可能不列出 |
-| 更新后出现冲突 | 审阅文件、解决冲突并用适合的 SVN 工具标记解决，再刷新 |
-| 工作副本被锁定 | 若没有其他 SVN 操作正在进行，可使用工作区的 Cleanup 入口；持续失败时按 SVN 错误处理 |
-| 登录、证书或网络错误 | 核对地址、访问权限、网络及团队的证书配置；保留 SVN 原始错误 |
-| 贮藏看不见 | 确认回到创建时的工作区路径；记录不会自动跟随移动后的路径 |
-| 乱码 | 检查文件实际编码及默认编码；不要用还原来试图修复显示乱码 |
-| 删除或还原后想找回 | 未提交修改可能无法通过 SVN 恢复；检查独立备份或编辑器历史 |
+| SVN not found | Verify it in the terminal, check the executable path, and restart after environment changes. |
+| Not a working copy | Choose the `.svn` working-copy root or check out first. |
+| Commit/Stash/Revert unavailable | Check cached validation, in-progress operations, and applicable selection. |
+| New file absent from Changes | Look in Unversioned and add it before committing. |
+| Missing list entries | Check status filters and file filtering, then refresh; unchanged files may be omitted. |
+| Update conflict | Review content, resolve conflicts, mark resolved, and refresh. |
+| Working copy locked | If no SVN command is active, use Cleanup; follow persistent SVN errors. |
+| Authentication/certificate/network error | Check URL, access, network, and team certificates; retain the original error. |
+| Stash not visible | Return to the creation path; records do not automatically follow moved workspaces. |
+| Garbled text | Check file/default encoding; do not revert to fix display decoding. |
+| Recover after delete/revert | Uncommitted work may not be recoverable through SVN; check backups/editor history. |
 
-反馈问题时提供：软件版本、操作系统、具体步骤、预期与实际结果、完整错误文字；必要时附截图。对外提交前移除密码、令牌以及不适合公开的仓库地址和文件内容。可通过项目 [问题反馈页](https://github.com/firzen/StoneSVN/issues) 报告。
+Reports should include version, OS, steps, expected/actual results, and the full error, with screenshots if useful. Remove credentials and sensitive URLs/content before sharing. Report through [Issues](https://github.com/firzen/StoneSVN/issues).
 
-## 功能边界
+## Feature boundaries
 
-属性页提供受控项目的重命名、移动、安排删除和递归还原。移动目标是相对于工作副本根目录的完整路径，父目录须已纳入版本控制。重命名与移动保留 SVN 历史，检查后另行提交。“还原本地修改…”会丢弃目录及子项的内容、属性和计划变更；未提交修改可能永久丢失。
+Properties supports versioned rename/move, scheduled deletion, and recursive revert. Move targets are complete workspace-relative paths whose parents are already versioned. Review and commit renames/moves separately. Revert Local Changes discards descendant content, properties, and scheduled changes; uncommitted work may be permanently lost.
 
-冲突项目可在变更列表或属性页选择“解决冲突…”。保留当前内容只清除冲突状态，需先手动编辑文件并清除冲突标记；选择本地或仓库版本会替换整个文件及冲突属性。目录和树冲突需先手动整理文件，再标记解决。解决后仍需审阅并提交。
+Resolve Conflicts is available from the workspace or Properties. Keep Current Content clears status after you manually edit and remove markers. Local/repository choices replace the complete file and conflicted properties. Organize directory/tree conflicts first, then mark resolved. Review and commit afterward.
 
-工作区仓库信息下提供“迁移仓库地址…”，用于同一仓库搬迁。输入当前工作副本对应的新完整 URL，SVN 会校验仓库身份；不会切换分支或迁移外部工作副本。切换分支（Switch）和通用合并（Merge）仍需使用其他 SVN 客户端或命令行。
+Relocate Repository URL handles a full address change for the same repository. SVN validates repository identity. It neither switches branches nor relocates external working copies automatically. Switch and general-purpose Merge require another client or CLI.
 
-SVN 的基准、本地修改和仓库历史是不同层次：刷新核对本地状态，更新取得远端内容，提交发送本地变更，还原丢弃本地修改，贮藏在本机暂存工作。选择操作前先确认你要改变哪一层。
+SVN base content, local edits, and repository history are different layers: Refresh checks local state, Update retrieves remote content, Commit sends local changes, Revert discards local edits, and Stash saves work locally. Confirm the intended layer before acting.
 
-只需要入门步骤时，参阅[快速使用](../QUICKSTART.md)。
+For an abbreviated walkthrough, see [Quick start](../QUICKSTART.md).

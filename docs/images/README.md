@@ -1,25 +1,27 @@
-# 文档截图
+# Documentation screenshots
 
-更新日期：2026-10-18。截图来自 v1.1.2 源码的真实 Vue 开发界面，在本地 Vite 页面中渲染，展示属性页顶部操作栏与目录子项状态；不包含原生窗口边框，浏览器截图不作为原生桌面集成验收。
+English | [简体中文](README.zh-CN.md)
 
-SVN 状态、Diff、文件树和属性使用 `workspace-demo.js` 中的虚构数据，没有连接远端仓库或执行 SVN 写操作。项目名、本地路径、仓库地址和代码内容均为示例，不读取真实工作副本、个人目录、账号或凭据。未扫描的示例项目不显示变更数量。
+Updated: 2026-10-18. Images come from the actual v1.1.2 Vue development interface through local Vite, showing the Properties action toolbar and descendant status. Browser screenshots omit native window chrome and do not establish native integration acceptance.
 
-| 文件 | 场景 |
+SVN status, diff, tree, and property data are fictional fixtures from `workspace-demo.js`. No remote repository or SVN write is involved; project names, paths, URLs, and code are examples. No real working copy, personal directory, account, or credential is read. Unscanned fixture projects do not show invented counts.
+
+| File | Scenario |
 | --- | --- |
-| `orcasvn-workspace.png` | 简体中文、浅色主题、1440 × 900，项目栏、顶栏、文件列表与选中文件 Diff |
-| `orcasvn-workspace-dark.png` | 同一场景的深色主题 |
-| `stonesvn-properties.png` | 简体中文、浅色主题、1440 × 900，文件树、状态标记、属性及文件操作栏 |
-| `stonesvn-properties-dark.png` | 属性页的深色主题 |
+| `orcasvn-workspace.png` | Simplified Chinese, light, 1440 × 900; projects, toolbar, files, selected diff. |
+| `orcasvn-workspace-dark.png` | Same scene in dark theme. |
+| `stonesvn-properties.png` | Simplified Chinese, light, 1440 × 900; tree, status marks, properties, actions. |
+| `stonesvn-properties-dark.png` | Properties in dark theme. |
 
-## 重新截取
+## Recapture
 
-需要 Node.js、npm 和 Playwright CLI 可用的 Chromium 浏览器。使用独立浏览器会话，避免加载真实应用保存的项目列表。先在项目根目录启动 Vite：
+Requires Node.js, npm, and Chromium available to Playwright CLI. Use an isolated browser session to avoid real saved project lists. Start Vite from the repository root:
 
 ```bash
 npm run dev -- --host 127.0.0.1
 ```
 
-另开终端，在项目根目录运行：
+In a second terminal, use the Playwright CLI commands below from the root:
 
 ```bash
 mkdir -p output/playwright
@@ -38,7 +40,9 @@ npx --package @playwright/cli playwright-cli -s=docs-refresh run-code "async (pa
 npx --package @playwright/cli playwright-cli -s=docs-refresh close
 ```
 
-截图前确认：项目列表只有 `stone-demo`、`docs-site` 和 `ui-components` 三个虚构项目，路径均以 `/workspaces/` 开头；六个示例文件已显示，`src/config.ts` 已选中，Diff 显示新增 3 行、删除 2 行，图标和字体均已加载。属性页展开 `src` 并选中 `config.ts`，属性地址仅使用 `svn.example.com`，本地示例属性以 `demo:` 为前缀。确认新 StoneSVN 图形及「添加本地副本／添加远程副本」双入口可见。截图后逐张检查文字、面板、错误提示和敏感信息，再替换文档图片：
+Before capture, confirm only `stone-demo`, `docs-site`, and `ui-components` appear, all under `/workspaces/`. Six fixture files should appear with `src/config.ts` selected and Diff showing three additions/two deletions. Wait for icons/fonts. Properties expands `src` and selects `config.ts`, uses only `svn.example.com`, and prefixes local sample properties with `demo:`. Confirm the new StoneSVN graphic and Add Local Copy/Add Remote Copy actions.
+
+Inspect every image for text, panels, errors, and sensitive information, then replace:
 
 ```bash
 cp output/playwright/workspace-light.png docs/images/orcasvn-workspace.png
@@ -47,6 +51,10 @@ cp output/playwright/properties-light.png docs/images/stonesvn-properties.png
 cp output/playwright/properties-dark.png docs/images/stonesvn-properties-dark.png
 ```
 
-脚本只在手动导入的开发浏览器会话中注入数据，不会被应用入口导入。刷新页面会移除模拟命令桥接，但示例项目与主题设置会保留在该会话的浏览器存储中。关闭后使用 Playwright CLI 的 `-s=docs-refresh delete-data` 清理专用会话数据。
+The script injects data only when manually imported in the development session; it is not an application import. Refresh removes the mocked command bridge, but fixture projects/theme remain in that browser storage. After closing, use Playwright CLI `-s=docs-refresh delete-data` to remove the dedicated session.
 
-本次检查覆盖四张截图的布局与示例数据。浏览器启动时缺少原生 Tauri 桥接的控制台提示，以及发布更新检查的网络结果，不作为桌面 SVN 集成验证依据。
+The checks cover four screenshots and fixture data. Missing native Tauri bridge console messages and release-check network results are not desktop integration acceptance.
+
+## Quick-start illustrations
+
+`quickstart/` holds two flow diagrams plus cropped status/diff details used by [Quick start](../../QUICKSTART.md). `workflow-en.png` and `conflict-resolution-en.png` have English labels; their unsuffixed counterparts are retained for the [Chinese guide](../../QUICKSTART.zh-CN.md). The cropped images retain the Simplified Chinese screenshot locale.

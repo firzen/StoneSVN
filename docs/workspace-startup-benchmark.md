@@ -1,53 +1,55 @@
-# 工作区加载性能基准
+# Workspace loading benchmarks
 
-## 0.6.3 与上一正式版 0.6.2 的对照（2026-10-08）
+English | [简体中文](workspace-startup-benchmark.zh-CN.md)
 
-比较 `v0.6.2`（`2c097dd`）与 `c7dfd6b`（0.6.3 发布前最终功能提交）。环境：Linux aarch64、SVN 1.14.3、Rust 1.97.1，独立原生测试程序的 Release 优化构建。工作副本由本地 SVN 仓库检出，分别包含 1,000 和 10,000 个小文本文件，每 100 个文件放在一个目录中，均为干净状态；文件系统缓存已预热，不代表冷盘或远端仓库。
+## Version 0.6.3 versus 0.6.2 2026-10-08
 
-每个场景先预热 3 次，再测量 15 次，取中位数。两个版本先后运行，没有交替随机化，存在环境波动；每轮结果都与完整 `svn status` 对照。下表计时包含本地版本号查询；首次加载另并行查询仓库元信息，其他场景假设前端仓库元信息缓存已存在。
+Comparison: `v0.6.2` (`2c097dd`) against `c7dfd6b`, the final functional commit before 0.6.3. Environment: Linux aarch64, SVN 1.14.3, Rust 1.97.1, standalone native harness built in optimized Release mode. Clean working copies checked out from local repositories contain 1,000/10,000 small text files, 100 per directory. Filesystem caches are warm; these are not cold-storage or remote-repository measurements.
 
-| 文件数 | 场景 | v0.6.2 中位数 ms | 0.6.3 中位数 ms | 耗时降低 |
+Each scenario had three warmups and 15 measured runs; values are medians. Versions ran sequentially rather than in randomized alternation, so environmental variation remains. Every result was compared with full `svn status`. Timings include the local revision query. First load also queries repository metadata in parallel; other scenarios assume frontend repository metadata is already cached.
+
+| Files | Scenario | v0.6.2 median ms | 0.6.3 median ms | Time reduction |
 | ---: | --- | ---: | ---: | ---: |
-| 1,000 | 无应用缓存首次加载 | 101.2 | 22.3 | 78% |
-| 1,000 | 缓存重开 | 100.8 | 11.7 | 88% |
-| 1,000 | 无变化刷新 | 100.8 | 13.1 | 87% |
-| 10,000 | 无应用缓存首次加载 | 101.0 | 82.8 | 18% |
-| 10,000 | 缓存重开 | 100.7 | 29.5 | 71% |
-| 10,000 | 无变化刷新 | 100.7 | 20.4 | 80% |
+| 1,000 | First load without application cache | 101.2 | 22.3 | 78% |
+| 1,000 | Cached reopening | 100.8 | 11.7 | 88% |
+| 1,000 | Unchanged refresh | 100.8 | 13.1 | 87% |
+| 10,000 | First load without application cache | 101.0 | 82.8 | 18% |
+| 10,000 | Cached reopening | 100.7 | 29.5 | 71% |
+| 10,000 | Unchanged refresh | 100.7 | 20.4 | 80% |
 
-“无应用缓存”每轮清空原生内存缓存并使用新的磁盘缓存位置，0.6.3 做完整清单及 SVN 检查。“缓存重开”每轮清空内存并恢复已落盘的原生快照；0.6.2 没有原生磁盘状态缓存，仍查询完整 SVN 状态。“无变化刷新”保留原生内存缓存；两版均查询本地版本号。计时不包括测试程序进程创建、Tauri IPC、WebView 启动、localStorage 恢复、Vue 渲染和忽略规则计算。0.6.3 会在后台复核、写盘，下一轮前等待完成，这段后台工作不包含在前台耗时中。
+Without application cache, each run clears native memory and uses a new disk-cache location; 0.6.3 performs full manifest/SVN checks. Cached reopening clears memory and restores a persisted snapshot; 0.6.2 has no native disk status cache and still requests full SVN status. Unchanged refresh retains native memory; both versions query the local revision. Timings exclude harness process creation, Tauri IPC, WebView startup, localStorage restoration, Vue rendering, and ignore matching. Background 0.6.3 revalidation/writes finish before the next run but are excluded from foreground time.
 
-另测仅状态查询：1,000 文件由 100.7 ms 降至 2.0 ms，10,000 文件由 100.7 ms 降至 20.1 ms。不要把这些数字当作含本地版本号查询或桌面启动的总耗时。
+Status-only medians were 100.7 → 2.0 ms for 1,000 files and 100.7 → 20.1 ms for 10,000 files. These exclude local revision queries and desktop startup.
 
-主要改善来自状态复用及异步 SVN 进程等待，移除旧版每 100 ms 检查一次进程是否结束的轮询。10,000 文件的首次加载仍受完整清单和 SVN 扫描影响，提升较小；本结果不证明 Windows、冷盘或所有真实仓库有同等收益，也没有测量日志/差异视图虚拟化的界面帧率。
+Most improvement comes from status reuse and asynchronous process waiting, removing 100ms completion polling. The 10,000-file first load remains constrained by full manifest/SVN scans. These results establish neither equal gains on Windows/cold disks/all repositories nor frame rates for log/diff virtualization.
 
-机器可读的场景汇总、P95 和提交标识保存在 [v0.6.3-performance-summary.json](benchmarks/v0.6.3-performance-summary.json)。该文件保存聚合值，不是逐轮原始采样。
+Machine-readable scenarios, P95, and commit IDs are in [v0.6.3-performance-summary.json](benchmarks/v0.6.3-performance-summary.json). This contains aggregates, not individual raw samples.
 
-在仓库根目录重跑：
+Rerun from the repository root:
 
 ```bash
 python3 scripts/benchmark-workspace-comparison.py --baseline v0.6.2 --candidate v0.6.3 --files 1000 10000 --output /tmp/orcasvn-performance.json
 ```
 
-该对照脚本在 Linux 上运行，要求 Python 3、Git、Cargo、svn 和 svnadmin，导入指定 Git 提交的 SVN 模块，在临时目录创建测试程序及工作副本并以 Release 模式构建，使用仓库内的 `docs/benchmarks/workspace-comparison.Cargo.lock` 固定原生测试程序依赖。首次运行会下载 Rust 依赖，结束后清理临时工作副本；不修改仓库源码或用户工作副本。构建耗时及测试数据准备耗时不计入表中。环境变化或源码接口变化后，应重新确认方法和结果。
+The Linux script requires Python 3, Git, Cargo, svn, and svnadmin. It imports SVN modules from the specified commits, creates temporary harnesses/working copies, and builds Release with dependencies locked by `docs/benchmarks/workspace-comparison.Cargo.lock`. The first run downloads Rust dependencies. Temporary copies are removed afterward; repository source and user copies are untouched. Build/data-preparation time is excluded. Recheck methods/results after environment or source-interface changes.
 
-## 历史 Windows 测量（2026-10-01）
+## Historical Windows measurements 2026-10-01
 
-以下保留先前机器上的实测记录。它们使用当时的开发代码，不是本次 v0.6.2 / v0.6.3 对照，不能与上表直接比较。
+These earlier-machine records use development code from that time, not the 0.6.2/0.6.3 comparison; do not compare them directly with the table above.
 
-工作副本：`D:/eagle`。Windows 11 10.0.26200，AMD Ryzen 7 8845H，D 盘 NTFS，SVN 1.14.5；当时开发源码的 release 优化构建，包含 Windows 状态路径修复。清单共 13 项（含目录与 SVN 管理文件），SVN 变更列表 3 项。当前进程没有 USN 卷读取权限，实测使用元数据扫描回退路径。
+Working copy: `D:/eagle`. Windows 11 10.0.26200, AMD Ryzen 7 8845H, NTFS D drive, SVN 1.14.5, optimized Release development build including Windows status-path fixes. The manifest has 13 entries including directories/SVN metadata; status has three changed entries. The process lacked USN volume-read permission and used metadata-scan fallback.
 
-## 测量范围
+## Measurement scope
 
-测量启动恢复工作区时使用的原生数据请求：状态加载与本地版本号查询并行，无缓存场景同时查询仓库元信息。每轮清除原生内存缓存，使用独立临时磁盘缓存，不改动工作副本内容、原有应用缓存或设置。每轮结果与完整 SVN 状态对照，并断言无缓存走 Full、磁盘恢复走 Reuse。
+Measure startup-restoration native requests: status and local revision run concurrently; uncached runs also query repository metadata. Each run clears native memory and uses isolated temporary disk cache, without changing working-copy content, existing application cache, or settings. Compare every result to full SVN status and assert Full without cache and Reuse on disk restoration.
 
-这里的“无缓存”指没有应用缓存，文件系统缓存已预热；不是重启系统后的冷盘。计时包含 SVN 子进程启动，但不包括 OrcaSVN 应用进程创建、WebView 启动、Tauri IPC、前端 localStorage 恢复、忽略规则过滤、Vue 渲染或后台快照落盘。磁盘缓存场景假设前端仓库元信息缓存也已存在。不能将本表当作点击软件图标到界面可操作的总耗时。
+Uncached means no application cache; the filesystem is warm, not cold after reboot. Timings include SVN subprocess creation but exclude OrcaSVN process creation, WebView startup, Tauri IPC, frontend localStorage/filtering/Vue work, and background snapshot writes. Disk-cache scenarios assume frontend repository metadata exists. These are not icon-click-to-interactive timings.
 
-## 最后一组实测
+## Final measured group
 
-每种场景 7 次。此前两组复测的总耗时中位数分别为无缓存 57.1 / 52.8 ms、磁盘缓存 42.3 / 44.3 ms。下表为结束并发合成仓库准备任务后的最后一组。
+Seven runs per scenario. Two earlier repeat groups had total medians of 57.1/52.8 ms uncached and 42.3/44.3 ms disk-cached. The final group below followed termination of concurrent synthetic-repository preparation.
 
-| 次数 | 无缓存状态 ms | 无缓存总计 ms | 磁盘恢复状态 ms | 磁盘恢复版本号 ms | 磁盘恢复总计 ms |
+| Run | Uncached status ms | Uncached total ms | Disk status ms | Disk revision ms | Disk total ms |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | 1 | 60.4 | 60.5 | 5.8 | 39.0 | 39.0 |
 | 2 | 54.9 | 54.9 | 6.7 | 48.1 | 48.1 |
@@ -57,57 +59,57 @@ python3 scripts/benchmark-workspace-comparison.py --baseline v0.6.2 --candidate 
 | 6 | 57.8 | 57.8 | 6.9 | 48.2 | 48.2 |
 | 7 | 58.9 | 58.9 | 7.0 | 46.5 | 46.5 |
 
-| 场景 | 总耗时最小值 ms | 中位数 ms | 最大值 ms |
+| Scenario | Minimum total ms | Median ms | Maximum ms |
 | --- | ---: | ---: | ---: |
-| 无缓存加载 | 52.8 | 58.2 | 60.5 |
-| 磁盘缓存恢复 | 39.0 | 48.2 | 56.7 |
+| Uncached load | 52.8 | 58.2 | 60.5 |
+| Disk-cache restoration | 39.0 | 48.2 | 56.7 |
 
-缓存恢复的状态检查中位数为 7.0 ms，本地版本号请求中位数为 48.1 ms。此工作副本的原生数据阶段主要等待 `svn info --show-item revision` 进程完成；本次结果不足以解释用户感知的整个软件启动耗时，也不能代表大工作副本。
+Cached status had a 7.0ms median; the local revision request had a 48.1ms median. This copy's native data phase mostly waits for `svn info --show-item revision`. It does not explain total perceived startup or represent large copies.
 
-## 重跑
+## Rerun
 
-PowerShell，在项目根目录运行：
+From the root in PowerShell:
 
 ```powershell
 $env:ORCASVN_BENCH_WORKSPACE = 'D:/eagle'
 cargo test --release --manifest-path src-tauri/Cargo.toml benchmark_workspace_startup -- --ignored --nocapture
 ```
 
-测试为显式运行的 ignored 基准，正常回归测试不会访问用户工作副本。临时缓存随测试结束清理。若测试过程中工作副本内容发生变化，结果一致性断言可能失败，需要保持工作副本稳定后重测。
+This ignored benchmark runs explicitly; ordinary regression tests do not access user copies. Temporary cache is removed afterward. Concurrent working-copy edits may fail consistency assertions; stabilize the copy before rerunning.
 
-当时的 Release 回归测试结果：56 项通过，2 项性能基准默认忽略。原生 USN 用例因拒绝访问提前返回，不能据此认定 USN 快路径已验证。
+At that time, Release regressions had 56 passes and two ignored benchmarks. Native USN returned early on access denied; this is not USN fast-path validation.
 
-原有 20,000 文件合成基准在临时仓库的首次提交阶段等待超过四分钟，已主动终止并清理；未获得有效性能结果，这段准备耗时不计入工作区加载结果。
+The original 20,000-file synthetic setup waited over four minutes at its first commit and was terminated/cleaned up. It produced no valid benchmark; preparation time is excluded.
 
-## 合成工作副本结果
+## Synthetic working copies
 
-同一天、同一台机器上另建真实本地 SVN 仓库，并检出工作副本。以下场景均为干净工作副本、release 构建、元数据扫描回退路径，每种场景测量 7 次，继续采用上述计时边界。
+On the same day/machine, separate real local repositories and working copies were created. All were clean, Release builds, metadata fallback, seven runs per scenario with the same timing boundaries.
 
-| 版本控制文件数 | 提交数 | 无应用缓存加载中位数 ms | 磁盘缓存恢复中位数 ms |
+| Versioned files | Commits | Uncached median ms | Disk restoration median ms |
 | ---: | ---: | ---: | ---: |
 | 1,000 | 200 | 59.6 | 51.3 |
 | 10,000 | 1,000 | 112.4 | 46.7 |
 | 10,000 | 10,000 | 109.3 | 43.1 |
 
-这些是先后采样的结果，不是同时进行的严格对照，不能据此声称增加提交历史使加载更快。数据为约数百字节的小文本文件，不能代表大型二进制、复杂 externals、大量未版本文件、冷盘或网络盘工作副本。
+These sequential samples are not a controlled simultaneous comparison and do not establish that more history accelerates loading. Small text files of a few hundred bytes do not represent large binaries, complex externals, many unversioned files, cold disks, or network drives.
 
-测试工作副本路径：
+Working copies:
 
-- `D:/OrcaSVN-bench-1000-200/wc`：1,000 文件、200 提交。
-- `D:/OrcaSVN-bench-10000-1000/wc`：10,000 文件，提交数已从 1,000 追加到 10,000；目录名沿用初始名称。
+- `D:/OrcaSVN-bench-1000-200/wc`: 1,000 files/200 commits.
+- `D:/OrcaSVN-bench-10000-1000/wc`: 10,000 files, extended from 1,000 to 10,000 commits; the original directory name was retained.
 
-最终核验包含 r1–r10000 连续、每次提交均有路径变更、10,000 个版本控制文件和工作副本干净。每个测试目录的 `manifest.json` 记录最终规模；`startup-benchmark.log` 保存初次基准，追加历史后的结果保存在 `startup-benchmark-r10000.log`。这些本机文件未纳入项目 Git 仓库。
+Final checks confirmed continuous r1–r10000, changed paths in every commit, 10,000 versioned files, and a clean copy. Each directory's `manifest.json` records final size; `startup-benchmark.log` contains the initial run and `startup-benchmark-r10000.log` the extended-history result. These local files are not tracked in Git.
 
-## 单独测量 svn status
+## Standalone svn status
 
-在最终的 10,000 文件、10,000 提交干净工作副本上，通过 PowerShell 顺序运行 `svn status --xml` 10 次，丢弃 XML 输出，计时包含 SVN 子进程创建和输出接收：
+On the final clean 10,000-file/10,000-commit copy, PowerShell sequentially ran `svn status --xml` ten times, discarding XML. Timings include subprocess creation/output reception:
 
-| 指标 | 毫秒 |
+| Metric | ms |
 | --- | ---: |
-| 最小值 | 59.6 |
-| 中位数 | 63.35 |
-| 最大值 | 69.5 |
+| Minimum | 59.6 |
+| Median | 63.35 |
+| Maximum | 69.5 |
 
-原始采样为 `63.6, 65.0, 59.6, 63.1, 61.8, 60.4, 64.5, 62.1, 69.5, 67.0` ms。这个结果只描述当前本机热缓存场景；启动数据基准还包含文件系统清单、缓存处理和并发元信息请求，不能将其整体耗时等同于单独 `svn status`。
+Samples: `63.6, 65.0, 59.6, 63.1, 61.8, 60.4, 64.5, 62.1, 69.5, 67.0` ms. This describes this machine's warm-cache scenario only. Startup-data benchmarks additionally include manifest/cache handling and concurrent metadata requests, so their totals are not standalone `svn status` timings.
 
-测量与查看日志分页时，在 OrcaSVN 中打开上述 `wc`，而不是 `repo` 目录。日志页默认 20 条，因此 10,000 次提交可用于测试连续前后翻页与筛选，但本报告未测量日志查询耗时或界面绘制。
+Open `wc`, not `repo`, in OrcaSVN when measuring or checking pagination. Log pages contain 20 entries; 10,000 commits support repeated navigation/filter tests, but this report measures neither log-query time nor rendering.

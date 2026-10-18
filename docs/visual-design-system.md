@@ -1,204 +1,203 @@
-# StoneSVN 视觉规范
+# StoneSVN visual design system
 
-维护日期：2026-10-16。适用于所有页面、对话框、空状态和设置页。
+English | [简体中文](visual-design-system.zh-CN.md)
 
-## 使用方式与维护边界
+Maintained: 2026-10-16. Applies to all pages, dialogs, empty states, and Settings.
 
-本规范以 2026-10-16 当前源码为维护基准，覆盖当日工作台样式、品牌与项目入口调整；[历史综合审校](visual-audit-2026-10-09.md)保留此前的实现与验证结果。历史样式仍有固定值和重复声明，规范不能作为全部实现已经合规的证明。
+## Usage and maintenance boundaries
 
-| 修改类型 | 维护位置 | 约束 |
+The source as of 2026-10-16 is the maintenance baseline, including workbench styling, branding, and project entry points. The [historical audit](visual-audit-2026-10-09.md) retains earlier results. Fixed values and duplicate historical declarations remain; this specification does not prove complete implementation compliance.
+
+| Change | Location | Constraint |
 | --- | --- | --- |
-| 共享颜色、字体、间距、尺寸、动效 | [设计变量](../src/design-tokens.css) | 先定义语义变量；颜色提供深浅主题取值 |
-| 紧凑工作台控件、表格与工具条 | [工作台样式](../src/workbench.css) | 仅在 `.compact-workbench` 范围内覆盖，复用主题变量 |
-| 通用控件、Element Plus 映射 | [全局样式](../src/style.css) | 核对组件默认样式，避免叠加 padding 或重复覆盖 |
-| 页面布局、组件局部状态 | `src/views/`、`src/components/`、`src/layouts/` | 复用共享变量，局部覆盖限定作用范围 |
-| 主题切换 | [主题逻辑](../src/composables/useTheme.ts) | 统一切换，页面不自行判断系统主题 |
+| Shared colors, fonts, spacing, dimensions, motion | [Design tokens](../src/design-tokens.css) | Define semantic tokens first; provide both themes for colors. |
+| Compact controls, tables, toolbars | [Workbench styles](../src/workbench.css) | Scope overrides to `.compact-workbench`; reuse theme tokens. |
+| General controls and Element Plus mapping | [Global styles](../src/style.css) | Check component defaults to avoid stacked padding/duplicate overrides. |
+| Page layout and local states | `src/views/`, `src/components/`, `src/layouts/` | Reuse shared tokens and constrain local overrides. |
+| Theme switching | [Theme logic](../src/composables/useTheme.ts) | Switch centrally; pages must not independently query system theme. |
 
-修改顺序：确认语义和状态 → 选用已有变量 → 实现布局 → 检查主题、焦点和窄窗口 → 记录验证范围。新增变量时同步更新本规范；固定品牌图形及特殊业务布局尺寸可以例外，但应说明用途。
+Change order: establish semantics/states, choose existing tokens, implement layout, check themes/focus/narrow windows, and record scope. Update this document when adding tokens. Fixed brand graphics and special business dimensions may be exceptions with documented purposes.
 
-快速索引：[颜色](#颜色) · [文字与图标](#文字与图标) · [间距、形状与尺寸](#间距形状与尺寸) · [交互状态](#交互状态) · [布局与响应式](#布局与响应式) · [对话框](#对话框) · [动效](#动效) · [验收标准](#验收标准)
+Index: [Colors](#colors) · [Typography and icons](#typography-and-icons) · [Spacing shapes and sizes](#spacing-shapes-and-sizes) · [Interaction states](#interaction-states) · [Responsive layout](#responsive-layout) · [Dialogs](#dialogs) · [Motion](#motion) · [Acceptance](#acceptance)
 
-## 颜色
+## Colors
 
-颜色按用途命名。浅色和深色使用同一个变量名，由 `html.theme-dark` 切换取值；页面不按主题分别写固定颜色。
+Name colors by purpose. Both themes use the same token names; `html.theme-dark` switches values. Do not hard-code separate page colors per theme.
 
-| 用途 | 变量 | 浅色 | 深色 |
+| Purpose | Token | Light | Dark |
 | --- | --- | --- | --- |
-| 主操作 | `--md-sys-color-primary` | `#426b95` | `#8bc7fa` |
-| 主操作上的文字 | `--md-sys-color-on-primary` | `#ffffff` | `#082840` |
-| 选中背景 | `--md-sys-color-primary-container` | `#e8eef5` | `#163c61` |
-| 选中背景上的文字 | `--md-sys-color-on-primary-container` | `#345574` | `#d9edff` |
-| 应用画布 | `--md-sys-color-surface` | `#eceef1` | `#101820` |
-| 内容表面 | `--md-sys-color-surface-container-lowest` | `#fcfcfd` | `#16212b` |
-| 次级表面 | `--md-sys-color-surface-container-low` | `#f6f6f7` | `#131d26` |
-| 主要文字 | `--md-sys-color-on-surface` | `#30343b` | `#e7eef6` |
-| 次要文字 | `--md-sys-color-on-surface-variant` | `#68717d` | `#aab9c8` |
-| 分隔线 | `--md-sys-color-outline-variant` | `#e0e2e6` | `#344454` |
+| Primary action | `--md-sys-color-primary` | `#426b95` | `#8bc7fa` |
+| On primary | `--md-sys-color-on-primary` | `#ffffff` | `#082840` |
+| Selected background | `--md-sys-color-primary-container` | `#e8eef5` | `#163c61` |
+| On selected background | `--md-sys-color-on-primary-container` | `#345574` | `#d9edff` |
+| App canvas | `--md-sys-color-surface` | `#eceef1` | `#101820` |
+| Content surface | `--md-sys-color-surface-container-lowest` | `#fcfcfd` | `#16212b` |
+| Secondary surface | `--md-sys-color-surface-container-low` | `#f6f6f7` | `#131d26` |
+| Primary text | `--md-sys-color-on-surface` | `#30343b` | `#e7eef6` |
+| Secondary text | `--md-sys-color-on-surface-variant` | `#68717d` | `#aab9c8` |
+| Divider | `--md-sys-color-outline-variant` | `#e0e2e6` | `#344454` |
 
-浅色主题使用低饱和蓝灰色与深色项目栏；深色主题沿用同一组语义变量，不将浅色项目栏的固定背景带入深色主题。
+Light theme uses muted blue-gray and a dark sidebar. Dark theme retains these semantics without importing the light sidebar's fixed background.
 
-| 工作台用途 | 变量 | 浅色 | 深色 |
+| Workbench purpose | Token | Light | Dark |
 | --- | --- | --- | --- |
-| 顶栏 | `--app-color-toolbar` | `#f6f6f7` | `#16212b` |
-| 项目栏背景 | `--app-color-sidebar` | `#232a36` | `#16212b` |
-| 项目栏文字 / 次要文字 | `--app-color-sidebar-text` / `--app-color-sidebar-muted` | `#d7dce4` / `#aab3c1` | 均为 `#aab9c8` |
-| 项目选中背景 / 文字 | `--app-color-sidebar-selected` / `--app-color-sidebar-selected-text` | `#303947` / `#d7dce4` | `#163c61` / `#d9edff` |
-| Diff 外层 / 代码画布 | `--app-color-diff-surface` / `--app-color-diff-canvas` | `#f4f4f6` / `#f8f8fa` | 均为 `#16212b` |
-| Diff 元信息背景 / 文字 | `--app-color-diff-meta-bg` / `--app-color-diff-meta-text` | `#eceef1` / `#586273` | `#2b2e59` / `#b7bcff` |
+| Toolbar | `--app-color-toolbar` | `#f6f6f7` | `#16212b` |
+| Sidebar | `--app-color-sidebar` | `#232a36` | `#16212b` |
+| Sidebar text / muted | `--app-color-sidebar-text` / `--app-color-sidebar-muted` | `#d7dce4` / `#aab3c1` | Both `#aab9c8` |
+| Selected project background / text | `--app-color-sidebar-selected` / `--app-color-sidebar-selected-text` | `#303947` / `#d7dce4` | `#163c61` / `#d9edff` |
+| Diff surface / canvas | `--app-color-diff-surface` / `--app-color-diff-canvas` | `#f4f4f6` / `#f8f8fa` | Both `#16212b` |
+| Diff metadata background / text | `--app-color-diff-meta-bg` / `--app-color-diff-meta-text` | `#eceef1` / `#586273` | `#2b2e59` / `#b7bcff` |
 
-浅色 Diff 不绘制逐行分隔线，深色使用 `--md-sys-color-outline-variant`。新增、删除行仍使用状态色。文件状态使用成对的背景和文字变量，不依赖透明度区分状态。
+Light diffs have no per-line dividers; dark uses `--md-sys-color-outline-variant`. Added/deleted lines retain status colors. Use paired background/text tokens instead of opacity to distinguish file states.
 
-| 状态 | 变量前缀（分别追加 `-bg`、`-text`） | 浅色背景 / 文字 | 深色背景 / 文字 |
+| State | Prefix with `-bg` / `-text` | Light background / text | Dark background / text |
 | --- | --- | --- | --- |
-| 修改、替换 | `--app-color-status-modified` | `#f8efcf` / `#795b20` | `#4a330a` / `#ffd278` |
-| 新增 | `--app-color-status-added` | `#eaf3ec` / `#28613d` | `#123d2a` / `#7fe3a2` |
-| 冲突、缺失、删除 | `--app-color-status-error` | `#f8ecec` / `#963e46` | `#4d2028` / `#ff9da7` |
-| 未版本文件 | `--app-color-status-unversioned` | `#eeedf7` / `#5c5a83` | `#2b2e59` / `#b7bcff` |
+| Modified/replaced | `--app-color-status-modified` | `#f8efcf` / `#795b20` | `#4a330a` / `#ffd278` |
+| Added | `--app-color-status-added` | `#eaf3ec` / `#28613d` | `#123d2a` / `#7fe3a2` |
+| Conflict/missing/deleted | `--app-color-status-error` | `#f8ecec` / `#963e46` | `#4d2028` / `#ff9da7` |
+| Unversioned | `--app-color-status-unversioned` | `#eeedf7` / `#5c5a83` | `#2b2e59` / `#b7bcff` |
 
-主要文字、次要文字、主按钮以及上述状态文字与各自背景的对比度应至少为 4.5:1。危险实心按钮使用 `--md-sys-color-error` / `--md-sys-color-on-error`：浅色为 `#ba1a1a` / `#ffffff`，深色为 `#ffb4ab` / `#690005`。不要仅靠颜色表达状态：徽标同时保留文字。差异行仍保留 `+`、`-` 和行号。
+Primary/secondary text, primary buttons, and status text must meet 4.5:1 against their backgrounds. Filled danger buttons use `--md-sys-color-error` / `--md-sys-color-on-error`: light `#ba1a1a` / `#ffffff`, dark `#ffb4ab` / `#690005`. Keep text badges, line numbers, and `+`/`-`; color alone is insufficient.
 
-## 文字与图标
+## Typography and icons
 
-正文字体为 `Inter`、系统 UI 字体和中文系统字体；文件路径使用 `--app-font-family-mono`。应用根字号为 14px；紧凑工作台统一使用 12px，窄窗口不因视口宽度继续缩小文字。
+Body uses Inter, system UI, and system Chinese fonts; paths use `--app-font-family-mono`. Root size is 14px; compact workbenches use 12px consistently rather than shrinking text with window width.
 
-| 层级 | 变量 | 大小 | 常见用途 |
+| Level | Token | Size | Use |
 | --- | --- | --- | --- |
-| 微型标注 | `--app-font-size-2xs` | 10px | 状态徽标、分组标题 |
-| 辅助信息 | `--app-font-size-xs` | 11px | 版本号、路径摘要 |
-| 说明 | `--app-font-size-sm` | 12px | 辅助文案、筛选项 |
-| 控件标签 | `--app-font-size-label` | 13px | 导航、按钮、文件路径 |
-| 正文 | `--app-font-size-body` | 14px | 表单和内容 |
-| 小标题 | `--app-font-size-subtitle` | 16px | 设置分区 |
-| 页面标题 | `--app-font-size-title` | 18px | 工作区和页面标题 |
-| 欢迎标题 | `--app-font-size-display` | 30px | 仅用于空状态主标题 |
+| Micro label | `--app-font-size-2xs` | 10px | Status badges/group headings |
+| Supporting metadata | `--app-font-size-xs` | 11px | Revisions/path summaries |
+| Explanation | `--app-font-size-sm` | 12px | Help/filter text |
+| Control label | `--app-font-size-label` | 13px | Navigation/buttons/paths |
+| Body | `--app-font-size-body` | 14px | Forms/content |
+| Subtitle | `--app-font-size-subtitle` | 16px | Settings sections |
+| Page title | `--app-font-size-title` | 18px | Workspace/page headings |
+| Welcome title | `--app-font-size-display` | 30px | Empty-state primary title only |
 
-上表之外的固定字号属于已记录的例外，新增时应先尝试使用上表变量：
+Try these tokens before adding a fixed size. Documented exceptions:
 
-| 字号 | 用途 |
+| Size | Use |
 | --- | --- |
-| 9px | 工作区状态角标 |
-| 15px | 全局表格表头、更新页和日志页小标题、侧边栏品牌与导航文字，介于说明与小标题之间，尚未收敛 |
-| 17、19、20px | 侧边栏图标及品牌图形 |
-| 24、32、36、48、64px | 空状态、设置页和工作区的图标字形 |
+| 9px | Workspace status corner labels |
+| 15px | Global table headers, Update/Log subtitles, sidebar brand/navigation; not yet consolidated |
+| 17/19/20px | Sidebar icons and brand graphics |
+| 24/32/36/48/64px | Empty-state, Settings, and Workspace icon glyphs |
 
-设置分区标题使用 `--app-font-size-subtitle`（16px）。属性、提交、时间线、更新、文件历史和独立差异页通过 `.compact-workbench` 使用 12px 正文与控件文字；表头用 600 字重，版本摘要可使用 14px。
+Settings headings use 16px subtitle tokens. Properties, Commit, Timeline, Update, file history, and standalone Diff use `.compact-workbench` 12px body/control text, 600-weight headers, and optional 14px revision summaries.
 
-常规、强调和标题分别使用 400、600、700 字重，次级强调可用 500；正文行高 1.5，长说明行高 1.6。功能图标采用 Material Symbols：常用尺寸 16、20、24px，常态轮廓、选中态填充。品牌使用 [StoneSVN 图形](../public/stone.svg)，顶栏显示 36 × 36px 图形与产品名称。文件类型图标优先读取系统关联图标，失败或在浏览器预览中使用 `FileTypeIcon` 内的文件／目录 SVG；目录和符号链接的类型以实际元信息为准。图标按钮必须有可访问名称。
+Use weights 400/600/700 for ordinary/emphasized/headings and optionally 500 for secondary emphasis. Body line-height is 1.5, long explanations 1.6. Material Symbols use 16/20/24px, outlined normally and filled when selected. The [StoneSVN graphic](../public/stone.svg) is 36 × 36px beside the product name. Prefer system-associated file icons; fall back to FileTypeIcon SVGs on failure/browser preview. Actual metadata determines directory/symlink types. Icon buttons require accessible names.
 
-## 间距、形状与尺寸
+## Spacing shapes and sizes
 
-通用间距遵循 4px 网格：`--app-spacing-xs`、`--app-spacing-sm`、`--app-spacing`、`--app-spacing-md`、`--app-spacing-lg`、`--app-spacing-xl`、`--app-spacing-2xl` 分别为 4、8、12、16、24、32、48px。窄窗口不缩小文字，仅把 `lg`、`xl` 收紧到 16、24px。工作台外边距等紧凑布局可以使用文档明确列出的例外尺寸。
+Use the 4px grid: `--app-spacing-xs`, `--app-spacing-sm`, `--app-spacing`, `--app-spacing-md`, `--app-spacing-lg`, `--app-spacing-xl`, `--app-spacing-2xl` are 4/8/12/16/24/32/48px. Narrow windows keep text sizes but tighten lg/xl to 16/24px. Explicitly documented compact exceptions are permitted.
 
-| 用途 | 变量 | 尺寸 |
+| Purpose | Token | Size |
 | --- | --- | --- |
-| 状态徽标 | `--app-radius-xs` | 4px |
-| 按钮、输入框、导航项 | `--app-radius-sm` | 8px |
-| 普通容器 | `--app-radius-md` | 12px |
-| 工作台 | `--app-radius-sm` | 8px |
-| 欢迎卡片、对话框 | `--app-radius-xl` | 24px |
-| 控件 / 输入框 | `--app-size-control` / `--app-size-field` | 38 / 40px |
-| 表格行 / 文件行 | `--app-size-table-row` / `--app-size-list-row` | 44 / 48px |
-| 面板 / 页面标题栏 | `--app-size-panel-header` / `--app-size-page-header` | 52 / 62px |
-| 工具栏最低高度 / 状态栏 / 项目栏默认宽度 | `--app-size-toolbar` / `--app-size-statusbar` / `--app-size-sidebar` | 80 / 28 / 240px |
+| Status badge | `--app-radius-xs` | 4px |
+| Button/input/navigation | `--app-radius-sm` | 8px |
+| Ordinary container | `--app-radius-md` | 12px |
+| Workbench | `--app-radius-sm` | 8px |
+| Welcome card/dialog | `--app-radius-xl` | 24px |
+| Control/input | `--app-size-control` / `--app-size-field` | 38/40px |
+| Table/file row | `--app-size-table-row` / `--app-size-list-row` | 44/48px |
+| Panel/page header | `--app-size-panel-header` / `--app-size-page-header` | 52/62px |
+| Toolbar minimum/status bar/default sidebar | `--app-size-toolbar` / `--app-size-statusbar` / `--app-size-sidebar` | 80/28/240px |
 
-顶栏左侧保留 StoneSVN 图形和名称，中间集中工作区、时间线、属性、更新、提交、贮藏、追溯、刷新与打开方式，右侧为设置和语言切换。功能按钮采用图标在上、文字在下，桌面按钮间隔 6px，控件内部间隔 7px，按钮最低 44 × 56px、圆角 12px；语言切换沿用地球图标，不显示箭头。
+Toolbar: brand left; Workspace, Timeline, Properties, Update, Commit, Stash, Trace, Refresh, Open With center; Settings/language right. Icons sit over text with 6px between desktop buttons, 7px internally, minimum 44 × 56px, 12px radius. Language retains the globe without an arrow.
 
-项目栏默认 240px，可在 200–360px 间调整宽度，支持鼠标拖动和分隔条方向键调整。底部纵向排列「添加本地副本」与「添加远程副本」，间隔 6px，桌面最低高度 36px；远程副本入口打开检出页面。项目路径可省略，但完整路径须能通过提示或复制操作查看。变更计数只显示已扫描的结果。
+Sidebar defaults to 240px and adjusts between 200–360px by drag or separator arrow keys. Add Local Copy and Add Remote Copy stack at the bottom with 6px gap and desktop minimum 36px height. Remote opens Checkout. Truncated paths must be available through hints/copy. Counts come only from completed scans.
 
-通用表单控件的默认圆角为 8px；紧凑工作台按下表覆盖。计数徽标等胶囊元素使用 `--app-radius-full`。工作台使用 6px 紧凑外边距，只保留一层外边框，内部面板以细分隔线区分，避免重复套卡片。
+General controls use 8px radii, overridden below for compact workbenches. Pills use `--app-radius-full`. Workbenches use 6px outer margins, one outer border, and thin internal dividers rather than nested cards.
 
-### 紧凑工作台
+### Compact workbench
 
-[工作台样式](../src/workbench.css)定义属性、提交、时间线、更新、文件历史与独立差异页的共享密度，优先级高于通用表单尺寸。它按工作内容区分密度，不随窗口缩放文字。
+[Workbench styles](../src/workbench.css) share density across Properties, Commit, Timeline, Update, file history, and standalone Diff, overriding general form dimensions. Density follows content, not window text scaling.
 
-| 元素 | 当前尺寸与规则 |
+| Element | Rule |
 | --- | --- |
-| 按钮、输入框、选择框 | 28px 高、12px 文字、4px 圆角；按钮水平内边距 10px |
-| 表格单元格 | 32px 高、上下内边距 4px，文字行高 22px |
-| 工作台卡片 | 内部无阴影、无额外圆角；标题条使用 `--workbench-toolbar` |
-| 工具条与筛选区 | 水平内边距 14px，以细边框分隔，不叠加卡片 |
-| 属性文件树 | 30px 行高、16px 层级缩进；文件类型图标与状态标记分别显示 |
-| 属性栏 | 默认宽 380px，可在 320–520px 调整；独立纵向滚动，底部保留应用与重置操作 |
-| 属性文本控件 | 当前使用 3px 圆角，原生按钮为 4px；属于局部实现例外 |
-| Diff | 常规代码 13px、紧凑预览 12px；搜索与工具按钮 28px，新增／删除保留符号和行号 |
+| Buttons/inputs/selects | 28px high, 12px text, 4px radius, 10px horizontal button padding |
+| Table cells | 32px high, 4px vertical padding, 22px line-height |
+| Workbench cards | No internal shadows/extra radii; header uses `--workbench-toolbar` |
+| Toolbars/filters | 14px horizontal padding, thin dividers, no stacked cards |
+| Properties tree | 30px rows, 16px indentation; separate type icons/status marks |
+| Inspector | Default 380px, adjustable 320–520px; independent vertical scroll and bottom Apply/Reset |
+| Property text controls | Current local exception: 3px radii; native buttons 4px |
+| Diff | 13px ordinary/12px compact code; 28px search/actions; retain signs/line numbers |
 
-`--workbench-border`、`--workbench-toolbar`、`--workbench-heading`、`--workbench-hover`、`--workbench-selected`均映射到主题语义变量。`--commit-*` 是当前兼容命名，其他工作台也在复用，新增样式优先引用语义变量。
+`--workbench-border`, `--workbench-toolbar`, `--workbench-heading`, `--workbench-hover`, and `--workbench-selected` map to semantic theme tokens. `--commit-*` is a compatibility name reused elsewhere; prefer semantic names for new styles.
 
-## 交互状态
+## Interaction states
 
-| 状态 | 视觉与行为要求 |
+| State | Visual/behavior requirement |
 | --- | --- |
-| 默认 | 主要操作用主色填充，次要操作用内容表面和细边框 |
-| 悬停 | 通过颜色、表面或边框变化反馈；不改变行高和控件尺寸 |
-| 选中 | 使用主色容器及配对文字；工作区文件行只以背景表达选中，不增加整行蓝色边框 |
-| 键盘焦点 | 用 `:focus-visible` 显示 2px 主色轮廓；输入框可用 2px 内嵌描边。文件行内的实际按钮保留焦点提示 |
-| 禁用 | 保留可读标签，同时禁止触发；不能仅用颜色表达禁用 |
-| 加载 | 显示状态文案；重复操作是否禁用由业务状态决定，动画不代表精确进度 |
-| 空状态与错误 | 空状态解释当前情况并提供适用入口；错误保留可理解的文案及可用的恢复操作 |
+| Default | Primary fill for primary actions; content surface/thin border for secondary. |
+| Hover | Color/surface/border feedback without size or row-height changes. |
+| Selected | Primary container/on-container text; workspace rows use background only, no full-row blue border. |
+| Keyboard focus | `:focus-visible` 2px primary outline; inputs may use inset stroke. Focus actual row buttons. |
+| Disabled | Keep readable labels and prevent activation; color alone is insufficient. |
+| Loading | Show status text; business state controls repeat actions; animation is not exact progress. |
+| Empty/error | Explain the situation and available entry/recovery actions; retain readable errors. |
 
-鼠标点击会使按钮获得焦点，但不能因此给整行套上焦点边框。不要用容器 `:focus-within` 绘制选中边框；它可用于保持行内操作按钮可见。键盘导航使用 Tab、Enter，以及文件列表支持的方向键、Home、End。
+Mouse focus must not add whole-row borders. Do not use container `:focus-within` for selection borders; it may keep row actions visible. Support Tab/Enter and list arrows/Home/End.
 
-长作者名和提交信息在列表中单行省略，并提供完整悬浮文本；详情中允许换行。文件路径须保留可辨识内容，确认框显示完整可选择路径。不要让悬浮提示成为唯一的操作名称。
+Authors/messages truncate to one line with full hover text, but wrap in details. Keep paths recognizable; confirmations show complete selectable paths. Tooltips must not be the sole action name.
 
-## 布局与响应式
+## Responsive layout
 
-| 视口宽度 | 布局调整 |
+| Width | Change |
 | --- | --- |
-| ≤ 1180px | 功能工具栏移至品牌与设置下方，保留按钮文字和间距，空间不足时在工具栏区域内横向滚动，不将按钮挤成无文字图标 |
-| ≤ 1100px | 紧凑时间线筛选改为两列，日期范围占整行 |
-| ≤ 860px | 工作区文件列表与差异面板上下排列；其他多栏页面按各自媒体规则收紧，确保内容可达 |
-| ≤ 650px | 项目列表横向滚动，项目栏最大高 170px；隐藏项目路径与宽度分隔条，保留两项添加入口，按钮最低 32px 高 |
-| ≤ 640px | 收紧较大间距，表单和筛选项按页面规则改为纵向排列 |
+| ≤ 1180px | Move tools below brand/settings. Keep labels/spacing and scroll inside toolbar rather than squeezing to unlabeled icons. |
+| ≤ 1100px | Compact timeline filters become two columns; date range spans both. |
+| ≤ 860px | Stack workspace files/diff; other multi-column pages follow their own media rules and remain reachable. |
+| ≤ 650px | Project list scrolls horizontally, maximum sidebar height 170px; hide paths/resize separator, retain both Add actions at minimum 32px height. |
+| ≤ 640px | Tighten large spacing and stack forms/filters according to page rules. |
 
-业务内容允许纵向滚动，导航和状态栏保持可见。表格与代码允许在所属区域内横向滚动，应用外壳不得被长路径或表单撑宽。390px 用于窄窗口验收，不代表新增移动端产品范围。
+Business content scrolls vertically while navigation/status remain visible. Tables/code may scroll horizontally within their area; long paths/forms must not widen the application shell. 390px is a narrow-window acceptance target, not a mobile-product commitment.
 
-## 对话框
+## Dialogs
 
-SVN 路径探测失败属于阻止继续使用的配置错误：显示「配置 SVN 路径」对话框，提供文件路径输入、浏览选择、「重新自动探测」和「验证并继续」。验证期间禁用重复操作，失败原因保留在表单附近；验证通过后才加载工作区。不允许通过遮罩或 Esc 关闭后进入未配置的工作台。普通工作区加载错误保留在工作台顶部，不使用短暂消息代替持续反馈。
+Failed SVN discovery is blocking configuration: show Configure SVN Path with entry, Browse, Retry Automatic Discovery, and Validate and Continue. Disable duplicate operations during validation and retain nearby errors. Load workspaces only after validation. Overlay/Esc cannot dismiss into an unconfigured workbench. Ordinary load errors remain at the top of the workbench rather than disappearing as transient messages.
 
+Ordinary dialogs use 24px radius without stacked Element Plus shell padding. Title/body/footer own their spacing. Reserve close-button space so long titles do not overlap it.
 
-普通对话框使用 24px 圆角，外壳不再叠加 Element Plus 默认内边距；标题、内容和按钮区分别管理间距。带关闭按钮的标题必须预留按钮位置，长标题不能与关闭图标重叠。
+Nonfullscreen height is bounded by viewport minus top offset and 16px bottom gutter. Body scrolls while header/footer remain visible. Long authors/messages wrap without displacing buttons.
 
-非全屏对话框高度不得超过视口扣除顶部偏移及底部 16px 留白。长内容在正文区域内滚动，标题和底部操作区保持可见；长作者名及提交说明允许换行，不能挤出操作按钮。
+Confirmations share radius and `--app-spacing-lg` padding: desktop 24px/narrow 16px. Nonfullscreen width is at most viewport minus 32px. Revert/delete desktop max width is 480px; align warning icons to body top, show paths separately in monospace on a secondary surface, wrap anywhere, and scroll paths over 160px high.
 
-确认框使用同样的圆角，内边距使用 `--app-spacing-lg`（桌面 24px，窄窗口 16px）。非全屏对话框和确认框宽度不超过视口减去 32px；全屏对话框是例外。文件还原、删除确认框桌面最大宽度为 480px，警告图标与正文顶部对齐，路径单独使用等宽字体和次级表面；长路径任意位置换行，路径区超过 160px 时滚动。
+Revert/delete have explicit danger and Cancel buttons. Overlay does not dismiss; Cancel/Close exits without execution. Explain consequences, including permanent irreversible unversioned deletion. Insert paths as text nodes, never HTML. Log details have desktop max width 960px and narrow gutters.
 
-还原、删除均使用明确的危险操作按钮及取消按钮。点击遮罩不关闭此确认框；取消和关闭按钮退出且不执行操作。警告需说明操作后果，未版本文件删除明确提示永久删除及无法撤销。路径以文本节点呈现，不能作为 HTML 插入。日志详情桌面最大宽度 960px，窄窗口保持左右留白。
+## Motion
 
-## 动效
-
-| 用途 | 时长 | 规则 |
+| Purpose | Duration | Rule |
 | --- | --- | --- |
-| 悬停、颜色、边框、焦点 | 150ms | `--app-transition-fast` 已包含缓动，不能再追加 `ease-out` |
-| 内容进入、加载遮罩退出 | 250ms | 使用 `--app-transition-normal` 或纯时长 `--app-duration-normal` |
-| 较慢的局部过渡 | 350ms | 仅在必要时使用 |
-| 加载循环 | 独立周期 | 仅在请求仍进行时播放，不用来表示精确进度 |
+| Hover/color/border/focus | 150ms | `--app-transition-fast` already includes easing; do not append `ease-out`. |
+| Content entry/loading exit | 250ms | `--app-transition-normal` or duration-only `--app-duration-normal`. |
+| Slower local transition | 350ms | Only when needed. |
+| Loading loop | Independent cycle | Only while pending; never exact progress. |
 
-加载遮罩进入使用 150ms 淡入，退出使用 250ms 淡出；指示器最多放大到 1.05 倍，不逐帧动画化模糊滤镜。遮罩不阻塞指针操作，业务禁用状态由控件管理。
+Loading overlays fade in over 150ms and out over 250ms. Indicator scale is at most 1.05; do not animate blur filters per frame. Overlay does not intercept pointers; controls manage business disabling.
 
-避免 `transition: all`，列出实际变化的属性。按钮按下可缩放到 0.98。系统开启 `prefers-reduced-motion: reduce` 时，全局动画只运行一次且时长压缩为 0.01ms，过渡延迟清零，取消平滑滚动和按钮按下缩放；加载状态文字仍然显示。
+Avoid `transition: all`; name changing properties. Press scale may be 0.98. Under `prefers-reduced-motion: reduce`, global animations run once for 0.01ms, delays become zero, and smooth scrolling/press scaling are removed. Loading text remains.
 
-## 验收标准
+## Acceptance
 
-每次变更按影响范围验收。纯文档修改核对链接、变量和实现描述；样式或组件行为修改运行 `npm run build`、`npm run test:unit`，并完成相关视觉检查。
+Validate affected scope. Documentation changes check links, tokens, and implementation descriptions. Style/component changes run `npm run build`, `npm run test:unit`, and relevant visual checks.
 
-| 检查维度 | 最低覆盖 | 通过标准 |
+| Dimension | Minimum coverage | Pass criterion |
 | --- | --- | --- |
-| 主题与窗口 | 浅色、深色 × 1280px、390px | 文字可读，操作可达，外壳无横向溢出 |
-| 交互 | 鼠标选中、悬停、键盘焦点、禁用 | 选中与焦点独立；工作区点击不产生整行蓝框 |
-| 内容边界 | 长路径、长作者、长提交信息、空数据、错误 | 不撑破布局，完整内容可查看 |
-| 对话框 | 长标题、长路径、取消、关闭、遮罩 | 标题与关闭按钮不重叠，取消不执行操作 |
-| 动效 | 正常偏好、减少动态效果 | 正常状态无布局跳动；减少动态效果仍有状态反馈 |
-| 桌面集成 | 真实工作副本的受影响流程 | 界面与 SVN 结果一致，不使用浏览器预览代替集成验收 |
+| Theme/window | Light/dark × 1280px/390px | Readable, reachable, no shell overflow |
+| Interaction | Mouse selection/hover/keyboard focus/disabled | Independent selection/focus; no full-row blue click border |
+| Content boundaries | Long paths/authors/messages, empty/error | Stable layout with full content accessible |
+| Dialogs | Long title/path, cancel/close/overlay | No title/close overlap; cancel performs no action |
+| Motion | Normal/reduced | No layout jumps; retained status feedback |
+| Desktop integration | Affected real-working-copy flows | UI matches SVN; browser preview does not substitute |
 
-审校记录应写明日期、变更、验证方式、实际覆盖及未验证项，保留历史结果，不把后续修复写成历史上已通过的检查。历史综合审校见 [2026-10-01 样式与动效审校](visual-audit-2026-10-01.md)；此后已移除工作区文件行 `:focus-within` 整行边框，本规范同步明确了选中与键盘焦点的区别。
+Audit records state date, changes, method, coverage, and unverified items. Preserve earlier results instead of retroactively claiming later fixes had passed. See [2026-10-01 audit](visual-audit-2026-10-01.md). The later removal of whole-row `:focus-within` borders established the distinction between selection and keyboard focus.
 
-后续实现及浏览器验证见 [2026-10-02 视觉规范落实记录](visual-implementation-2026-10-02.md)。
+See [2026-10-02 implementation](visual-implementation-2026-10-02.md) and [2026-10-09 re-audit](visual-audit-2026-10-09.md) for later fixes and remaining gaps.
 
-此前复核、修复和剩余差距见 [2026-10-09 视觉规范重新审校](visual-audit-2026-10-09.md)。
+## Current screenshots and validation scope
 
-## 当前截图与本次验证范围
+Workspace/Properties screenshots were recaptured on 2026-10-16 in light/dark at 1440 × 900 with fictional projects, paths, URLs, code, and properties. See [screenshot instructions](images/README.md). Light screenshots show blue-gray colors, dark sidebar, and StoneSVN graphic; Properties shows tree, statuses, search, and actions.
 
-2026-10-16 重新截取工作区和属性页的浅色、深色主题，均为 1440 × 900，使用虚构项目、路径、仓库地址、代码与属性。截图及复现流程见 [文档截图](images/README.md)。浅色截图体现新的蓝灰配色、深色项目栏与 StoneSVN 图形；属性页展示树、状态标记、搜索入口和文件操作栏。
-
-本次仅更新文档与截图脚本，检查四张图的文字、图标、面板和敏感信息，并核对文档中的颜色、尺寸与源码；没有执行导出、删除、恢复或属性写入。此记录不代表所有页面通过完整视觉审校，也不代表原生系统图标、SVN 操作和系统文件对话框通过桌面集成验证。属性页当前仍为左右布局，窄窗口可达性需另行实测，不能套用工作区上下布局的结论。
+This round changed documentation/screenshot scripts only, inspected four images for text/icons/panels/sensitive content, and compared documented colors/sizes with source. No export/delete/restore/property writes were executed. It does not establish complete visual compliance or native icons/SVN/dialog integration. Properties remains side-by-side; its narrow reachability requires separate testing rather than inheriting Workspace's stacked-layout result.

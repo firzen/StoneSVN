@@ -2,7 +2,7 @@
 
 [公式サイト](https://stonesvn.github.io)
 
-[简体中文](README.md) | [繁體中文](README.zh-TW.md) | [English](README.en.md) | 日本語 | [한국어](README.ko.md)
+[English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | 日本語 | [한국어](README.ko.md)
 
 StoneSVN は、Tauri、Rust、Vue 3 で構築されたクロスプラットフォーム対応の SVN デスクトップクライアントです。SVN の集中型バージョン管理モデルを維持しながら、Git クライアントのように分かりやすい作業コピー体験を提供します。
 
@@ -35,7 +35,7 @@ Switch と汎用 Merge は引き続き他の SVN クライアントまたはコ�
 
 macOS は Intel Mac 用の `x64` DMG と、Apple Silicon 用の `aarch64` DMG を提供します。「この Mac について」でチップを確認してください。
 
-macOS 版は無料の Ad-hoc 署名を使用し、Apple の公証は受けていません。StoneSVN を「アプリケーション」に移動し、初回起動がブロックされた場合は「システム設定 → プライバシーとセキュリティ → このまま開く」で許可してください。管理対象の Mac では IT 管理者の許可が必要な場合があります。[macOS ビルド・配布ガイド（中国語）](docs/macos-distribution.md)も参照してください。
+macOS 版は無料の Ad-hoc 署名を使用し、Apple の公証は受けていません。StoneSVN を「アプリケーション」に移動し、初回起動がブロックされた場合は「システム設定 → プライバシーとセキュリティ → このまま開く」で許可してください。管理対象の Mac では IT 管理者の許可が必要な場合があります。[macOS ビルド・配布ガイド（中国語）](docs/macos-distribution.zh-CN.md)も参照してください。
 
 インストール後、SVN CLI が利用できることを確認してください。
 

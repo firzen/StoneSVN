@@ -1,111 +1,104 @@
 # TODO
 
-## P1 - 日志页开始日期/结束日期显示与筛选稳定性
+English | [简体中文](todo.zh-CN.md)
 
-状态：已切换为稳定组件实现，仍需界面验收。
+## P1 Log date-range display and filter stability
 
-### 问题现象
+Status: migrated to a stable component implementation; visual acceptance remains pending.
 
-- 日志页筛选区的“开始日期”“结束日期”在优化后出现显示异常。
-- 第一次修复把固定标签改成日期输入框 placeholder，选择日期后标签消失。
-- 第二次修复把固定标签包在 `el-date-picker` 外层，但截图显示右侧日期输入区域为空白，空值状态不可感知。
-- 第三次修复改为原生 `input[type="date"]` 后，浏览器本地化占位显示为 `yyyy/mm/日`，弹出的系统日期面板为白色样式，仍然不符合深色主题和项目 UI。
-- 第四次修复尝试自绘日期面板，但弹层内容被挤进筛选栏，说明半自定义弹层仍有挂载/裁剪风险。
+### Symptoms
 
-### 根因分析
+- Start/end date labels became incorrect after optimization.
+- First fix replaced labels with placeholders, which disappeared after selection.
+- Second fix wrapped fixed labels outside `el-date-picker`, but screenshots showed a blank right input and an unclear empty state.
+- Third fix used native `input[type="date"]`; the browser showed a mixed localized placeholder (`yyyy/mm/日`) and a white system calendar inconsistent with the dark theme.
+- Fourth fix attempted a custom calendar, but its content was squeezed into the filter bar, exposing mounting/clipping risks.
 
-- 关键说明文字不应该依赖 placeholder。placeholder 只适合辅助提示，输入有值后会自然消失。
-- `el-date-picker` 被包进自定义 `.date-filter` 外壳后，页面同时依赖 Element Plus 内部 DOM、全局主题样式、局部 scoped 深层选择器。这个组合太脆弱。
-- 全局样式里还残留了 `log-date-picker-dropdown` 和旧 `.date-filter input` 相关样式，说明日期控件经历过多次实现切换，存在死代码和样式责任不清的问题。
-- 问题本质不是单纯颜色缺失，而是控件结构与样式所有权不清：同一个日期输入同时被自定义外壳、Element Plus 组件内部结构、深色主题覆盖影响。
-- 原生 `input[type="date"]` 的占位文本、日期格式和弹出面板由浏览器/系统控制，应用无法可靠统一为项目需要的 `YYYY/MM/DD` 展示和深色弹窗样式。
-- 自绘日历如果通过 `el-popover` 嵌在筛选栏内，容易受到父容器尺寸、overflow 和弹层挂载策略影响，出现内容泄漏或裁剪。
+### Root causes
 
-### 当前修复策略
+- Essential labels cannot depend on placeholders, which disappear once populated.
+- A custom `.date-filter` wrapper coupled Element Plus internals, global theme styles, and scoped deep selectors too tightly.
+- Leftover `log-date-picker-dropdown` and `.date-filter input` rules indicated dead code and unclear ownership after repeated replacements.
+- Input structure/style ownership was unclear across wrapper, component internals, and theme overrides, rather than merely a missing color.
+- Native date placeholders/formats/popups are controlled by the browser/OS and cannot reliably match `YYYY/MM/DD` and the application's dark popup.
+- A calendar embedded with `el-popover` can leak or clip due to parent sizing, overflow, and mount strategy.
 
-- 日志页日期筛选改为 Element Plus 标准 `daterange`，避免自绘弹层和原生日期输入的不可控问题。
-- 空值状态显示“开始日期”“结束日期”占位，选中后统一显示 `YYYY/MM/DD`。
-- 保留日期范围约束：
-  - 范围组件天然保证开始日期不晚于结束日期。
-  - 清空范围会同时清空开始日期和结束日期。
-- 默认筛选日期为空，打开日志页不会默认只显示当天提交。
-- 重置筛选统一使用 `getDefaultFilters()`，避免多处手写重置逻辑漂移。
-- 清理 `log-date-picker-dropdown`、`.date-filter`、自绘 `calendar-*` 等残留样式，避免后续误用或同名污染。
+### Current fix
 
-### 验收标准
+- Use Element Plus standard `daterange`, avoiding custom popups/native-date limitations.
+- Empty inputs show Start Date/End Date placeholders; selected values use `YYYY/MM/DD`.
+- Preserve ordering constraints: the range prevents start after end, and clearing clears both.
+- Default dates remain empty so opening Log does not restrict history to today.
+- Reset through `getDefaultFilters()` to prevent duplicated reset logic drifting.
+- Remove obsolete `log-date-picker-dropdown`, `.date-filter`, and custom `calendar-*` styles.
 
-- 深色主题下，日志页筛选栏的日期范围控件不溢出、不重叠、不泄漏弹层内容。
-- 日期为空时，控件显示“开始日期”“结束日期”，不出现整块空白误判。
-- 日期为空时显示“选择日期”，不能出现浏览器本地化占位 `yyyy/mm/日`。
-- 弹出日期面板必须匹配深色主题，不能出现系统白底日期选择器，也不能被压进筛选栏。
-- 选中日期后输入区统一显示 `YYYY/MM/DD`。
-- 选择开始日期后，结束日期不能选择更早日期。
-- 选择结束日期后，开始日期不能选择更晚日期。
-- 点击“重置”后，作者、关键词、开始日期、结束日期全部清空。
-- 首次进入日志页时不过滤日期，已加载日志可以正常展示。
-- 窄屏布局下日期筛选不重叠、不截断、不挤压重置按钮。
+### Acceptance criteria
 
-### 防回归要求
+- No filter overflow, overlap, or leaked popup content in dark theme.
+- Empty dates are identifiable and not blank blocks.
+- Empty state uses the application date hint, never browser-localized `yyyy/mm/日`.
+- Calendar matches the dark theme and is neither a white system picker nor squeezed into the filter bar.
+- Selected values consistently use `YYYY/MM/DD`.
+- End cannot precede start, and start cannot follow end.
+- Reset clears author, keyword, and both dates.
+- Initial Log entry applies no date restriction and displays loaded history.
+- Narrow filters do not overlap, clip, or squeeze Reset.
 
-- 后续不要把“开始日期”“结束日期”这类关键标签改回 placeholder。
-- 如果重新引入 `el-date-picker`，必须先定义清楚：
-  - 固定标签由外层组件负责。
-  - 日期输入宽度、颜色、空值状态由单一样式层负责。
-  - 深色主题下需要实际截图验收。
-- 后续不要再使用原生 `input[type="date"]` 承载日志页日期筛选 UI；它的显示格式和弹窗样式不可控。
-- 后续不要在筛选栏里自绘日期弹层；优先使用标准 `daterange` 或独立可复用组件，并实际截图验收弹层位置。
-- 删除或修改日期控件时，必须搜索并处理 `date-filter`、`date-picker`、`log-date-picker` 相关残留样式。
+### Regression requirements
 
-### 相关文件
+- Do not turn essential fixed date labels back into placeholders.
+- If `el-date-picker` is reintroduced, define fixed-label ownership in the outer component and input width/color/empty state in one style layer; verify actual dark screenshots.
+- Do not use native `input[type="date"]` for Log filtering.
+- Do not draw a calendar inside the filter bar; prefer standard `daterange` or an independently reusable component and verify popup placement.
+- Search/remove remaining `date-filter`, `date-picker`, and `log-date-picker` rules when changing controls.
 
-- `src/views/LogView.vue`
-- `src/style.css`
+Related: `src/views/LogView.vue`, `src/style.css`.
 
-## 待确认问题 - Issue #6 差异页长路径显示
+## Pending clarification Issue 6 long paths in Diff
 
-状态：Issue #6 已关闭，v0.6.1 已加入布局约束；原始报告的触发条件和具体溢出元素仍待确认。
+Status: Issue 6 is closed and v0.6.1 added layout constraints; original triggers/overflowing elements still need confirmation.
 
-### 已知情况
+### Known evidence
 
-- 报告截图中，文件列表的部分长文件名已有省略号；用户在自己的 v0.6 环境也看到省略号，未复现报告中的问题。
-- v0.6.0 的文件列表已有 `text-overflow: ellipsis`。简化页面测量显示文件列表能在侧栏内截断，而差异页顶部路径标签的文字可能超出标签范围。
-- 从日志页打开差异时会传入完整仓库 URL，可能使顶部路径文字更长。现有证据不足以断定原始截图的溢出一定来自该标签。
+- Some filenames in the report already had ellipses. The user's v0.6 environment also did; the reported failure was not reproduced.
+- v0.6.0 already used `text-overflow: ellipsis` in the file list. Simplified measurements showed list truncation worked while the diff-header path could exceed its label.
+- Log-to-Diff navigation passes a full repository URL and may lengthen the header. Evidence does not establish that this caused the original screenshot.
 
-### 待确认
+### Follow-up
 
-- 获取原始复现环境：应用版本、操作系统、显示缩放、窗口大小、进入差异页的路径，以及脱敏后的仓库 URL 和文件路径长度。
-- 在相同数据和窗口条件下对比 v0.6.0 与 v0.6.1，确认溢出位置是文件列表、顶部路径标签，还是其他元素。
-- 验证长路径时文件列表文字留在侧栏内并显示省略号；顶部路径标签不遮挡相邻的版本信息或统计内容，悬停仍能看到完整路径。
-- 如果 v0.6.1 仍复现，记录相关元素的实际宽度与计算样式，再确定根因和后续修复。
+- Obtain version, OS, scaling, window size, navigation path, and sanitized URL/file-path lengths.
+- Compare v0.6.0/v0.6.1 under identical data/window conditions to locate the actual overflow.
+- Confirm filenames stay inside the sidebar with ellipses, header paths do not obscure revision/statistics, and full paths remain available on hover.
+- If reproduced in v0.6.1, capture actual widths/computed styles before determining a fix.
 
-相关位置：`src/views/DiffView.vue`、`src/views/LogView.vue`；[Issue #6](https://github.com/wustites/OrcaSVN/issues/6)。
+Related: `src/views/DiffView.vue`, `src/views/LogView.vue`; [Issue 6](https://github.com/wustites/OrcaSVN/issues/6).
 
-## P2 - 提交树虚拟化与按需展开
+## P2 Commit-tree virtualization and lazy expansion
 
-状态：暂缓，按用户要求放入待办；本轮仅处理工作区和 Diff 虚拟滚动。
+Status: deferred at user request; this round covered Workspace/Diff virtual scrolling only.
 
-- 将 CommitView 的 el-tree 迁移为 ElTreeV2，取消 default-expand-all，默认仅展开根节点。
-- 将展开状态和勾选状态保存在数据层，保证折叠或未渲染的后代仍计入提交范围。
-- 搜索时展开匹配节点的祖先，清空搜索后恢复原展开状态。
-- 优化目录选中和半选统计，避免渲染时反复遍历全部后代。
-- 验证大目录联动勾选、搜索隐藏项统计、刷新后状态保留，以及删除或替换目录完整选择约束。
+- Migrate CommitView from el-tree to ElTreeV2, remove default-expand-all, and initially expand only the root.
+- Store expansion/selection in the data layer so collapsed/unrendered descendants still count.
+- Expand matching ancestors during search and restore earlier expansion afterward.
+- Optimize selection/partial-selection counts to avoid repeated full-descendant traversal during rendering.
+- Check large-directory selection, hidden-match totals, state after refresh, and full-scope deletion/replacement constraints.
 
-相关文件：src/views/CommitView.vue、src/utils/changeTree.ts。
+Related: `src/views/CommitView.vue`, `src/utils/changeTree.ts`.
 
-## P2 - 命令行启动入口与更新检测机制
+## P2 CLI entry point and update checks
 
-状态：已实现，待各平台安装包实机验收。
+Status: implemented; real installer acceptance remains pending on every platform.
 
-### 已实现
+### Implemented
 
-- 命令行：支持 `stonesvn` 与 `stonesvn <path>`；第一个非 `-` 开头且存在的目录参数会作为工作区打开，否则回退到上次工作区（`launch_workspace_path`）。
-- Windows：NSIS `installerHooks`（`src-tauri/installer/hooks.nsh`）安装时把安装目录写入用户 PATH，卸载时移除；Windows 不区分大小写，`stonesvn` 即可调用 `StoneSVN.exe`。
-- Linux：deb/rpm 安装后创建 `/usr/bin/stonesvn -> /usr/bin/StoneSVN`，卸载后清理（升级时不删除）。
-- 更新检测：启动时异步请求 GitHub `releases/latest`（10 秒超时，仅比较稳定版 `x.y.z`），有新版本时状态栏和设置页版本号旁显示提示，点击打开发布页；失败静默，设置页可手动“检查更新”。版本号来源仍为 `package.json`。
-- 获取方式采用跳转发布页，未接入 Tauri updater（需签名密钥与发布产物改造）。
+- Support `stonesvn` and `stonesvn <path>`. The first existing directory argument not starting with `-` opens as the workspace; otherwise use the last workspace (`launch_workspace_path`).
+- Windows NSIS `installerHooks` (`src-tauri/installer/hooks.nsh`) adds/removes the installation directory in user PATH. Case-insensitivity lets `stonesvn` invoke `StoneSVN.exe`.
+- Linux deb/rpm create `/usr/bin/stonesvn -> /usr/bin/StoneSVN`; remove it on uninstall, not upgrade.
+- Startup asynchronously checks GitHub `releases/latest` with a ten-second timeout and stable `x.y.z` comparison. A newer version adds status-bar/Settings notices linking to Releases. Failures are silent; Settings provides Check for Updates. Version still comes from `package.json`.
+- Downloads open the release page; Tauri updater integration would require signing keys/artifact changes.
 
-### 待验收 / 遗留
+### Pending acceptance and limitations
 
-- Windows 安装后新开终端执行 `stonesvn`，卸载后 PATH 不残留；Linux deb/rpm 同样验证。
-- macOS 的 `.app`/dmg 无安装脚本，需用户手动 `ln -s /Applications/StoneSVN.app/Contents/MacOS/StoneSVN /usr/local/bin/stonesvn`，可考虑在设置页提供“安装命令行工具”。
-- 程序已运行时再次执行 `stonesvn <path>` 会启动第二个实例；如需复用窗口可接入 single-instance 插件。
+- Verify `stonesvn` from a new Windows terminal after installation and no stale PATH after uninstall; similarly check Linux deb/rpm.
+- macOS `.app`/DMG has no installer script. Users can run `ln -s /Applications/StoneSVN.app/Contents/MacOS/StoneSVN /usr/local/bin/stonesvn`; consider an Install CLI action in Settings.
+- Running `stonesvn <path>` while the app is open starts a second instance. Reusing a window would require a single-instance plugin.

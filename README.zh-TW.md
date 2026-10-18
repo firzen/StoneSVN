@@ -2,7 +2,7 @@
 
 [官方網站](https://stonesvn.github.io)
 
-[简体中文](README.md) | 繁體中文 | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+[English](README.md) | [简体中文](README.zh-CN.md) | 繁體中文 | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 StoneSVN 是一款以 Tauri、Rust 和 Vue 3 打造的跨平台 SVN 桌面用戶端。它將 Git 用戶端清晰的工作副本體驗帶到 SVN，同時保留 SVN 的集中式版本控制模式。
 
@@ -35,7 +35,7 @@ Switch 與一般 Merge 仍需使用其他 SVN 用戶端或命令列。衝突操�
 
 macOS 安裝包依晶片區分：Intel Mac 選擇檔名含 `x64` 的 DMG；M 系列 Mac 選擇 `aarch64`。可在「關於這台 Mac」確認晶片類型。
 
-macOS 版本採用免費的 Ad-hoc 簽署，未經 Apple 公證。將 StoneSVN 拖入「應用程式」後，首次開啟若遭阻擋，請前往「系統設定 → 隱私權與安全性 → 強制打開」，再確認開啟。公司管理的 Mac 可能需要 IT 核准。詳見 [macOS 建置與散佈說明（簡體中文）](docs/macos-distribution.md)。
+macOS 版本採用免費的 Ad-hoc 簽署，未經 Apple 公證。將 StoneSVN 拖入「應用程式」後，首次開啟若遭阻擋，請前往「系統設定 → 隱私權與安全性 → 強制打開」，再確認開啟。公司管理的 Mac 可能需要 IT 核准。詳見 [macOS 建置與散佈說明（簡體中文）](docs/macos-distribution.zh-CN.md)。
 
 安裝後，請確認 SVN CLI 可以使用：
 

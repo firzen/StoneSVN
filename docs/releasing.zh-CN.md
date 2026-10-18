@@ -1,0 +1,59 @@
+# 正式发布
+
+[English](releasing.md) | 简体中文
+
+正式版本使用 `vX.Y.Z`。不要手动打正式标签，不要移动已公开的标签。预发布仍使用[预发布流程](prerelease.zh-CN.md)，不会同步到正式官网。
+
+## 准备一次发布
+
+1. 完成代码和用户文档，在 `docs/releases/vX.Y.Z.md` 编写 GitHub Release 的完整说明。
+2. 在 `docs/releases/vX.Y.Z.website.json` 编写官网摘要，结构参照 `v1.1.2.website.json`。必须包含 `en`、`zh-CN`、`zh-TW`、`ja`、`ko`，每种语言提供 `title` 和非空 `items` 数组。流水线同步已审核文案，不依赖机器翻译服务。
+3. 运行 `npm run release:prepare -- X.Y.Z`，统一 npm、Tauri、Cargo 和锁文件的六处版本值。此命令要求版本递增，且更新说明已齐全。
+4. 审阅、提交并推送到 `main`。版本文件或更新说明变更会触发 **Stable Release**。若推送使用的令牌不触发 Actions，在 Actions 页面手动运行，或运行：
+
+```bash
+gh workflow run tauri-build.yml --ref main
+```
+
+不需要创建标签、上传安装包或手动更新官网。
+
+## 自动流程和失败处理
+
+流水线固定候选提交 SHA，校验版本及五种语言摘要。已公开的当前版本自动跳过，普通开发提交不会重复发布。
+
+1. Ubuntu x64、Windows x64、macOS Apple Silicon 和 macOS Intel 分别运行 `npm run check`（前端构建、Node 回归、Rust 格式和测试），再构建安装包。macOS 还验证架构和 Ad-hoc 签名。
+2. 收齐并核对 9 个产物：两种 Mac DMG 与 app 压缩包、Windows EXE/MSI、Linux AppImage/DEB/RPM。所有平台成功且 `main` 仍指向候选提交后，才创建指向该提交的标签。
+3. 创建 Release 草稿，上传并核对每个附件的名称、大小和上传状态，再公开并设置 Latest。已公开版本不能覆盖；失败草稿只允许用相同源码重试。
+4. 官网 **Sync Release and Deploy** 每 5 分钟检查一次 Latest，从发布标签的源码启动 Vite，以虚构文档数据生成五种语言的浅色工作区、深色工作区和属性页截图（共 15 张），不执行真实 SVN 操作。同步五种语言摘要、发布时间、版本和源码 SHA，生成带更新说明及 SoftwareApplication 版本信息的静态页面，再推送官网仓库。截图 URL 带源码 SHA，避免缓存显示旧图。
+
+跨平台检查或构建失败时，不创建标签和 Release。上传阶段失败时草稿不公开，可修复基础设施问题后重跑；若要改源码，重新准备候选版本。若检查期间 `main` 有新提交，发布门禁拒绝旧候选，请对最新 `main` 重新运行。
+
+官网失败不撤回已公开版本。在官网仓库 Actions 单独运行 **Sync Release and Deploy**（使用 Latest），或执行：
+
+```bash
+gh workflow run sync-release.yml --repo stonesvn/stonesvn.github.io --ref main
+```
+
+官网只允许同步当前 Latest 正式版本，避免旧任务回写旧版本。官网推送采用普通快进，若页面维护提交同时发生，任务失败而不会覆盖维护内容，重新运行即可。
+
+## 官网权限与部署
+
+官网仓库禁用了 deploy keys，因此使用拉取式同步，不配置跨仓库密钥或个人令牌。官网自己的 `GITHUB_TOKEN` 只写官网内容，单独的部署作业只有 `pages: write` 与 `id-token: write`。应用仓库只有最终 publish 作业有 `contents: write`。
+
+官网仓库 `.github/workflows/sync-release.yml` 每 5 分钟检查 GitHub Latest；GitHub 定时任务可能延迟。没有新版本时不安装依赖、不截图、不提交、不部署。正式版更新后自动生成五种语言内容和截图，推送生成文件，再通过 `deploy-pages` 部署；不依赖机器人提交触发另一个工作流。官网需配置 Pages 的 build type 为 workflow。
+
+需要立即同步时手动运行官网工作流。官网模板或样式推送到 `main` 时也会重新部署。并发维护导致推送冲突会中止任务，下一次运行重试，不强推。
+
+## 检查流程自身
+
+在 **Stable Release** 手动勾选 `validate_only`，或执行：
+
+```bash
+gh workflow run tauri-build.yml --ref main -f validate_only=true
+```
+
+这会完整执行四个平台的检查和打包，保留 7 天构建产物，不创建标签、不发版、不修改官网。适合检查流水线改动。
+
+Windows 固定使用 SlikSVN 1.14.5，并仅为临时 CI SVN 进程启用 UTF-8，保留多语言路径回归。SVN 不随安装包分发。macOS 使用 Ad-hoc 签名，未经过 Apple 公证。CI 的检查、打包及截图不能替代各平台安装启动与真实仓库操作的人工验收。
+
+StoneSVN 的正式仓库为 `firzen/StoneSVN`，安装包通过 GitHub Releases 分发。应用标识仍为 `com.orcasvn.desktop`，保留原有本地数据兼容；不复用历史 WinGet 分发标识。

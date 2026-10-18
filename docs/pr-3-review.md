@@ -1,52 +1,44 @@
-# PR #3 合并与审查记录
+# PR 3 merge and review record
 
-## PR 目标
+English | [简体中文](pr-3-review.zh-CN.md)
 
-PR #3 为提交、日志和差异查看流程增加以下能力：
+## Objective
 
-- 提交文件搜索、筛选与表单状态恢复。
-- 在差异页面通过文件列表连续浏览改动。
-- 从日志详情进入差异页面后保留浏览上下文。
-- 可选的 `.gitignore` 状态列表过滤。
-- 清理构建警告并将 Vite 配置迁移到 ESM。
+PR 3 adds:
 
-## `.gitignore` 行为定义
+- Commit-file search, filtering, and form-state restoration.
+- Continuous file-list navigation in Diff.
+- Preserved browsing context when opening Diff from log details.
+- Optional `.gitignore` status filtering.
+- Build-warning cleanup and ESM Vite configuration.
 
-保留 PR 的原始设计：启用 `.gitignore` 过滤后，匹配规则的项目会从
-OrcaSVN 状态列表和提交候选列表中隐藏，无论该项目是否已经被 SVN 跟踪。
+## Historical gitignore behavior
 
-该功能只影响 OrcaSVN 的界面展示和操作候选项，不修改 SVN 仓库、工作副本
-元数据或 `svn:ignore` 属性。关闭该设置后，`.gitignore` 不参与状态过滤。
+The original PR design hides matching entries from OrcaSVN status and commit candidates when `.gitignore` filtering is enabled, whether or not SVN tracks them.
 
-## 合并处理
+This affects UI display/candidates only, without changing repository data, working-copy metadata, or `svn:ignore`. Disabling it stops `.gitignore` filtering. This is a historical record; current filtering behavior is described in the [user guide](user-guide.md#settings-and-display).
 
-PR 基于 v0.4.8 开发，与 v0.4.9 的 `package-lock.json` 发生冲突。合并时采用
-v0.4.9 的版本和依赖结果，并保留 PR 功能。
+## Merge handling
 
-v0.4.9 已将图标迁移到 Material Symbols。PR 新增的搜索、前进、后退和返回图标
-已接入现有 Material Symbols 注册机制，没有重新引入已移除的
-`@element-plus/icons-vue` 直接依赖。
+The PR was based on v0.4.8 and conflicted with v0.4.9's `package-lock.json`. The merge retained v0.4.9 versions/dependencies and the PR features.
 
-## 审查问题与修复
+v0.4.9 had migrated to Material Symbols. New search/forward/back/return icons use the existing registry without reintroducing the removed direct `@element-plus/icons-vue` dependency.
 
-以下审查问题已在合并分支修复：
+## Review fixes
 
-1. 修复 `.gitignore` 目录规则匹配。
-   `dist/`、`node_modules/` 等规则现在会匹配目录自身及目录下的内容。
-2. 修复 `.gitignore` 跨工作区缓存污染。
-   缓存同时关联工作区路径和文件修改时间，不再跨工作区错误复用规则。
-3. 修复日志详情恢复状态被提前清理。
-   从日志弹窗进入差异页面时保留选中 revision，返回日志页后恢复详情弹窗。
+1. Directory rules such as `dist/` and `node_modules/` now match the directory itself and its content.
+2. Ignore caches include workspace path and modification time, preventing cross-workspace reuse.
+3. Opening Diff from log details preserves the selected revision and restores the details dialog on return.
 
-## 验证结果
+## Validation
 
-- `npm run build` 通过。
-- `git diff --check` 通过。
-- `.gitignore` 目录、通配符、否定规则及根目录规则用例通过。
-- 完整 Rust 检查未能运行：本地 Rust `1.96.0` 工具链缺少 manifest。
+- `npm run build` passed.
+- `git diff --check` passed.
+- Directory, wildcard, negation, and root ignore-rule cases passed.
+- Full Rust checks could not run because the local Rust `1.96.0` toolchain lacked its manifest.
 
-## 本地合并信息
+## Local merge
 
-- 目标分支：`main`（v0.4.9）
-- 来源：PR #3
-- 合并提交：`e7f88c9`
+- Target: `main` (v0.4.9)
+- Source: PR 3
+- Merge commit: `e7f88c9`

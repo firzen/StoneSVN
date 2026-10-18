@@ -1,15 +1,17 @@
-# 项目栏与顶栏调整
+# Project sidebar and toolbar changes
 
-顶栏保留现有 Logo 和名称，集中原侧栏的功能入口，右侧保留设置和语言切换。按钮增加留白，语言切换采用原有地球图标，移除下拉箭头。
+English | [简体中文](project-sidebar-2026-10-16.zh-CN.md)
 
-左侧改为持久项目列表，兼容原有最近工作区记录，取消 10 个项目上限。切换项目默认回到工作区，清除属于上一项目的文件查询参数。项目支持拖动排序、右键打开目录、复制路径、上移、下移和从列表移除；移除不操作本地工作副本。项目栏宽度可通过拖动或键盘调整并保存。
+The top bar retains the logo/name and consolidates the previous navigation actions, with Settings and language on the right. Buttons gain spacing; the language action keeps its globe and removes the dropdown arrow.
 
-变更数量来自最近一次成功扫描，悬停项目可查看扫描时间。未完成扫描的项目不显示虚构数量。提交草稿和选择、工作区筛选与选中文件、日志筛选和分页按项目保存于当前会话。提交、更新执行期间禁用项目切换，标题显示操作状态。
+The left becomes a persistent project list, migrates recent workspaces, and removes the ten-project limit. Switching projects defaults to Workspace and clears the previous project's file query parameters. Drag sorting and context actions support opening directories, copying paths, moving up/down, and removing entries without touching local working copies. Sidebar width is adjustable by mouse/keyboard and persisted.
 
-验证使用浏览器中的模拟 SVN 数据，覆盖浅色和深色主题、1280px 和 390px 视口，检查应用及顶栏无横向溢出、语言按钮排列及箭头移除，并检查隔离提交草稿和恢复日志筛选。项目切换随后调整为默认回到工作区；该调整通过构建检查，尚未重新进行界面实测。键盘调整项目栏宽度，以及切换 English 后的顶栏布局均已检查。
+Change counts come from the latest successful scan; hover shows its time. Unscanned projects have no fabricated count. Commit drafts/selections, workspace filters/selected file, and log filters/pagination are stored per project in the current session. Project switching is disabled during commit/update, with operation status in the title.
 
-`npm run build` 通过；`npm run test:unit` 的 82 项测试全部通过。新增测试覆盖项目记录迁移、超过 10 个项目、顺序保存、项目移除、属性变更计数及更新期间的忙碌状态。
+Browser validation used simulated SVN data in light/dark themes at 1280px and 390px, checking horizontal overflow, language-button layout/arrow removal, draft isolation, and log-filter restoration. The later change to default project switches to Workspace passed the build but was not rechecked visually. Keyboard width adjustment and the English toolbar layout were checked.
 
-真实 Tauri 桌面中的 SVN 操作、系统目录选择器和 Finder 打开流程尚未验证。浏览器检查不作为这些集成流程的验收依据。
+`npm run build` passed; all 82 `npm run test:unit` tests passed. New tests cover record migration, more than ten projects, order persistence, removal, property-change counts, and busy state during updates.
 
-后续调整包括文本、图片、二进制文件和目录的分类预览，减少预览切换时的重复读取和 SVN 命令，合并快速切换时的待处理请求，并延后显示加载动画。工作区列表排除仅属性变更的条目；提交页保留这些条目，文件夹复选框只控制自身，「连同子项」可批量选择目录。目录属性、根目录属性和新增空目录的独立提交已通过临时 SVN 仓库测试，子文件保持未提交。
+Real Tauri SVN operations, native directory pickers, and Finder opening were not verified. Browser checks do not establish acceptance of those integrations.
+
+Subsequent changes classify text/image/binary/directory previews, reduce repeated reads/SVN commands, merge pending rapid-switch requests, and delay loading animation. Workspace lists omit property-only changes while Commit retains them. Directory checkboxes control only the directory; Include Descendants selects its content. Temporary SVN repository tests confirmed independent commits of directory/root properties and new empty directories while child-file edits remain uncommitted.

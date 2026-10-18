@@ -1,57 +1,59 @@
-# 正式发布
+# Stable releases
 
-正式版本使用 `vX.Y.Z`。不要手动打正式标签，不要移动已公开的标签。预发布仍使用[预发布流程](prerelease.md)，不会同步到正式官网。
+English | [简体中文](releasing.zh-CN.md)
 
-## 准备一次发布
+Stable releases use `vX.Y.Z`. Do not create stable tags manually or move published tags. Prereleases use the [prerelease workflow](prerelease.md) and are not synchronized to the stable website.
 
-1. 完成代码和用户文档，在 `docs/releases/vX.Y.Z.md` 编写 GitHub Release 的完整说明。
-2. 在 `docs/releases/vX.Y.Z.website.json` 编写官网摘要，结构参照 `v1.1.2.website.json`。必须包含 `en`、`zh-CN`、`zh-TW`、`ja`、`ko`，每种语言提供 `title` 和非空 `items` 数组。流水线同步已审核文案，不依赖机器翻译服务。
-3. 运行 `npm run release:prepare -- X.Y.Z`，统一 npm、Tauri、Cargo 和锁文件的六处版本值。此命令要求版本递增，且更新说明已齐全。
-4. 审阅、提交并推送到 `main`。版本文件或更新说明变更会触发 **Stable Release**。若推送使用的令牌不触发 Actions，在 Actions 页面手动运行，或运行：
+## Prepare a release
+
+1. Complete code and user documentation, and write the full GitHub Release notes in `docs/releases/vX.Y.Z.md`.
+2. Add website summaries in `docs/releases/vX.Y.Z.website.json`, using `v1.1.2.website.json` as the schema reference. Include `en`, `zh-CN`, `zh-TW`, `ja`, and `ko`, each with a `title` and nonempty `items` array. The pipeline synchronizes reviewed copy without a machine-translation service.
+3. Run `npm run release:prepare -- X.Y.Z` to synchronize six npm/Tauri/Cargo/lockfile version values. The version must increase and release notes must already be complete.
+4. Review, commit, and push to `main`. Version/release-note changes trigger **Stable Release**. If the push token does not trigger Actions, run it manually in Actions or use:
 
 ```bash
 gh workflow run tauri-build.yml --ref main
 ```
 
-不需要创建标签、上传安装包或手动更新官网。
+You do not need to create a tag, upload installers, or update the website manually.
 
-## 自动流程和失败处理
+## Automation and failure handling
 
-流水线固定候选提交 SHA，校验版本及五种语言摘要。已公开的当前版本自动跳过，普通开发提交不会重复发布。
+The workflow pins the candidate commit SHA and validates versions and all five summaries. An already published version is skipped; ordinary development commits do not republish it.
 
-1. Ubuntu x64、Windows x64、macOS Apple Silicon 和 macOS Intel 分别运行 `npm run check`（前端构建、Node 回归、Rust 格式和测试），再构建安装包。macOS 还验证架构和 Ad-hoc 签名。
-2. 收齐并核对 9 个产物：两种 Mac DMG 与 app 压缩包、Windows EXE/MSI、Linux AppImage/DEB/RPM。所有平台成功且 `main` 仍指向候选提交后，才创建指向该提交的标签。
-3. 创建 Release 草稿，上传并核对每个附件的名称、大小和上传状态，再公开并设置 Latest。已公开版本不能覆盖；失败草稿只允许用相同源码重试。
-4. 官网 **Sync Release and Deploy** 每 5 分钟检查一次 Latest，从发布标签的源码启动 Vite，以虚构文档数据生成五种语言的浅色工作区、深色工作区和属性页截图（共 15 张），不执行真实 SVN 操作。同步五种语言摘要、发布时间、版本和源码 SHA，生成带更新说明及 SoftwareApplication 版本信息的静态页面，再推送官网仓库。截图 URL 带源码 SHA，避免缓存显示旧图。
+1. Ubuntu x64, Windows x64, macOS Apple Silicon, and macOS Intel run `npm run check` (frontend build, Node regressions, Rust formatting/tests), then package installers. macOS also checks architecture and ad-hoc signatures.
+2. Collect and verify nine assets: two Mac DMGs and app archives, Windows EXE/MSI, and Linux AppImage/DEB/RPM. Create the tag only after every platform succeeds and `main` still points to the candidate.
+3. Create a draft, upload and verify each attachment's name, size, and upload state, then publish as Latest. Published versions cannot be overwritten. Failed drafts may be retried only with identical source.
+4. The website's **Sync Release and Deploy** checks Latest every five minutes. It runs Vite from the release tag and creates light/dark workspace and Properties screenshots in five languages (15 images) with fictional documentation data and no real SVN operations. It synchronizes summaries, time, version, and source SHA, generates static pages with release notes and SoftwareApplication metadata, then pushes to the website repository. Screenshot URLs include the source SHA to avoid stale caches.
 
-跨平台检查或构建失败时，不创建标签和 Release。上传阶段失败时草稿不公开，可修复基础设施问题后重跑；若要改源码，重新准备候选版本。若检查期间 `main` 有新提交，发布门禁拒绝旧候选，请对最新 `main` 重新运行。
+Check/build failures create neither tag nor Release. Upload failures leave a private draft; fix infrastructure and rerun, or prepare a new candidate if source must change. A new commit on `main` during checks causes the publication gate to reject the old candidate; rerun on current `main`.
 
-官网失败不撤回已公开版本。在官网仓库 Actions 单独运行 **Sync Release and Deploy**（使用 Latest），或执行：
+Website failure does not retract a published release. Run **Sync Release and Deploy** in the website repository, using Latest, or:
 
 ```bash
 gh workflow run sync-release.yml --repo stonesvn/stonesvn.github.io --ref main
 ```
 
-官网只允许同步当前 Latest 正式版本，避免旧任务回写旧版本。官网推送采用普通快进，若页面维护提交同时发生，任务失败而不会覆盖维护内容，重新运行即可。
+Only the current Latest stable release may synchronize, preventing old jobs from restoring older versions. Website pushes use normal fast-forward updates. Concurrent maintenance causes failure rather than overwriting content; rerun afterward.
 
-## 官网权限与部署
+## Website permissions and deployment
 
-官网仓库禁用了 deploy keys，因此使用拉取式同步，不配置跨仓库密钥或个人令牌。官网自己的 `GITHUB_TOKEN` 只写官网内容，单独的部署作业只有 `pages: write` 与 `id-token: write`。应用仓库只有最终 publish 作业有 `contents: write`。
+The website repository disables deploy keys, so synchronization is pull-based, without cross-repository keys or personal tokens. Its `GITHUB_TOKEN` writes only website content; a separate deployment job has only `pages: write` and `id-token: write`. Only the application workflow's final publish job has `contents: write`.
 
-官网仓库 `.github/workflows/sync-release.yml` 每 5 分钟检查 GitHub Latest；GitHub 定时任务可能延迟。没有新版本时不安装依赖、不截图、不提交、不部署。正式版更新后自动生成五种语言内容和截图，推送生成文件，再通过 `deploy-pages` 部署；不依赖机器人提交触发另一个工作流。官网需配置 Pages 的 build type 为 workflow。
+The website's `.github/workflows/sync-release.yml` checks Latest every five minutes; GitHub schedules may be delayed. With no new version, it does not install dependencies, capture screenshots, commit, or deploy. A new stable version generates five-language content/screenshots, pushes generated files, and uses `deploy-pages` directly rather than depending on bot commits to trigger another workflow. Configure Pages build type as workflow.
 
-需要立即同步时手动运行官网工作流。官网模板或样式推送到 `main` 时也会重新部署。并发维护导致推送冲突会中止任务，下一次运行重试，不强推。
+Run the website workflow manually for immediate synchronization. Template/style pushes to `main` also redeploy. Push conflicts abort and retry on the next run without force-pushing.
 
-## 检查流程自身
+## Validate the workflow itself
 
-在 **Stable Release** 手动勾选 `validate_only`，或执行：
+Select `validate_only` in **Stable Release**, or run:
 
 ```bash
 gh workflow run tauri-build.yml --ref main -f validate_only=true
 ```
 
-这会完整执行四个平台的检查和打包，保留 7 天构建产物，不创建标签、不发版、不修改官网。适合检查流水线改动。
+This checks and packages all four platforms, retains build artifacts for seven days, and creates no tag/release or website changes. Use it to validate pipeline changes.
 
-Windows 固定使用 SlikSVN 1.14.5，并仅为临时 CI SVN 进程启用 UTF-8，保留多语言路径回归。SVN 不随安装包分发。macOS 使用 Ad-hoc 签名，未经过 Apple 公证。CI 的检查、打包及截图不能替代各平台安装启动与真实仓库操作的人工验收。
+Windows uses SlikSVN 1.14.5 and enables UTF-8 only for temporary CI SVN processes, retaining multilingual-path regressions. SVN is not bundled with installers. macOS is ad-hoc signed and not notarized. CI checks, packaging, and screenshots do not replace manual installation, startup, and real-repository acceptance on each platform.
 
-StoneSVN 的正式仓库为 `firzen/StoneSVN`，安装包通过 GitHub Releases 分发。应用标识仍为 `com.orcasvn.desktop`，保留原有本地数据兼容；不复用历史 WinGet 分发标识。
+The official repository is `firzen/StoneSVN`; installers are distributed through GitHub Releases. The application identifier remains `com.orcasvn.desktop` for existing local-data compatibility. Historical WinGet distribution identifiers are not reused.
