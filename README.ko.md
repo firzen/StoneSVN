@@ -2,7 +2,7 @@
 
 [공식 웹사이트](https://stonesvn.github.io)
 
-[English](README.md) | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | 한국어
+[English](README.md) | [简体中文](README.cn.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | 한국어
 
 StoneSVN은 Tauri, Rust, Vue 3로 만든 크로스 플랫폼 SVN 데스크톱 클라이언트입니다. SVN의 중앙 집중식 버전 관리 모델을 유지하면서 Git 클라이언트처럼 명확한 작업 사본 경험을 제공합니다.
 

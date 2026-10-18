@@ -2,7 +2,7 @@
 
 [官方網站](https://stonesvn.github.io)
 
-[English](README.md) | [简体中文](README.zh-CN.md) | 繁體中文 | [日本語](README.ja.md) | [한국어](README.ko.md)
+[English](README.md) | [简体中文](README.cn.md) | 繁體中文 | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 StoneSVN 是一款以 Tauri、Rust 和 Vue 3 打造的跨平台 SVN 桌面用戶端。它將 Git 用戶端清晰的工作副本體驗帶到 SVN，同時保留 SVN 的集中式版本控制模式。
 

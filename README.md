@@ -2,7 +2,7 @@
 
 [Official website](https://stonesvn.github.io)
 
-English | [简体中文](README.zh-CN.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
+English | [简体中文](README.cn.md) | [繁體中文](README.zh-TW.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
 StoneSVN is an open-source SVN desktop client for Windows, macOS, and Linux, released under the MIT license. It organizes daily work around reviewing changes, inspecting diffs, and choosing what to commit, with multiple working copies, directory-based commit selection, and local stashes of selected text hunks in one workspace.
 

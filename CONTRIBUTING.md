@@ -28,7 +28,7 @@ Performance benchmarks are explicitly run ignored tests. See [workspace loading 
 
 - Unsuffixed Markdown files, including `README.md`, `QUICKSTART.md`, and documents under `docs/`, are English by default.
 - Keep Simplified Chinese translations in sibling `.zh-CN.md` files and provide reciprocal language links. Chinese documents should link to Chinese counterparts where available.
-- Keep `README.en.md` compatible with the English `README.md`; the canonical English entry point is `README.md`. Existing `.zh-TW.md`, `.ja.md`, and `.ko.md` files retain their languages.
+- The English README is `README.md`; its Simplified Chinese counterpart is `README.cn.md`. Other Simplified Chinese documents use `.zh-CN.md`. Existing `.zh-TW.md`, `.ja.md`, and `.ko.md` files retain their languages.
 - Update affected translations and language-specific heading links together. Preserve historical benchmark data and validation limits when translating technical records.
 
 ## Commit messages

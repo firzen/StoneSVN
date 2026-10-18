@@ -28,7 +28,7 @@
 
 - `README.md`、`QUICKSTART.md` 和 `docs/` 下不带语言后缀的 Markdown 默认使用英文。
 - 简体中文译文保存在同目录的 `.zh-CN.md` 文件中，双方提供语言切换链接。中文文档优先链接已有中文对应版本。
-- `README.en.md` 保留英文兼容入口，英文主入口为 `README.md`；`.zh-TW.md`、`.ja.md`、`.ko.md` 保留各自语言。
+- 英文 README 为 `README.md`，简体中文版为 `README.cn.md`；其他简体中文文档继续使用 `.zh-CN.md`，`.zh-TW.md`、`.ja.md`、`.ko.md` 保留各自语言。
 - 同步维护受影响译文及对应的章节锚点，翻译技术记录时保留历史数据和验证边界。
 
 ## 提交信息
