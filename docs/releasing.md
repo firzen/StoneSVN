@@ -8,14 +8,50 @@ Stable releases use `vX.Y.Z`. Do not create stable tags manually or move publish
 
 1. Complete code and user documentation, and write the full GitHub Release notes in `docs/releases/vX.Y.Z.md`.
 2. Add website summaries in `docs/releases/vX.Y.Z.website.json`, using `v1.1.2.website.json` as the schema reference. Include `en`, `zh-CN`, `zh-TW`, `ja`, and `ko`, each with a `title` and nonempty `items` array. The pipeline synchronizes reviewed copy without a machine-translation service.
-3. Run `npm run release:prepare -- X.Y.Z` to synchronize six npm/Tauri/Cargo/lockfile version values. The version must increase and release notes must already be complete.
+3. Run `npm run release:prepare -- X.Y.Z` to synchronize six npm/Tauri/Cargo/lockfile version values. The version must increase and release notes must already be complete. Empty Markdown notes are rejected before any version is changed. Run `npm run release:check` afterward to validate the six versions, full notes, and all five website summaries without modifying files.
 4. Review, commit, and push to `main`. Version/release-note changes trigger **Stable Release**. If the push token does not trigger Actions, run it manually in Actions or use:
 
 ```bash
-gh workflow run tauri-build.yml --ref main
+gh workflow run tauri-build.yml --repo firzen/StoneSVN --ref main
 ```
 
 You do not need to create a tag, upload installers, or update the website manually.
+
+## Codex handoff and release completion
+
+[AGENTS.md](../AGENTS.md) is the durable entry point for coding agents. Read it before a future release; do not depend on chat history or temporary checkout paths. Documentation/workflow maintenance alone does not request a new release.
+
+Run from the app repository root:
+
+```bash
+npm run release:check
+candidate=$(git rev-parse HEAD)
+gh run list --repo firzen/StoneSVN --workflow tauri-build.yml --commit "$candidate" --json databaseId,displayTitle,status,conclusion,url
+```
+
+If the intended unpublished version is already prepared, run `release:check` directly; do not run `release:prepare` again with the current version. Inspect existing matching runs before dispatching another one. New run titles distinguish `Release stable` from `Validate stable`. If no publication run started after the push, use the explicit dispatch command above. Watch the selected run to completion:
+
+```bash
+gh run watch RUN_ID --repo firzen/StoneSVN --exit-status
+```
+
+A release request is complete only after all of these checks:
+
+- All four desktop jobs pass, and the publish job succeeds for the intended source SHA. A validation-only success or an already-published-version skip does not publish a new version.
+- The intended tag resolves to the checked candidate. The GitHub Latest release has the intended tag, `draft: false`, `prerelease: false`, reviewed notes, and all nine distribution files. Inspect actual asset names and URLs, not just the count.
+- The website build and Pages deployment succeed. If immediate synchronization was requested, start `sync-release.yml` explicitly rather than reporting a future scheduled update as finished.
+- Website `source/release.json` contains the intended tag and the commit resolved by that tag. Check five static release-note sections/version metadata, 15 localized screenshots and theme switching, and the seven primary download links against the actual release assets.
+
+Useful read-only verification commands:
+
+```bash
+gh api repos/firzen/StoneSVN/releases/latest --jq '{tag: .tag_name, draft, prerelease, assetCount: (.assets | length), url: .html_url}'
+gh api repos/firzen/StoneSVN/commits/vX.Y.Z --jq .sha
+gh api -H 'Accept: application/vnd.github.raw+json' repos/stonesvn/stonesvn.github.io/contents/source/release.json --jq '{tag, sourceSha}'
+gh run list --repo stonesvn/stonesvn.github.io --workflow sync-release.yml --json databaseId,status,conclusion,url
+```
+
+Keep the user updated while native builds run. The final report should include the version/release URL, checked targets, website result, and any remaining failure. Preserve unrelated draft files; publish website source only from its separate repository, not the app's ignored `website/` preview mirror.
 
 ## Automation and failure handling
 
@@ -49,7 +85,7 @@ Run the website workflow manually for immediate synchronization. Template/style 
 Select `validate_only` in **Stable Release**, or run:
 
 ```bash
-gh workflow run tauri-build.yml --ref main -f validate_only=true
+gh workflow run tauri-build.yml --repo firzen/StoneSVN --ref main -f validate_only=true
 ```
 
 This checks and packages all four platforms, retains build artifacts for seven days, and creates no tag/release or website changes. Use it to validate pipeline changes.

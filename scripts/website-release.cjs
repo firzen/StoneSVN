@@ -23,7 +23,8 @@ function createManifest(tag, release, sha, notes) {
   return { tag, version: tag.slice(1), url, publishedAt: release.published_at, sourceSha: sha, notes }
 }
 if (require.main === module) {
-  const [, , command, tag, releaseFile, sha, destination] = process.argv
+  const [, , command, requestedTag, releaseFile, sha, destination] = process.argv
+  const tag = requestedTag || (command === 'validate' ? `v${readVersions()['package.json']}` : undefined)
   const notes = readNotes(tag)
   if (command === 'sync') {
     const release = JSON.parse(fs.readFileSync(releaseFile, 'utf8'))

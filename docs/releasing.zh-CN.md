@@ -8,14 +8,50 @@
 
 1. 完成代码和用户文档，在 `docs/releases/vX.Y.Z.md` 编写 GitHub Release 的完整说明。
 2. 在 `docs/releases/vX.Y.Z.website.json` 编写官网摘要，结构参照 `v1.1.2.website.json`。必须包含 `en`、`zh-CN`、`zh-TW`、`ja`、`ko`，每种语言提供 `title` 和非空 `items` 数组。流水线同步已审核文案，不依赖机器翻译服务。
-3. 运行 `npm run release:prepare -- X.Y.Z`，统一 npm、Tauri、Cargo 和锁文件的六处版本值。此命令要求版本递增，且更新说明已齐全。
+3. 运行 `npm run release:prepare -- X.Y.Z`，统一 npm、Tauri、Cargo 和锁文件的六处版本值。此命令要求版本递增，且更新说明已齐全；空白 Markdown 会在修改任何版本值前被拒绝。随后运行 `npm run release:check`，只读校验六处版本、完整说明和五种语言摘要。
 4. 审阅、提交并推送到 `main`。版本文件或更新说明变更会触发 **Stable Release**。若推送使用的令牌不触发 Actions，在 Actions 页面手动运行，或运行：
 
 ```bash
-gh workflow run tauri-build.yml --ref main
+gh workflow run tauri-build.yml --repo firzen/StoneSVN --ref main
 ```
 
 不需要创建标签、上传安装包或手动更新官网。
+
+## Codex 下次发版与完成验收
+
+[AGENTS.md](../AGENTS.md) 是代码代理的长期入口。下次发版先读取它，不依赖历史聊天或临时目录。仅要求维护文档、完善流程时，不自动增加版本或发布新版本。
+
+在应用仓库根目录执行：
+
+```bash
+npm run release:check
+candidate=$(git rev-parse HEAD)
+gh run list --repo firzen/StoneSVN --workflow tauri-build.yml --commit "$candidate" --json databaseId,displayTitle,status,conclusion,url
+```
+
+若目标未发布版本已经准备好，直接运行 `release:check`，不要对当前版本重复运行 `release:prepare`。先查看相同提交是否已有发版任务，避免重复启动。新任务标题用 `Release stable` 和 `Validate stable` 区分正式入口与演练。推送后没有对应正式任务时，显式 dispatch；选定任务后等待完成：
+
+```bash
+gh run watch RUN_ID --repo firzen/StoneSVN --exit-status
+```
+
+一次发版请求必须满足以下条件才能汇报完成：
+
+- 四个桌面检查与打包任务成功，publish 任务针对预期源码成功。演练成功、或已有正式版自动跳过，都不代表发布了新版本。
+- 目标标签解析到已检查的候选提交；GitHub Latest 为目标标签，`draft: false`、`prerelease: false`，说明经过审阅，9 个分发文件齐全。核对实际文件名和链接，不只看数量。
+- 官网 build 和 Pages deploy 均成功。用户要求立即更新主页时，显式启动 `sync-release.yml` 并等待，不把未来的定时同步当作已经完成。
+- 官网 `source/release.json` 的标签、源码 SHA 与正式标签对应；五种语言的静态更新说明和版本元数据、15 张截图及主题切换、7 个主要下载链接均匹配实际版本。
+
+只读验收命令：
+
+```bash
+gh api repos/firzen/StoneSVN/releases/latest --jq '{tag: .tag_name, draft, prerelease, assetCount: (.assets | length), url: .html_url}'
+gh api repos/firzen/StoneSVN/commits/vX.Y.Z --jq .sha
+gh api -H 'Accept: application/vnd.github.raw+json' repos/stonesvn/stonesvn.github.io/contents/source/release.json --jq '{tag, sourceSha}'
+gh run list --repo stonesvn/stonesvn.github.io --workflow sync-release.yml --json databaseId,status,conclusion,url
+```
+
+原生构建运行期间持续告知进度；最终说明版本／Release 链接、各目标检查、官网结果及仍存在的失败。保留其他任务的草稿文件；官网只在独立仓库提交，应用目录下被忽略的 `website/` 是预览镜像。
 
 ## 自动流程和失败处理
 
@@ -49,7 +85,7 @@ gh workflow run sync-release.yml --repo stonesvn/stonesvn.github.io --ref main
 在 **Stable Release** 手动勾选 `validate_only`，或执行：
 
 ```bash
-gh workflow run tauri-build.yml --ref main -f validate_only=true
+gh workflow run tauri-build.yml --repo firzen/StoneSVN --ref main -f validate_only=true
 ```
 
 这会完整执行四个平台的检查和打包，保留 7 天构建产物，不创建标签、不发版、不修改官网。适合检查流水线改动。

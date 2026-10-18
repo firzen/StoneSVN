@@ -13,6 +13,7 @@ function prepare(version) {
   for (const file of [`${notes}.md`, `${notes}.website.json`]) {
     if (!fs.existsSync(file)) throw new Error(`Write ${file} before preparing the release`)
   }
+  if (!fs.readFileSync(`${notes}.md`, 'utf8').trim()) throw new Error(`Write nonempty release notes in ${notes}.md before preparing the release`)
   const localized = JSON.parse(fs.readFileSync(`${notes}.website.json`, 'utf8'))
   for (const lang of ['en', 'zh-CN', 'zh-TW', 'ja', 'ko']) {
     const note = localized[lang]

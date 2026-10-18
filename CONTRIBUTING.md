@@ -4,6 +4,8 @@ English | [简体中文](CONTRIBUTING.zh-CN.md)
 
 Thank you for contributing to StoneSVN. Keep changes focused and verifiable, and keep interface semantics consistent with SVN CLI behavior.
 
+Coding agents must read [AGENTS.md](AGENTS.md), including the release and website completion checklist.
+
 ## Development workflow
 
 1. Create a short-lived branch from `main`.

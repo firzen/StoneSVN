@@ -35,3 +35,6 @@ build-output.txt
 # Release workflow staging
 release-assets/
 release-upload.json
+
+# Local preview mirror; publish from stonesvn/stonesvn.github.io instead
+/website/

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test:unit": "node --test tests/*.test.cjs",
-    "release:prepare": "node scripts/prepare-release.cjs"
+    "release:prepare": "node scripts/prepare-release.cjs",
+    "release:check": "node scripts/website-release.cjs validate"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

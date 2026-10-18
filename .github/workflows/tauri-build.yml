@@ -1,4 +1,5 @@
 name: Stable Release
+run-name: "${{ inputs.validate_only && 'Validate' || 'Release' }} stable · ${{ github.ref_name }}"
 
 on:
   workflow_dispatch:
@@ -63,8 +64,7 @@ jobs:
             echo "proceed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          RELEASE_TAG="$tag" node scripts/validate-release.cjs
-          node scripts/website-release.cjs validate "$tag"
+          npm run release:check -- "$tag"
           echo "proceed=true" >> "$GITHUB_OUTPUT"
 
   desktop:
