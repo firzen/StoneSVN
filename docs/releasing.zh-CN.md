@@ -24,11 +24,11 @@ gh workflow run tauri-build.yml --ref main
 1. Ubuntu x64、Windows x64、macOS Apple Silicon 和 macOS Intel 分别运行 `npm run check`（前端构建、Node 回归、Rust 格式和测试），再构建安装包。macOS 还验证架构和 Ad-hoc 签名。
 2. 收齐并核对 9 个产物：两种 Mac DMG 与 app 压缩包、Windows EXE/MSI、Linux AppImage/DEB/RPM。所有平台成功且 `main` 仍指向候选提交后，才创建指向该提交的标签。
 3. 创建 Release 草稿，上传并核对每个附件的名称、大小和上传状态，再公开并设置 Latest。已公开版本不能覆盖；失败草稿只允许用相同源码重试。
-4. 官网 **Sync Release and Deploy** 每 5 分钟检查一次 Latest，从发布标签的源码启动 Vite，以虚构文档数据生成五种语言的浅色工作区、深色工作区和属性页截图（共 15 张），不执行真实 SVN 操作。同步五种语言摘要、发布时间、版本和源码 SHA，生成带更新说明及 SoftwareApplication 版本信息的静态页面，再推送官网仓库。截图 URL 带源码 SHA，避免缓存显示旧图。
+4. 官网 **Sync Release and Deploy** 每 5 分钟检查一次 Latest，从发布标签的源码启动 Vite，以虚构文档数据生成五种语言的浅色工作区、深色工作区和属性页截图（共 15 张），不执行真实 SVN 操作。截图脚本和浏览器依赖也固定于发布标签；v1.1.2 使用固定提交的兼容脚本。同步五种语言摘要、发布时间、版本和源码 SHA，生成带更新说明及 SoftwareApplication 版本信息的静态页面，再推送官网仓库。截图 URL 带源码 SHA，避免缓存显示旧图。
 
 跨平台检查或构建失败时，不创建标签和 Release。上传阶段失败时草稿不公开，可修复基础设施问题后重跑；若要改源码，重新准备候选版本。若检查期间 `main` 有新提交，发布门禁拒绝旧候选，请对最新 `main` 重新运行。
 
-官网失败不撤回已公开版本。在官网仓库 Actions 单独运行 **Sync Release and Deploy**（使用 Latest），或执行：
+官网失败不撤回已公开版本；下次定时检查会自动重试，包括摘要已提交但 Pages 部署失败的情况。需要立即重试时，在官网仓库 Actions 单独运行 **Sync Release and Deploy**（使用 Latest），或执行：
 
 ```bash
 gh workflow run sync-release.yml --repo stonesvn/stonesvn.github.io --ref main
@@ -40,7 +40,7 @@ gh workflow run sync-release.yml --repo stonesvn/stonesvn.github.io --ref main
 
 官网仓库禁用了 deploy keys，因此使用拉取式同步，不配置跨仓库密钥或个人令牌。官网自己的 `GITHUB_TOKEN` 只写官网内容，单独的部署作业只有 `pages: write` 与 `id-token: write`。应用仓库只有最终 publish 作业有 `contents: write`。
 
-官网仓库 `.github/workflows/sync-release.yml` 每 5 分钟检查 GitHub Latest；GitHub 定时任务可能延迟。没有新版本时不安装依赖、不截图、不提交、不部署。正式版更新后自动生成五种语言内容和截图，推送生成文件，再通过 `deploy-pages` 部署；不依赖机器人提交触发另一个工作流。官网需配置 Pages 的 build type 为 workflow。
+官网仓库 `.github/workflows/sync-release.yml` 每 5 分钟检查 GitHub Latest；GitHub 定时任务可能延迟。没有新版本且上次部署正常时，不安装依赖、不截图、不部署。官网连续 30 天无提交时仅创建一次空维护提交，保持定时同步启用，不修改页面。正式版更新后自动生成五种语言内容和截图，推送生成文件，再通过 `deploy-pages` 部署；不依赖机器人提交触发另一个工作流。官网需配置 Pages 的 build type 为 workflow。
 
 需要立即同步时手动运行官网工作流。官网模板或样式推送到 `main` 时也会重新部署。并发维护导致推送冲突会中止任务，下一次运行重试，不强推。
 
