@@ -133,7 +133,7 @@ npm run check
 
 详细环境配置和常见问题见 [SETUP.md](SETUP.md)，贡献约定见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
-当前正式版本为 **1.1.1**，更新内容见 [发布说明](docs/releases/v1.1.1.md)。正式发布步骤见 [发布流程](docs/releasing.md)，候选版本见 [预发布说明](docs/prerelease.md)，与 v0.6.2 的性能对照及测量边界见 [性能基准](docs/workspace-startup-benchmark.md)。
+当前正式版本为 **1.1.2**，更新内容见 [发布说明](docs/releases/v1.1.2.md)。正式发布步骤见 [发布流程](docs/releasing.md)，候选版本见 [预发布说明](docs/prerelease.md)，与 v0.6.2 的性能对照及测量边界见 [性能基准](docs/workspace-startup-benchmark.md)。
 
 ## 项目结构
 
