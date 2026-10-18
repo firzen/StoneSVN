@@ -10,7 +10,7 @@
 
 日常操作的关键是先确认项目和文件状态，再审阅差异，只提交当前任务需要的变更。刷新、更新、提交和还原各有不同作用，不能互相替代。
 
-![浅色工作区  左侧项目列表  中间文件状态  右侧代码差异](docs/images/orcasvn-workspace.png)
+![浅色工作区  左侧项目列表  中间文件状态  右侧代码差异](docs/images/screenshots/zh-CN-workspace-light.png)
 
 ## 阅读路线
 
@@ -219,7 +219,7 @@ svn --version --quiet
 
 属性页适合查看文件树、基本信息、仓库 URL 和 SVN 属性，并对选中的受控目标执行重命名、移动、还原或删除。操作前先核对树中的选中路径，避免把目录操作误用于整个项目。
 
-![属性页  顶部操作栏作用于文件树中选中的目标](docs/images/stonesvn-properties.png)
+![属性页  顶部操作栏作用于文件树中选中的目标](docs/images/screenshots/zh-CN-properties.png)
 
 ### 重命名和移动后仍要提交
 
@@ -247,7 +247,7 @@ svn --version --quiet
 
 在“追溯”中选择或输入当前工作区内的文件，点击加载，可查看该文件的版本、作者、时间和提交说明，并进入对应差异。当前页面是文件提交历史视图；需要逐行定位最后修改者时，使用 SVN CLI 的 `svn blame` 或其他支持逐行注解的客户端。
 
-![深色主题  与浅色主题保持相同的文件状态与操作含义](docs/images/orcasvn-workspace-dark.png)
+![深色主题  与浅色主题保持相同的文件状态与操作含义](docs/images/screenshots/zh-CN-workspace-dark.png)
 
 ### 常用设置
 

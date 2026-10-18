@@ -10,9 +10,9 @@ StoneSVN 是采用 MIT 许可证的开源 SVN 桌面客户端，支持 Windows�
 
 [下载安装包](https://github.com/firzen/StoneSVN/releases) · [快速使用](QUICKSTART.zh-CN.md) · [用户手册](docs/user-guide.zh-CN.md) · [与 Cornerstone 的功能对照](#与-cornerstone-的功能对照)
 
-![StoneSVN 软件界面](docs/images/orcasvn-workspace.png)
+![StoneSVN 软件界面](docs/images/screenshots/zh-CN-workspace-light.png)
 
-当前源码的开发界面，2026-10-18 更新，包含当日工作台样式与项目入口调整；使用虚构项目、路径和差异数据，不含真实仓库或个人信息。[深色主题](docs/images/orcasvn-workspace-dark.png)。
+当前源码的开发界面，2026-10-18 更新，包含当日工作台样式与项目入口调整；使用虚构项目、路径和差异数据，不含真实仓库或个人信息。[深色主题](docs/images/screenshots/zh-CN-workspace-dark.png)。
 
 ## 主要特性
 
@@ -97,9 +97,9 @@ svn --version --quiet
 
 选中文件后可进入「追溯」查看分页历史，双击记录查看差异。属性页还支持将没有本地修改的受控文件恢复到指定版本；恢复结果是本地修改，检查后再提交。编辑属性与安排删除同样需要另行提交。
 
-![StoneSVN 属性浏览与文件操作](docs/images/stonesvn-properties.png)
+![StoneSVN 属性浏览与文件操作](docs/images/screenshots/zh-CN-properties.png)
 
-同一组虚构数据的属性页。[深色主题](docs/images/stonesvn-properties-dark.png)。
+同一组虚构数据的属性页。[深色主题](docs/images/screenshots/zh-CN-properties-dark.png)。
 
 ### 按目录部分提交
 

@@ -3,6 +3,8 @@ const { chromium } = require('playwright')
 const fs = require('node:fs')
 const path = require('node:path')
 const screenshots = process.env.SCREENSHOT_DIRECTORY || path.join(__dirname, '../website/assets/screenshots')
+// Documentation also needs dark Properties and English panel details.
+const includeDetails = process.env.SCREENSHOT_INCLUDE_DETAILS === '1'
 const languages = [['en', 'en-US'], ['zh-CN', 'zh-CN'], ['zh-TW', 'zh-TW'], ['ja', 'ja-JP'], ['ko', 'ko-KR']]
 async function openApp(page) {
   for (let attempt = 0; ; attempt++) {
@@ -57,6 +59,10 @@ async function main() {
           const actual = await page.evaluate(async () => (await import('/src/i18n/index.ts')).default.global.locale.value)
           if (actual !== locale) throw new Error(`Wrong screenshot locale: ${actual}`)
           await page.screenshot({ path: path.join(screenshots, `${lang}-workspace-${theme}.png`) })
+          if (includeDetails && lang === 'en' && theme === 'light') {
+            await page.locator('.workspace-layout .center-panel').screenshot({ path: path.join(screenshots, 'en-file-status.png') })
+            await page.locator('.workspace-layout .right-panel').screenshot({ path: path.join(screenshots, 'en-diff.png') })
+          }
         }
         await page.evaluate(async () => {
           (await import('/src/composables/useSettings.ts')).useSettings().updateSettings({ theme: 'light' })
@@ -64,8 +70,15 @@ async function main() {
         })
         await settle(page)
         await page.screenshot({ path: path.join(screenshots, `${lang}-properties.png`) })
+        if (includeDetails) {
+          await page.evaluate(async () => {
+            (await import('/src/composables/useSettings.ts')).useSettings().updateSettings({ theme: 'dark' })
+          })
+          await settle(page)
+          await page.screenshot({ path: path.join(screenshots, `${lang}-properties-dark.png`) })
+        }
         if (errors.length) throw new Error(`Screenshot UI errors: ${errors.join('; ')}`)
-        console.log(`${lang}: workspace light/dark + properties captured`)
+        console.log(`${lang}: workspace light/dark + properties${includeDetails ? ' light/dark' : ''} captured`)
       } finally {
         await context.close()
       }

@@ -10,9 +10,9 @@ Built with Tauri, Rust, and Vue 3, it uses the local SVN CLI and preserves SVN's
 
 [Download installers](https://github.com/firzen/StoneSVN/releases) · [Quick start](QUICKSTART.md) · [User guide](docs/user-guide.md) · [Compare with Cornerstone](#comparison-with-cornerstone)
 
-![StoneSVN application interface](docs/images/orcasvn-workspace.png)
+![StoneSVN application interface](docs/images/screenshots/en-workspace-light.png)
 
-Development UI from the current source, captured on 2026-10-18 with fictional projects, paths, and diffs. No real repository or personal data is shown. [Dark theme](docs/images/orcasvn-workspace-dark.png).
+Development UI from the current source, captured on 2026-10-18 with fictional projects, paths, and diffs. No real repository or personal data is shown. [Dark theme](docs/images/screenshots/en-workspace-dark.png).
 
 Current stable version: **1.1.2**. See the [release notes](docs/releases/v1.1.2.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
 
@@ -95,9 +95,9 @@ These are application-level filters; they do not change SVN's `svn:ignore` or `s
 
 The Properties page provides a project tree, recursive file search, and SVN property editing. Export a versioned file or directory, including local edits and excluding `.svn` metadata, to a new destination directory. Schedule deletion or restore a clean versioned file to a specified revision, then review and commit the local changes separately. The file history view lists revisions; double-click a revision to inspect its diff.
 
-![Properties and file actions with fictional data](docs/images/stonesvn-properties.png)
+![Properties and file actions with fictional data](docs/images/screenshots/en-properties.png)
 
-[Dark theme](docs/images/stonesvn-properties-dark.png).
+[Dark theme](docs/images/screenshots/en-properties-dark.png).
 
 ## Local Development
 

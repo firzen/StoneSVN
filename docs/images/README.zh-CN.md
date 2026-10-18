@@ -50,3 +50,15 @@ cp output/playwright/properties-dark.png docs/images/stonesvn-properties-dark.pn
 脚本只在手动导入的开发浏览器会话中注入数据，不会被应用入口导入。刷新页面会移除模拟命令桥接，但示例项目与主题设置会保留在该会话的浏览器存储中。关闭后使用 Playwright CLI 的 `-s=docs-refresh delete-data` 清理专用会话数据。
 
 本次检查覆盖四张截图的布局与示例数据。浏览器启动时缺少原生 Tauri 桥接的控制台提示，以及发布更新检查的网络结果，不作为桌面 SVN 集成验证依据。
+
+## 按文档语言自动截取
+
+当前 README、快速入门和用户手册使用 `screenshots/` 下的对应语言截图：英文 `en`、简体中文 `zh-CN`、繁体中文 `zh-TW`、日文 `ja`、韩文 `ko`。每种语言包含 `workspace-light`、`workspace-dark`、`properties` 和 `properties-dark` 四张图；另外保存英文文件状态和 Diff 两张局部截图，共 22 张。英文快速入门流程图位于 `quickstart/`，原中文配图继续用于中文版本。
+
+先启动 Vite，再在项目根目录运行：
+
+```bash
+SCREENSHOT_DIRECTORY=docs/images/screenshots SCREENSHOT_INCLUDE_DETAILS=1 node scripts/capture-website.cjs
+```
+
+如果 Playwright 自带的 Chromium 未安装，可安装对应浏览器，或在命令前增加 `PLAYWRIGHT_CHANNEL=chrome` 使用本机 Chrome 的独立临时会话。脚本在隔离浏览器上下文中切换实际界面语言与主题，检查语言值后截图；局部图直接截取真实面板，不修改图中文字。默认不设置以上选项时，官网仍生成原有 15 张图。仅使用虚构数据，不执行 SVN 写操作。

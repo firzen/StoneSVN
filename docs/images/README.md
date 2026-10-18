@@ -57,4 +57,16 @@ The checks cover four screenshots and fixture data. Missing native Tauri bridge 
 
 ## Quick-start illustrations
 
-`quickstart/` holds two flow diagrams plus cropped status/diff details used by [Quick start](../../QUICKSTART.md). `workflow-en.png` and `conflict-resolution-en.png` have English labels; their unsuffixed counterparts are retained for the [Chinese guide](../../QUICKSTART.zh-CN.md). The cropped images retain the Simplified Chinese screenshot locale.
+`quickstart/` holds two flow diagrams plus cropped status/diff details used by [Quick start](../../QUICKSTART.md). `workflow-en.png` and `conflict-resolution-en.png` have English labels; their unsuffixed counterparts are retained for the [Chinese guide](../../QUICKSTART.zh-CN.md). Chinese panel details retain the Simplified Chinese locale; English guides use separately captured `screenshots/en-file-status.png` and `screenshots/en-diff.png`.
+
+## Capture matching document languages
+
+Current READMEs, quick starts, and user guides use `screenshots/` assets matching their language: `en`, `zh-CN`, `zh-TW`, `ja`, or `ko`. Each has `workspace-light`, `workspace-dark`, `properties`, and `properties-dark` images. English file-status and diff panel captures bring the total to 22. Flow diagrams remain in `quickstart/` with language-specific labels. Legacy Chinese captures above remain available for historical documentation.
+
+Start Vite, then run from the repository root:
+
+```bash
+SCREENSHOT_DIRECTORY=docs/images/screenshots SCREENSHOT_INCLUDE_DETAILS=1 node scripts/capture-website.cjs
+```
+
+Install Playwright Chromium first, or prefix the command with `PLAYWRIGHT_CHANNEL=chrome` to use an isolated temporary Chrome session. The script changes the actual interface language/theme in isolated browser contexts and verifies the locale before capture. Detail images are screenshots of real panels, with no text replacement. Without these options, website capture still produces its original 15 images. All data remains fictional and no SVN writes are performed.

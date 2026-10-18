@@ -62,11 +62,11 @@ For a change only to `trunk/app.ini`, select that file and describe the configur
 
 ## Interface overview
 
-The screenshots show the 1.1.2 Vue development interface with fictional data, captured at 1440 × 900 on 2026-10-18. Paths, revisions, and diffs are examples, not real repositories. They use the Simplified Chinese locale; the instructions use English labels.
+The screenshots show the 1.1.2 Vue development interface with fictional data, captured at 1440 × 900 on 2026-10-18. Paths, revisions, and diffs are examples, not real repositories. They use the English locale, matching the instructions.
 
-![Light workspace and diff](images/orcasvn-workspace.png)
+![Light workspace and diff](images/screenshots/en-workspace-light.png)
 
-![The same workspace in dark theme](images/orcasvn-workspace-dark.png)
+![The same workspace in dark theme](images/screenshots/en-workspace-dark.png)
 
 | Area | Purpose |
 | --- | --- |

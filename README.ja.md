@@ -6,9 +6,9 @@
 
 StoneSVN は、Tauri、Rust、Vue 3 で構築されたクロスプラットフォーム対応の SVN デスクトップクライアントです。SVN の集中型バージョン管理モデルを維持しながら、Git クライアントのように分かりやすい作業コピー体験を提供します。
 
-![StoneSVN アプリケーション画面](docs/images/orcasvn-workspace.png)
+![StoneSVN アプリケーション画面](docs/images/screenshots/ja-workspace-light.png)
 
-現在のソースコードの開発画面です。2026-10-18 に架空のプロジェクト、パス、差分で撮影しました。実際のリポジトリや個人情報は含まれていません。[ダークテーマ](docs/images/orcasvn-workspace-dark.png)。
+現在のソースコードの開発画面です。2026-10-18 に架空のプロジェクト、パス、差分で撮影しました。実際のリポジトリや個人情報は含まれていません。[ダークテーマ](docs/images/screenshots/ja-workspace-dark.png)。
 
 現在の安定版は **1.1.2** です。[リリースノート](docs/releases/v1.1.2.md)をご覧ください。
 
@@ -56,9 +56,9 @@ svn --version --quiet
 
 プロパティ画面ではツリーと再帰検索でファイルを探し、SVN 属性を編集できます。管理対象のファイルやディレクトリを新規ディレクトリにエクスポートすると、ローカルの変更を保持し、`.svn` メタデータを除外します。削除予約や、ローカル変更のない管理対象ファイルの指定リビジョンへの復元後は、確認して別途コミットします。ファイル履歴の行をダブルクリックすると差分を確認できます。
 
-![架空のデータを使用したプロパティ画面](docs/images/stonesvn-properties.png)
+![架空のデータを使用したプロパティ画面](docs/images/screenshots/ja-properties.png)
 
-[ダークテーマ](docs/images/stonesvn-properties-dark.png)。
+[ダークテーマ](docs/images/screenshots/ja-properties-dark.png)。
 
 ## ローカル開発
 

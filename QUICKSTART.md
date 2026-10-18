@@ -10,7 +10,7 @@ This guide is for new StoneSVN users and anyone looking up everyday steps. Follo
 
 Before changing anything, confirm the project and file status, inspect the diff, and select only the changes needed for the current task. Refresh, Update, Commit, and Revert have different effects.
 
-![Light workspace with the project sidebar, file status list, and diff preview](docs/images/orcasvn-workspace.png)
+![Light workspace with the project sidebar, file status list, and diff preview](docs/images/screenshots/en-workspace-light.png)
 
 ## Contents
 
@@ -24,7 +24,7 @@ Before changing anything, confirm the project and file status, inspect the diff,
 - [Browse history and configure the interface](#browse-history-and-configure-the-interface)
 - [Troubleshooting and command reference](#troubleshooting-and-command-reference)
 
-Screenshots show the 1.1.2 development interface with fictional workspace data. Paths, revisions, repository addresses, and code are examples. The screenshots use the Simplified Chinese interface; English labels are used in the instructions below.
+Screenshots show the 1.1.2 development interface with fictional workspace data. Paths, revisions, repository addresses, and code are examples. The screenshots use the English interface, matching the instructions below.
 
 ## Prepare the environment and open a project
 
@@ -66,7 +66,7 @@ You are ready when the project appears in the sidebar, status validation succeed
 
 The workspace focuses on files requiring attention, so it may omit unchanged files. Switch projects on the left and tools at the top. Filter status in the middle and inspect the selected file's diff on the right. Properties provides a more complete project tree.
 
-![Status categories and individual changed files](docs/images/quickstart/file-status.png)
+![Status categories and individual changed files](docs/images/screenshots/en-file-status.png)
 
 | Status | Meaning | Next step |
 | --- | --- | --- |
@@ -97,7 +97,7 @@ Refresh checks local state; Update retrieves remote files. The remote commit cou
 
 ### Read the diff
 
-![Diff detail with red deletions and green additions](docs/images/quickstart/diff.png)
+![Diff detail with red deletions and green additions](docs/images/screenshots/en-diff.png)
 
 Select a workspace file to read the diff. The example changes the theme and refresh interval and adds a preview option. Inspect values and surrounding context, including accidental debug output, temporary configuration, or unrelated formatting changes.
 
@@ -203,7 +203,7 @@ If the message says the stash was saved but changes could not be removed, the re
 
 Properties shows the file tree, basic metadata, repository URL, and SVN properties. Rename, move, revert, and delete act on the selected target. Check the selected path first to avoid applying a directory action to an entire project.
 
-![Properties with the selected file and its action toolbar](docs/images/stonesvn-properties.png)
+![Properties with the selected file and its action toolbar](docs/images/screenshots/en-properties.png)
 
 ### Commit renames and moves separately
 
@@ -231,7 +231,7 @@ Open a commit to inspect its full message and changed paths, then select a file 
 
 In Trace, select or enter a file within the current workspace and load its revisions, authors, dates, and messages. Open a record's diff from there. This is file commit history, not a line-by-line annotation view. For the last author of each line, use `svn blame` or another client supporting annotations.
 
-![Dark theme with the same status meanings and operations](docs/images/orcasvn-workspace-dark.png)
+![Dark theme with the same status meanings and operations](docs/images/screenshots/en-workspace-dark.png)
 
 ### Common settings
 

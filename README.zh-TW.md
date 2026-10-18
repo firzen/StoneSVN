@@ -6,9 +6,9 @@
 
 StoneSVN 是一款以 Tauri、Rust 和 Vue 3 打造的跨平台 SVN 桌面用戶端。它將 Git 用戶端清晰的工作副本體驗帶到 SVN，同時保留 SVN 的集中式版本控制模式。
 
-![StoneSVN 軟體介面](docs/images/orcasvn-workspace.png)
+![StoneSVN 軟體介面](docs/images/screenshots/zh-TW-workspace-light.png)
 
-目前原始碼的開發介面，於 2026-10-18 擷取；專案、路徑與差異皆為虛構資料，不含真實儲存庫或個人資訊。[深色主題](docs/images/orcasvn-workspace-dark.png)。
+目前原始碼的開發介面，於 2026-10-18 擷取；專案、路徑與差異皆為虛構資料，不含真實儲存庫或個人資訊。[深色主題](docs/images/screenshots/zh-TW-workspace-dark.png)。
 
 目前正式版本為 **1.1.2**，更新內容見[發布說明](docs/releases/v1.1.2.md)。
 
@@ -56,9 +56,9 @@ svn --version --quiet
 
 屬性頁支援專案樹、遞迴搜尋與 SVN 屬性編輯。可將受控檔案或目錄匯出至尚不存在的新目錄，保留本機修改且不含 `.svn` 中繼資料。也可安排刪除，或將沒有本機修改的受控檔案還原至指定版本；檢查後需另行提交。檔案歷史以分頁顯示，雙擊記錄可檢視差異。
 
-![使用虛構資料的屬性頁](docs/images/stonesvn-properties.png)
+![使用虛構資料的屬性頁](docs/images/screenshots/zh-TW-properties.png)
 
-[深色主題](docs/images/stonesvn-properties-dark.png)。
+[深色主題](docs/images/screenshots/zh-TW-properties-dark.png)。
 
 ## 本機開發
 

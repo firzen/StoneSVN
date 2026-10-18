@@ -6,9 +6,9 @@
 
 StoneSVN은 Tauri, Rust, Vue 3로 만든 크로스 플랫폼 SVN 데스크톱 클라이언트입니다. SVN의 중앙 집중식 버전 관리 모델을 유지하면서 Git 클라이언트처럼 명확한 작업 사본 경험을 제공합니다.
 
-![StoneSVN 애플리케이션 화면](docs/images/orcasvn-workspace.png)
+![StoneSVN 애플리케이션 화면](docs/images/screenshots/ko-workspace-light.png)
 
-현재 소스의 개발 화면으로, 2026-10-18에 가상의 프로젝트, 경로 및 Diff 데이터로 촬영했습니다. 실제 저장소나 개인 정보는 포함하지 않습니다. [다크 테마](docs/images/orcasvn-workspace-dark.png).
+현재 소스의 개발 화면으로, 2026-10-18에 가상의 프로젝트, 경로 및 Diff 데이터로 촬영했습니다. 실제 저장소나 개인 정보는 포함하지 않습니다. [다크 테마](docs/images/screenshots/ko-workspace-dark.png).
 
 현재 정식 버전은 **1.1.2**입니다. [릴리스 노트](docs/releases/v1.1.2.md)를 확인하세요.
 
@@ -56,9 +56,9 @@ svn --version --quiet
 
 속성 페이지는 프로젝트 트리, 재귀 파일 검색 및 SVN 속성 편집을 제공합니다. 관리 대상 파일이나 디렉터리를 새 디렉터리로 내보내면 로컬 변경 사항을 유지하고 `.svn` 메타데이터를 제외합니다. 삭제 예약 또는 로컬 변경이 없는 관리 대상 파일의 지정 리비전 복원 후에는 변경 사항을 검토하고 별도로 커밋합니다. 파일 기록에서 항목을 두 번 클릭하면 Diff를 볼 수 있습니다.
 
-![가상 데이터를 사용한 속성 화면](docs/images/stonesvn-properties.png)
+![가상 데이터를 사용한 속성 화면](docs/images/screenshots/ko-properties.png)
 
-[다크 테마](docs/images/stonesvn-properties-dark.png).
+[다크 테마](docs/images/screenshots/ko-properties-dark.png).
 
 ## 로컬 개발
 
