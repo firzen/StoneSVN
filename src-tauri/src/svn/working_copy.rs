@@ -333,7 +333,7 @@ mod tests {
             self.wc.to_str().unwrap()
         }
         fn url(&self) -> String {
-            format!("file://{}", self.repo.to_string_lossy())
+            tauri::Url::from_file_path(&self.repo).unwrap().to_string()
         }
         fn run(&self, args: &[&str]) -> String {
             let output = Command::new("svn")
@@ -682,15 +682,16 @@ mod tests {
         runtime().block_on(async {
             let wc = f.workspace();
             assert!(relocate(wc, "javascript:alert(1)").await.is_err());
-            assert!(
-                relocate(wc, &format!("file://{}", other_repo.to_string_lossy()))
-                    .await
-                    .is_err()
-            );
+            assert!(relocate(
+                wc,
+                tauri::Url::from_file_path(&other_repo).unwrap().as_str()
+            )
+            .await
+            .is_err());
             assert_eq!(crate::svn::info(wc).await.unwrap().url, f.url());
             let moved_repo = f.root.join("relocated-repo");
             fs::rename(&f.repo, &moved_repo).unwrap();
-            let url = format!("file://{}", moved_repo.to_string_lossy());
+            let url = tauri::Url::from_file_path(&moved_repo).unwrap().to_string();
             relocate(wc, &url).await.unwrap();
             assert_eq!(crate::svn::info(wc).await.unwrap().url, url);
             assert_eq!(

@@ -665,7 +665,7 @@ mod tests {
             .success());
         run(&[
             "checkout",
-            &format!("file://{}", repository.to_string_lossy()),
+            tauri::Url::from_file_path(&repository).unwrap().as_str(),
             wc.to_str().unwrap(),
         ]);
         fs::write(wc.join("tracked.txt"), "base").unwrap();
@@ -778,7 +778,7 @@ mod tests {
         };
         run(&[
             "checkout",
-            &format!("file://{}", repository.to_string_lossy()),
+            tauri::Url::from_file_path(&repository).unwrap().as_str(),
             wc.to_str().unwrap(),
         ]);
         tokio::runtime::Builder::new_current_thread()
