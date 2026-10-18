@@ -18,6 +18,9 @@ function prepare(version) {
     const note = localized[lang]
     if (!note?.title?.trim() || !Array.isArray(note.items) || !note.items.length || note.items.some(item => typeof item !== 'string' || !item.trim())) throw new Error(`Missing notes: ${lang}`)
   }
+  for (const [file, actual] of Object.entries(readVersions())) {
+    if (actual !== current) throw new Error(`${file}: inconsistent source version ${actual}`)
+  }
   const changes = new Map()
   for (const file of ['package.json', 'package-lock.json', 'src-tauri/tauri.conf.json']) {
     const data = JSON.parse(fs.readFileSync(file, 'utf8'))
@@ -28,7 +31,7 @@ function prepare(version) {
   const cargo = fs.readFileSync('src-tauri/Cargo.toml', 'utf8')
   changes.set('src-tauri/Cargo.toml', cargo.replace(/(\[package\][\s\S]*?^version\s*=\s*")[^"]+/m, `$1${version}`))
   const lock = fs.readFileSync('src-tauri/Cargo.lock', 'utf8')
-  changes.set('src-tauri/Cargo.lock', lock.replace(/(\[\[package\]\]\nname = "StoneSVN"\nversion = ")[^"]+/, `$1${version}`))
+  changes.set('src-tauri/Cargo.lock', lock.replace(/(\[\[package\]\]\r?\nname = "StoneSVN"\r?\nversion = ")[^"]+/, `$1${version}`))
   for (const [file, content] of changes) fs.writeFileSync(file, content)
   validateRelease(`v${version}`, readVersions())
   console.log(`Prepared v${version}. Review and push the version commit to main; CI will check, build, tag, publish and sync the website.`)

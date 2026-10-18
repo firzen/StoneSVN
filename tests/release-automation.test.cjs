@@ -37,6 +37,10 @@ test('release preparation updates all version sources and refuses incomplete not
     const dest = path.join(fixture, file)
     fs.mkdirSync(path.dirname(dest), { recursive: true })
     fs.copyFileSync(path.join(root, file), dest)
+    // Git for Windows checks TOML/lock files out with CRLF by default.
+    if (file === 'src-tauri/Cargo.lock' || file.endsWith('.toml')) {
+      fs.writeFileSync(dest, fs.readFileSync(dest, 'utf8').replace(/\r?\n/g, '\r\n'))
+    }
   }
   const version = '99.0.0'
   const run = value => execFileSync(process.execPath, ['scripts/prepare-release.cjs', value], { cwd: fixture, stdio: 'pipe' })
