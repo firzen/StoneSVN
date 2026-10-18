@@ -51,6 +51,8 @@ Switch、通用 Merge 和冲突 Resolve 目前需使用其他 SVN 客户端或�
 
 macOS 安装包按芯片类型区分：Intel Mac 选择文件名含 `x64` 的 DMG；M 系列 Mac 选择 `aarch64`。可在「关于本机」确认芯片类型。
 
+macOS 版本采用免费的 Ad-hoc 签名，未经过苹果公证。将 StoneSVN 拖入「应用程序」后，首次打开若被阻止，请进入「系统设置 → 隐私与安全性 → 仍要打开」，再确认「打开」。公司管理的 Mac 可能需要 IT 放行。详见 [macOS 构建与分发说明](docs/macos-distribution.md)。
+
 应用使用外部 SVN CLI。Windows 上的中文路径与属性值处理取决于所用 SVN 的 Unicode／代码页支持；若出现字符替换，需使用支持相应字符的 SVN 命令行环境。
 
 Windows、macOS、Linux 上自动探测 PATH 与常见 SVN 安装位置。探测失败时显示配置窗口，填写或选择可执行文件并通过验证后才能使用；无效路径不会保存。也可在「设置」中手动指定 SVN 完整路径。

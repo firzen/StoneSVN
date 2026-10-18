@@ -180,6 +180,19 @@ jobs:
           # Stable versions support both Windows NSIS and MSI installers.
           args: ${{ matrix.platform == 'macos-15-intel' && '--target x86_64-apple-darwin' || matrix.platform == 'macos-15' && '--target aarch64-apple-darwin' || '' }}
 
+
+      - name: Verify macOS ad-hoc signature
+        if: startsWith(matrix.platform, 'macos-')
+        shell: bash
+        run: |
+          target=aarch64-apple-darwin
+          if [[ "${{ matrix.platform }}" == "macos-15-intel" ]]; then target=x86_64-apple-darwin; fi
+          app_bundle="src-tauri/target/$target/release/bundle/macos/StoneSVN.app"
+          codesign --verify --deep --strict --verbose=2 "$app_bundle"
+          signature_info=$(codesign -dv --verbose=4 "$app_bundle" 2>&1)
+          echo "$signature_info"
+          [[ "$signature_info" == *"Signature=adhoc"* ]]
+
   publish:
     name: Publish complete release
     needs: [prepare, desktop]

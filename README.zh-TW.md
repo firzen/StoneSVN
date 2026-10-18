@@ -33,6 +33,8 @@ Switch、一般 Merge 與衝突 Resolve 目前需使用其他 SVN 用戶端或�
 
 macOS 安裝包依晶片區分：Intel Mac 選擇檔名含 `x64` 的 DMG；M 系列 Mac 選擇 `aarch64`。可在「關於這台 Mac」確認晶片類型。
 
+macOS 版本採用免費的 Ad-hoc 簽署，未經 Apple 公證。將 StoneSVN 拖入「應用程式」後，首次開啟若遭阻擋，請前往「系統設定 → 隱私權與安全性 → 強制打開」，再確認開啟。公司管理的 Mac 可能需要 IT 核准。詳見 [macOS 建置與散佈說明（簡體中文）](docs/macos-distribution.md)。
+
 安裝後，請確認 SVN CLI 可以使用：
 
 ```bash

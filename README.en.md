@@ -53,6 +53,8 @@ Download installers for Windows, macOS, and Linux from [GitHub Releases](https:/
 
 For macOS, choose the `x64` DMG for an Intel Mac or `aarch64` for an Apple Silicon Mac. Check About This Mac if unsure.
 
+macOS builds use free ad-hoc signing and are not notarized by Apple. Drag StoneSVN into Applications. If the first launch is blocked, go to System Settings → Privacy & Security → Open Anyway, then confirm Open. Managed Macs may require IT approval. See the [macOS build and distribution guide (Chinese)](docs/macos-distribution.md).
+
 The app uses an external SVN CLI. On Windows, multilingual paths and property values depend on that CLI’s Unicode and code-page support.
 
 After installation, make sure the SVN CLI is available:

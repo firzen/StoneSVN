@@ -33,6 +33,8 @@ Switch、汎用的な Merge、競合の Resolve は、現在、他の SVN クラ
 
 macOS は Intel Mac 用の `x64` DMG と、Apple Silicon 用の `aarch64` DMG を提供します。「この Mac について」でチップを確認してください。
 
+macOS 版は無料の Ad-hoc 署名を使用し、Apple の公証は受けていません。StoneSVN を「アプリケーション」に移動し、初回起動がブロックされた場合は「システム設定 → プライバシーとセキュリティ → このまま開く」で許可してください。管理対象の Mac では IT 管理者の許可が必要な場合があります。[macOS ビルド・配布ガイド（中国語）](docs/macos-distribution.md)も参照してください。
+
 インストール後、SVN CLI が利用できることを確認してください。
 
 ```bash
