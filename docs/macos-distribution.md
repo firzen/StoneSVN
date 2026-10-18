@@ -6,12 +6,15 @@ StoneSVN 使用 Ad-hoc 签名（`bundle.macOS.signingIdentity` 为 `-`），无�
 
 1. 从项目 GitHub Releases 下载对应架构的 DMG：Intel 选择 `x64`，Apple Silicon 选择 `aarch64`。
 2. 打开 DMG，将 StoneSVN 拖入「应用程序」。
+   DMG 安装窗口会显示中英文首次打开提示，说明「隐私与安全性 → 仍要打开」的操作路径。只有先尝试打开应用并被系统阻止后，相应按钮才可能出现。
 3. 尝试打开 StoneSVN。如果系统阻止打开，确认安装包来自可信来源后，进入「系统设置 → 隐私与安全性」，点击「仍要打开」，再确认「打开」。系统会保存该应用的例外；更新版本后可能需要再次确认。
 4. 安装本机 SVN CLI，并运行 `svn --version --quiet` 确认可用。使用 Homebrew 的用户可以运行 `brew install subversion`。StoneSVN 会自动探测，也可以在设置中选择 SVN 可执行文件。
 
 公司统一管理的 Mac 可能无法自行添加例外，需要 IT 管理员放行。无需关闭整个系统的 Gatekeeper。若提示应用已损坏，应重新下载并检查签名，不应直接视为普通的开发者身份提示。
 
 ## 本地构建
+
+安装窗口背景位于 `src-tauri/installer/dmg-background.png`。修改文案或布局后，在 macOS 的项目根目录运行 `swift scripts/generate-dmg-background.swift` 重新生成并提交图片；常规打包直接使用已提交的 PNG。
 
 在 Mac 上准备 Node.js、npm、Rust 和 Xcode Command Line Tools，然后在项目根目录执行：
 
