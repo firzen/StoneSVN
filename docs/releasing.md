@@ -1,45 +1,57 @@
 # 正式发布
 
-正式标签使用 `vX.Y.Z`；预发布标签使用 `vX.Y.Z-alpha.N`、`beta.N` 或 `rc.N`，见[预发布流程](prerelease.md)。不要移动已公开版本的标签。
+正式版本使用 `vX.Y.Z`。不要手动打正式标签，不要移动已公开的标签。预发布仍使用[预发布流程](prerelease.md)，不会同步到正式官网。
 
-## 发布前
+## 准备一次发布
 
-将 `package.json`、`package-lock.json` 顶层及根包版本、`src-tauri/Cargo.toml`、`src-tauri/Cargo.lock` 的 StoneSVN 包版本、`src-tauri/tauri.conf.json` 统一为正式版本。更新用户文档及 `docs/releases/vX.Y.Z.md`；发布流水线从该文件读取公开更新说明。
-
-在项目根目录运行：
-
-```bash
-RELEASE_TAG=v1.0.0 node scripts/validate-release.cjs
-npm run check
-```
-
-版本校验拒绝预发布标识、前导零、缺失或不一致的版本。截图日期、历史性能记录保留原始来源；新基准应记录提交、环境、测量边界和可重跑方法，不能把原生数据请求耗时当作桌面启动耗时。
-
-确认发布范围并提交、推送到 `main` 后创建标签：
+1. 完成代码和用户文档，在 `docs/releases/vX.Y.Z.md` 编写 GitHub Release 的完整说明。
+2. 在 `docs/releases/vX.Y.Z.website.json` 编写官网摘要，结构参照 `v1.1.2.website.json`。必须包含 `en`、`zh-CN`、`zh-TW`、`ja`、`ko`，每种语言提供 `title` 和非空 `items` 数组。流水线同步已审核文案，不依赖机器翻译服务。
+3. 运行 `npm run release:prepare -- X.Y.Z`，统一 npm、Tauri、Cargo 和锁文件的六处版本值。此命令要求版本递增，且更新说明已齐全。
+4. 审阅、提交并推送到 `main`。版本文件或更新说明变更会触发 **Stable Release**。若推送使用的令牌不触发 Actions，在 Actions 页面手动运行，或运行：
 
 ```bash
-git tag -a v1.0.0 -m "StoneSVN v1.0.0"
-git push origin v1.0.0
+gh workflow run tauri-build.yml --ref main
 ```
 
-## 项目标识与分发渠道
+不需要创建标签、上传安装包或手动更新官网。
 
-StoneSVN 是独立项目，正式仓库为 `firzen/StoneSVN`，安装包通过该仓库的 GitHub Releases 分发。已取消 WinGet 发布，不复用 OrcaSVN 的包标识或发布渠道。
+## 自动流程和失败处理
 
-当前源码仍保留应用标识 `com.orcasvn.desktop` 和旧本地存储键；品牌图形使用 StoneSVN 图标。历史发行说明、审校截图及上游问题链接保留原始记录。
+流水线固定候选提交 SHA，校验版本及五种语言摘要。已公开的当前版本自动跳过，普通开发提交不会重复发布。
 
-## 自动流程
+1. Ubuntu x64、Windows x64、macOS Apple Silicon 和 macOS Intel 分别运行 `npm run check`（前端构建、Node 回归、Rust 格式和测试），再构建安装包。macOS 还验证架构和 Ad-hoc 签名。
+2. 收齐并核对 9 个产物：两种 Mac DMG 与 app 压缩包、Windows EXE/MSI、Linux AppImage/DEB/RPM。所有平台成功且 `main` 仍指向候选提交后，才创建指向该提交的标签。
+3. 创建 Release 草稿，上传并核对每个附件的名称、大小和上传状态，再公开并设置 Latest。已公开版本不能覆盖；失败草稿只允许用相同源码重试。
+4. 官网 **Sync Release and Deploy** 每 5 分钟检查一次 Latest，从发布标签的源码启动 Vite，以虚构文档数据生成五种语言的浅色工作区、深色工作区和属性页截图（共 15 张），不执行真实 SVN 操作。同步五种语言摘要、发布时间、版本和源码 SHA，生成带更新说明及 SoftwareApplication 版本信息的静态页面，再推送官网仓库。截图 URL 带源码 SHA，避免缓存显示旧图。
 
-`.github/workflows/tauri-build.yml` 处理正式标签；推送 `vX.Y.Z` 自动触发。新仓库首次启用 Actions 后，若既有标签事件未触发，可在 Actions 中手动运行 Tauri Build 并填写已存在的正式标签。手动入口同样检出该标签、校验版本，且拒绝覆盖已公开的版本。
+跨平台检查或构建失败时，不创建标签和 Release。上传阶段失败时草稿不公开，可修复基础设施问题后重跑；若要改源码，重新准备候选版本。若检查期间 `main` 有新提交，发布门禁拒绝旧候选，请对最新 `main` 重新运行。
 
-1. 校验所有版本文件和发布说明，创建或复用 GitHub Release 草稿；已公开的同名版本拒绝重新发布。
-2. Windows、macOS、Linux 安装 SVN 测试工具，运行 `npm run check`，打包并将安装包上传至同一个草稿。
-3. 所有平台成功后才公开为正式版并标记 Latest。
+官网失败不撤回已公开版本。在官网仓库 Actions 单独运行 **Sync Release and Deploy**（使用 Latest），或执行：
 
-Windows 固定使用 SlikSVN 1.14.5，核验 svn 与 svnadmin 后加入 PATH；正式版本生成 NSIS EXE 和 MSI。英文 Windows CI 环境会按 [Microsoft 的进程 UTF-8 配置](https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page)为临时 SlikSVN 工具启用 UTF-8 清单，保留中文文件名及属性值回归测试；该工具不打包到 StoneSVN 安装包中。macOS 分别使用 `macos-15`（Apple Silicon）与 `macos-15-intel`（Intel），先校验运行器架构，再显式指定 Rust 构建目标；Linux 使用 Ubuntu x64。Mac 安装包的 `aarch64` 适用于 M 系列芯片，`x64` 适用于 Intel，发布前必须核对两种架构的产物。
+```bash
+gh workflow run sync-release.yml --repo stonesvn/stonesvn.github.io --ref main
+```
 
-任一平台失败时，Release 保持草稿，Latest 不变。在 Actions 中重跑失败任务；流程代码修改不会应用到旧标签上的重跑。需要新的源码或流程修复时使用新的版本标签，不强制移动已发布标签。
+官网只允许同步当前 Latest 正式版本，避免旧任务回写旧版本。官网推送采用普通快进，若页面维护提交同时发生，任务失败而不会覆盖维护内容，重新运行即可。
 
-## 发布后验证
+## 官网权限与部署
 
-检查 Actions 三平台检查、打包和公开步骤，以及 Release 的版本、说明、Latest 标记和实际安装包列表。本地检查和 CI 构建不能替代在各操作系统上安装、启动和真实仓库操作的验收。
+官网仓库禁用了 deploy keys，因此使用拉取式同步，不配置跨仓库密钥或个人令牌。官网自己的 `GITHUB_TOKEN` 只写官网内容，单独的部署作业只有 `pages: write` 与 `id-token: write`。应用仓库只有最终 publish 作业有 `contents: write`。
+
+官网仓库 `.github/workflows/sync-release.yml` 每 5 分钟检查 GitHub Latest；GitHub 定时任务可能延迟。没有新版本时不安装依赖、不截图、不提交、不部署。正式版更新后自动生成五种语言内容和截图，推送生成文件，再通过 `deploy-pages` 部署；不依赖机器人提交触发另一个工作流。官网需配置 Pages 的 build type 为 workflow。
+
+需要立即同步时手动运行官网工作流。官网模板或样式推送到 `main` 时也会重新部署。并发维护导致推送冲突会中止任务，下一次运行重试，不强推。
+
+## 检查流程自身
+
+在 **Stable Release** 手动勾选 `validate_only`，或执行：
+
+```bash
+gh workflow run tauri-build.yml --ref main -f validate_only=true
+```
+
+这会完整执行四个平台的检查和打包，保留 7 天构建产物，不创建标签、不发版、不修改官网。适合检查流水线改动。
+
+Windows 固定使用 SlikSVN 1.14.5，并仅为临时 CI SVN 进程启用 UTF-8，保留多语言路径回归。SVN 不随安装包分发。macOS 使用 Ad-hoc 签名，未经过 Apple 公证。CI 的检查、打包及截图不能替代各平台安装启动与真实仓库操作的人工验收。
+
+StoneSVN 的正式仓库为 `firzen/StoneSVN`，安装包通过 GitHub Releases 分发。应用标识仍为 `com.orcasvn.desktop`，保留原有本地数据兼容；不复用历史 WinGet 分发标识。

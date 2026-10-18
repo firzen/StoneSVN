@@ -1,22 +1,28 @@
-name: Tauri Build
+name: Stable Release
 
 on:
   workflow_dispatch:
     inputs:
-      tag:
-        description: Existing stable release tag (vX.Y.Z)
-        required: true
-        type: string
+      validate_only:
+        description: Check and build all platforms without creating a tag or release
+        type: boolean
+        default: false
   push:
-    tags:
-      - "v*"
-      - "!v*-*"
+    branches: [main]
+    paths:
+      - package.json
+      - package-lock.json
+      - src-tauri/Cargo.toml
+      - src-tauri/Cargo.lock
+      - src-tauri/tauri.conf.json
+      - docs/releases/**
 
 permissions:
   contents: read
 
+# Serialize stable releases.
 concurrency:
-  group: release-${{ inputs.tag || github.ref_name }}
+  group: stable-release
   cancel-in-progress: false
 
 env:
@@ -24,61 +30,50 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
-  prepare:
-    name: Validate version and prepare draft
+  plan:
+    name: Pin candidate and validate release metadata
     runs-on: ubuntu-22.04
-    permissions:
-      contents: write
     outputs:
-      release-id: ${{ steps.release.outputs.id }}
+      tag: ${{ steps.plan.outputs.tag }}
+      sha: ${{ steps.plan.outputs.sha }}
+      proceed: ${{ steps.plan.outputs.proceed }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Validate tag and package versions
-        env:
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-        run: |
-          node scripts/validate-release.cjs
-          test -f "docs/releases/$RELEASE_TAG.md"
-      - name: Create or reuse release draft
-        id: release
+      - name: Check candidate without creating tags
+        id: plan
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          VALIDATE_ONLY: ${{ inputs.validate_only || false }}
         run: |
           set -euo pipefail
-          if gh release view "$RELEASE_TAG" --json id >/dev/null 2>&1; then
-            if [ "$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft')" != "true" ]; then
-              echo "::error::This release is already published. Use a new tag for another release."
-              exit 1
-            fi
-            gh release edit "$RELEASE_TAG" --prerelease=false --latest=false --notes-file "docs/releases/$RELEASE_TAG.md"
-          else
-            gh release create "$RELEASE_TAG" --verify-tag --draft --latest=false --notes-file "docs/releases/$RELEASE_TAG.md" --title "StoneSVN $RELEASE_TAG"
+          test "$GITHUB_REF" = refs/heads/main
+          tag="v$(node -p 'require("./package.json").version')"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          # Already published versions are ordinary main-branch development.
+          gh api "repos/$GITHUB_REPOSITORY/releases" --paginate > "$RUNNER_TEMP/releases.json"
+          published=$(jq --arg tag "$tag" '[.[] | select(.tag_name == $tag and .draft == false)] | length' "$RUNNER_TEMP/releases.json")
+          if [ "$published" != 0 ] && [ "$VALIDATE_ONLY" != true ]; then
+            echo "Version $tag is already published; no release required."
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          # A newly created draft can take a moment to appear in the REST list.
-          release_id=""
-          for attempt in 1 2 3 4 5; do
-            release_id=$(gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq ".[] | select(.tag_name == \"$RELEASE_TAG\") | .id")
-            if [[ "$release_id" =~ ^[0-9]+$ ]]; then break; fi
-            sleep 2
-          done
-          if [[ ! "$release_id" =~ ^[0-9]+$ ]]; then
-            echo "::error::Could not resolve a unique numeric release ID."
-            exit 1
-          fi
-          echo "id=$release_id" >> "$GITHUB_OUTPUT"
+          RELEASE_TAG="$tag" node scripts/validate-release.cjs
+          node scripts/website-release.cjs validate "$tag"
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
 
   desktop:
     name: Test and build (${{ matrix.platform }})
-    needs: prepare
+    needs: plan
+    if: needs.plan.outputs.proceed == 'true'
     runs-on: ${{ matrix.platform }}
     permissions:
-      contents: write
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -86,7 +81,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.plan.outputs.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -171,15 +166,8 @@ jobs:
           svnadmin --version --quiet
       - name: Build and run regression checks
         run: npm run check
-      - name: Build and upload installers to draft
-        uses: tauri-apps/tauri-action@v0.6.2
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        with:
-          releaseId: ${{ needs.prepare.outputs.release-id }}
-          # Stable versions support both Windows NSIS and MSI installers.
-          args: ${{ matrix.platform == 'macos-15-intel' && '--target x86_64-apple-darwin' || matrix.platform == 'macos-15' && '--target aarch64-apple-darwin' || '' }}
-
+      - name: Build installers before creating a tag
+        run: npm run tauri build -- ${{ matrix.platform == 'macos-15-intel' && '--target x86_64-apple-darwin' || matrix.platform == 'macos-15' && '--target aarch64-apple-darwin' || '' }}
 
       - name: Verify macOS ad-hoc signature
         if: startsWith(matrix.platform, 'macos-')
@@ -193,16 +181,65 @@ jobs:
           echo "$signature_info"
           [[ "$signature_info" == *"Signature=adhoc"* ]]
 
+      - name: Collect and validate platform assets
+        env:
+          RELEASE_PLATFORM: ${{ matrix.platform }}
+        run: node scripts/collect-release-assets.cjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installers-${{ matrix.platform }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 7
+
   publish:
-    name: Publish complete release
-    needs: [prepare, desktop]
+    name: Tag and publish only after every platform succeeds
+    needs: [plan, desktop]
+    if: inputs.validate_only != true
     runs-on: ubuntu-22.04
     permissions:
       contents: write
+    outputs:
+      tag: ${{ needs.plan.outputs.tag }}
     steps:
-      - name: Publish after all platforms succeed
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: installers-*
+          path: release-assets
+          merge-multiple: true
+      - name: Verify complete release asset set
+        run: node scripts/collect-release-assets.cjs --verify
+      - name: Create immutable tag and publish complete release
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
-        run: gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest=true
+          RELEASE_TAG: ${{ needs.plan.outputs.tag }}
+          SOURCE_SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          set -euo pipefail
+          # Do not release a superseded candidate after a long matrix run.
+          test "$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)" = "$SOURCE_SHA"
+          if gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft > "$RUNNER_TEMP/draft" 2>/dev/null; then
+            test "$(cat "$RUNNER_TEMP/draft")" = true
+          fi
+          git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG" 2>/dev/null || true
+          if git rev-parse "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            test "$(git rev-list -n 1 "$RELEASE_TAG")" = "$SOURCE_SHA"
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git tag -a "$RELEASE_TAG" "$SOURCE_SHA" -m "StoneSVN $RELEASE_TAG"
+            git push origin "refs/tags/$RELEASE_TAG"
+          fi
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --verify-tag --draft --latest=false --title "StoneSVN $RELEASE_TAG" --notes-file "docs/releases/$RELEASE_TAG.md"
+          fi
+          gh release edit "$RELEASE_TAG" --notes-file "docs/releases/$RELEASE_TAG.md"
+          gh release upload "$RELEASE_TAG" release-assets/* --clobber
+          # Validate uploaded names and sizes before making the draft public.
+          gh api "repos/$GITHUB_REPOSITORY/releases" --paginate --jq ".[] | select(.tag_name == \"$RELEASE_TAG\")" > release-upload.json
+          node scripts/collect-release-assets.cjs --verify-upload release-upload.json
+          gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest=true

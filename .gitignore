@@ -31,3 +31,7 @@ build-output.txt
 
 .minimax
 .reasonix
+
+# Release workflow staging
+release-assets/
+release-upload.json

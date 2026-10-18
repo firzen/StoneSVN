@@ -1,0 +1,22 @@
+{
+  "en": {
+    "title": "More control over everyday working-copy changes",
+    "items": ["Resolve conflicts from Workspace or Properties; review and commit the result separately.", "Rename and move versioned files and directories while preserving history.", "Preview the affected tree before recursive revert, and restore clean, complete directories to a historical revision as local changes.", "Add unversioned items, cancel plain scheduled additions while keeping local files, and relocate working copies within the same repository."]
+  },
+  "zh-CN": {
+    "title": "日常工作副本操作，更清楚也更顺手",
+    "items": ["在工作区或属性页解决冲突，审阅后另行提交。", "重命名与移动受控文件和目录，同时保留历史。", "递归还原前预览影响范围；将干净、完整的目录恢复到历史版本，作为本地变更。", "添加未跟踪项目、取消普通新增计划并保留本地文件，以及更新同一仓库的地址。"]
+  },
+  "zh-TW": {
+    "title": "日常工作副本操作，更清楚也更順手",
+    "items": ["在工作區或屬性頁解決衝突，審閱後另行提交。", "重新命名與移動受控檔案和目錄，同時保留歷史。", "遞迴還原前預覽影響範圍；將乾淨、完整的目錄恢復到歷史版本，作為本機變更。", "加入未追蹤項目、取消一般新增排程並保留本機檔案，以及更新同一儲存庫的位址。"]
+  },
+  "ja": {
+    "title": "日々の作業コピー操作を、より確実に",
+    "items": ["ワークスペースやプロパティから競合を解決し、結果を確認して別途コミットできます。", "履歴を保持したまま、管理対象のファイルやディレクトリを名前変更・移動できます。", "再帰的な取り消しの前に影響範囲を確認し、クリーンで完全なディレクトリを過去のリビジョンへローカル変更として復元できます。", "未管理項目の追加、ローカルファイルを残した通常の追加予定の取り消し、同一リポジトリ内の URL 変更に対応しました。"]
+  },
+  "ko": {
+    "title": "일상적인 작업 사본 변경을 더 명확하게",
+    "items": ["작업 공간이나 속성에서 충돌을 해결하고 결과를 검토한 후 별도로 커밋할 수 있습니다.", "기록을 유지하면서 버전 관리 파일과 디렉터리의 이름을 바꾸거나 이동할 수 있습니다.", "재귀 되돌리기 전에 영향 범위를 확인하고, 변경이 없고 완전한 디렉터리를 과거 리비전으로 복원해 로컬 변경으로 검토할 수 있습니다.", "미추적 항목 추가, 로컬 파일을 유지하는 일반 추가 예약 취소, 동일 저장소의 주소 변경을 지원합니다."]
+  }
+}
