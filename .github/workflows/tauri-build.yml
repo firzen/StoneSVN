@@ -20,9 +20,9 @@ on:
 permissions:
   contents: read
 
-# Serialize stable releases.
+# Serialize publishing; independent dry-run candidates can be checked concurrently.
 concurrency:
-  group: stable-release
+  group: ${{ inputs.validate_only && format('release-check-{0}', github.sha) || 'stable-release' }}
   cancel-in-progress: false
 
 env:
@@ -72,6 +72,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.proceed == 'true'
     runs-on: ${{ matrix.platform }}
+    timeout-minutes: 45
     permissions:
       contents: read
     strategy:
