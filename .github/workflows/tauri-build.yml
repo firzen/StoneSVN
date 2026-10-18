@@ -168,7 +168,14 @@ jobs:
       - name: Build and run regression checks
         run: npm run check
       - name: Build installers before creating a tag
-        run: npm run tauri build -- ${{ matrix.platform == 'macos-15-intel' && '--target x86_64-apple-darwin' || matrix.platform == 'macos-15' && '--target aarch64-apple-darwin' || '' }}
+        # Build only: without releaseId/tagName this action cannot publish.
+        # Keep its supported macOS DMG environment and retry transient bundling failures.
+        uses: tauri-apps/tauri-action@v0.6.2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          retryAttempts: 2
+          args: ${{ matrix.platform == 'macos-15-intel' && '--target x86_64-apple-darwin --verbose' || matrix.platform == 'macos-15' && '--target aarch64-apple-darwin --verbose' || '--verbose' }}
 
       - name: Verify macOS ad-hoc signature
         if: startsWith(matrix.platform, 'macos-')
