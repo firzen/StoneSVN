@@ -1,5 +1,6 @@
 mod executor;
 mod file_filter;
+mod incoming;
 mod operations;
 mod parser;
 mod preview;
@@ -13,6 +14,7 @@ pub use working_copy::{move_target, relocate, revert_preview, revert_reviewed};
 
 pub use executor::configure_svn_executable;
 pub use file_filter::FileFilter;
+pub use incoming::incoming_logs;
 pub use operations::*;
 pub use preview::{file_preview, FilePreviewResult};
 pub use properties::{

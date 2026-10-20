@@ -72,6 +72,10 @@ export async function svnLocalRevision(path: string): Promise<number> {
   return invoke<number>('svn_local_revision', { path })
 }
 
+export async function svnIncomingLogs(path: string, limit?: number): Promise<SvnLogEntry[]> {
+  return invokeWithConnectionPrompt<SvnLogEntry[]>('svn_incoming_logs', { path, limit })
+}
+
 export async function svnRemoteInfo(path: string): Promise<SvnInfo> {
   return invokeWithConnectionPrompt<SvnInfo>('svn_remote_info', { path })
 }

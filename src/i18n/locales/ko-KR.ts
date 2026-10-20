@@ -325,6 +325,8 @@ export default {
   },
   update: {
     title: '업데이트 확인',
+    checkFailed: '업데이트 확인에 실패했습니다. 다시 시도하여 업데이트 여부를 확인하세요.',
+    notChecked: '원격 업데이트를 아직 확인하지 않았습니다',
     check: '확인',
     localRevision: '로컬 리비전',
     remoteRevision: '원격 리비전',

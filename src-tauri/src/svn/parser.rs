@@ -318,8 +318,96 @@ pub fn parse_blame_text(output: &str) -> Result<Vec<crate::svn::BlameLine>, SvnE
     Ok(lines)
 }
 
+#[derive(Default, Debug)]
+pub(super) struct PendingPath {
+    pub path: String,
+    pub base: u64,
+    pub incoming: bool,
+    pub subtree: bool,
+    pub switched: bool,
+}
+
+pub(super) fn parse_incoming_status_xml(xml: &str) -> Result<(u64, Vec<PendingPath>), SvnError> {
+    let mut reader = Reader::from_str(xml);
+    let mut current = PendingPath::default();
+    let mut pending = Vec::new();
+    let mut head = 0;
+    loop {
+        match reader.read_event() {
+            Ok(Event::Start(e) | Event::Empty(e)) => {
+                for attr in e.attributes() {
+                    let attr = attr.map_err(|e| SvnError::ParseError(e.to_string()))?;
+                    let value = attr
+                        .unescape_value()
+                        .map_err(|e| SvnError::ParseError(e.to_string()))?;
+                    match (e.name().as_ref(), attr.key.as_ref()) {
+                        (b"entry", b"path") => {
+                            current.path = value.into_owned();
+                            #[cfg(windows)]
+                            {
+                                current.path = current.path.replace('\\', "/");
+                            }
+                        }
+                        (b"wc-status", b"revision") => current.base = value.parse().unwrap_or(0),
+                        (b"wc-status", b"switched") => current.switched = value == "true",
+                        (b"repos-status", b"item" | b"props") => {
+                            current.incoming |= !matches!(value.as_ref(), "none" | "normal" | "");
+                            current.subtree |= attr.key.as_ref() == b"item"
+                                && matches!(value.as_ref(), "added" | "deleted" | "replaced");
+                        }
+                        (b"against", b"revision") => {
+                            head = value.parse().map_err(|e: std::num::ParseIntError| {
+                                SvnError::ParseError(e.to_string())
+                            })?
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            Ok(Event::End(e)) if e.name().as_ref() == b"entry" => {
+                // Keep switched roots too: descendants use their effective URL.
+                if current.incoming || current.switched {
+                    pending.push(std::mem::take(&mut current));
+                } else {
+                    current = PendingPath::default();
+                }
+            }
+            Ok(Event::Eof) => break,
+            Err(e) => return Err(SvnError::ParseError(e.to_string())),
+            _ => {}
+        }
+    }
+    Ok((head, pending))
+}
+
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn incoming_status_ignores_local_changes_and_uses_each_nodes_base() {
+        let (head, entries) = parse_incoming_status_xml(
+            r#"<status><target path=".">
+          <entry path="."><wc-status item="normal" revision="4"/></entry>
+          <entry path="own.txt"><wc-status item="modified" revision="7"/>
+            <repos-status item="none" props="none"><lock/></repos-status></entry>
+          <entry path="remote&amp;.txt"><wc-status item="normal" revision="3"/>
+            <repos-status item="modified" props="none"/></entry>
+          <entry path="new"><wc-status item="none"/>
+            <repos-status item="added" props="none"/></entry>
+          <entry path="property"><wc-status item="normal" revision="6"/>
+            <repos-status item="none" props="modified"/></entry>
+          <against revision="8"/></target></status>"#,
+        )
+        .unwrap();
+        assert_eq!(head, 8);
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].path, "remote&.txt");
+        assert_eq!(entries[0].base, 3);
+        assert_eq!(entries[1].base, 0);
+        assert!(entries[1].subtree);
+        assert_eq!(entries[2].base, 6);
+        assert!(!entries[2].subtree);
+    }
+
     #[cfg(windows)]
     #[test]
     fn status_paths_normalize_windows_separators() {

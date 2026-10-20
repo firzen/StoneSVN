@@ -93,6 +93,8 @@ Moving a versioned file directly in a file manager can produce Missing status. D
 3. Select Update and wait. It retrieves remote changes and may merge local edits or create conflicts.
 4. Return to the workspace and inspect the result. Resolve conflicts using the section below, then review your local diff even if the update was clean.
 
+Incoming commits are selected from actual remote file and property changes using each node’s BASE revision. Commits already present locally are excluded even when the working-copy root has an older revision. A failed check leaves update availability unknown; retry before concluding that no updates are available. Remote checks reuse the saved security settings for the matching server.
+
 Refresh checks local state; Update retrieves remote files. The remote commit count describes the records currently listed, not the repository's entire history. Updating does not commit your local work.
 
 ### Read the diff

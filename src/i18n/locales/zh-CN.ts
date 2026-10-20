@@ -325,6 +325,8 @@ export default {
   },
   update: {
     title: '检查更新',
+    checkFailed: '检查更新失败，请重试后确认是否需要更新',
+    notChecked: '尚未检查远端更新',
     check: '检查',
     localRevision: '本地版本',
     remoteRevision: '远端版本',

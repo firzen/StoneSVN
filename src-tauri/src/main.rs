@@ -730,6 +730,13 @@ async fn svn_local_revision(path: String) -> Result<u64, String> {
 }
 
 #[tauri::command]
+async fn svn_incoming_logs(path: String, limit: Option<u32>) -> Result<Vec<SvnLogEntry>, String> {
+    svn::incoming_logs(&path, limit.unwrap_or(50))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn svn_remote_info(path: String) -> Result<SvnInfo, String> {
     svn::remote_info(&path).await.map_err(|e| e.to_string())
 }
@@ -1306,6 +1313,7 @@ fn main() {
             svn_set_property,
             svn_local_revision,
             svn_remote_info,
+            svn_incoming_logs,
             svn_diff,
             svn_file_preview,
             svn_apply_patch,

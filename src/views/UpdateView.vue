@@ -34,7 +34,7 @@
           </div>
           <div>
             <span>{{ $t('update.incomingCount') }}</span>
-            <strong>{{ incomingLogs.length }}</strong>
+            <strong>{{ checkState === 'ready' ? incomingLogs.length : '-' }}</strong>
           </div>
           <div>
             <span>{{ $t('update.localChangeCount') }}</span>
@@ -45,9 +45,9 @@
         <section class="update-section">
           <div class="section-header">
             <h3>{{ $t('update.incomingTitle') }}</h3>
-            <span>{{ $t('update.incomingHint') }}</span>
+            <span>{{ incomingMessage }}</span>
           </div>
-          <el-table :data="incomingLogs" stripe class="update-table" max-height="280" row-key="revision"
+          <el-table :data="incomingLogs" :empty-text="incomingMessage" stripe class="update-table" max-height="280" row-key="revision"
             @row-click="showCommitDetails" :row-style="{ cursor: 'pointer' }">
             <el-table-column prop="revision" :label="$t('log.revision')" width="90" align="center">
               <template #default="{ row }">
@@ -65,9 +65,6 @@
               <template #default="{ row }">{{ row.changed_paths?.length || 0 }}</template>
             </el-table-column>
           </el-table>
-          <div v-if="!loading && incomingLogs.length === 0" class="empty-line">
-            {{ $t('update.noIncoming') }}
-          </div>
         </section>
 
         <div class="list-divider"></div>
@@ -148,7 +145,7 @@ import { computed, onActivated, onDeactivated, onUnmounted, ref, shallowRef, wat
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus/es/components/message/index'
-import { svnLog, svnRemoteInfo, svnUpdate } from '@/api/svn'
+import { svnIncomingLogs, svnRemoteInfo, svnUpdate } from '@/api/svn'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useWorkspace } from '@/composables/useWorkspace'
 import { getStatusClass, getStatusLabelKey } from '@/composables/useSvnStatus'
@@ -173,6 +170,13 @@ const loading = ref(false)
 const updating = ref(false)
 const incomingLogs = ref<SvnLogEntry[]>([])
 const remoteRevision = ref(0)
+const checkState = ref<'unchecked' | 'checking' | 'ready' | 'failed'>('unchecked')
+const incomingMessage = computed(() => {
+  if (checkState.value === 'failed') return t('update.checkFailed')
+  if (checkState.value === 'checking') return t('common.loading')
+  if (checkState.value === 'unchecked') return t('update.notChecked')
+  return t(incomingLogs.value.length ? 'update.incomingHint' : 'update.noIncoming')
+})
 const selectedLog = shallowRef<SvnLogEntry | null>(null)
 const detailsVisible = ref(false)
 const showCommitDetails = (entry: SvnLogEntry) => {
@@ -202,6 +206,7 @@ const applyCachedState = (path: string) => {
   const cached = updateStateCache.get(path)
   if (!cached) return false
 
+  checkState.value = 'ready'
   remoteRevision.value = cached.remoteRevision
   incomingLogs.value = cached.incomingLogs.map(entry => ({
     ...entry,
@@ -219,20 +224,22 @@ const loadUpdateState = async (force = false) => {
     && workspaceStore.currentPath === requestedPath
     && isActive
   loading.value = true
+  checkState.value = 'checking'
   try {
     const refreshed = await (force ? refreshStatusAfterMutation() : refreshStatusIfStale(updateStateIntervalMs))
-    if (!isCurrent() || !refreshed) return
+    if (!isCurrent()) return
+    if (!refreshed) {
+      checkState.value = 'unchecked'
+      return
+    }
     const info = await svnRemoteInfo(requestedPath)
     if (!isCurrent()) return
     remoteRevision.value = info.revision
-    const local = workspaceStore.svnInfo?.revision || 0
-    if (info.revision > local) {
-      const logs = await svnLog(requestedPath, settings.logLimit || 50, info.revision, local + 1)
-      if (!isCurrent()) return
-      incomingLogs.value = logs
-    } else {
-      incomingLogs.value = []
-    }
+    const logs = await svnIncomingLogs(requestedPath, settings.logLimit || 50)
+    if (!isCurrent()) return
+    incomingLogs.value = logs
+    checkState.value = 'ready'
+    workspaceStore.setError(null)
     updateStateCache.set(requestedPath, {
       remoteRevision: remoteRevision.value,
       incomingLogs: incomingLogs.value.map(entry => ({
@@ -242,6 +249,9 @@ const loadUpdateState = async (force = false) => {
     })
   } catch (err) {
     if (!isCurrent()) return
+    checkState.value = 'failed'
+    incomingLogs.value = []
+    updateStateCache.delete(requestedPath)
     workspaceStore.setError(String(err))
     ElMessage.error(`${t('common.error')}：${err}`)
   } finally {
@@ -307,6 +317,7 @@ watch(
     detailsVisible.value = false
     selectedLog.value = null
     remoteRevision.value = 0
+    checkState.value = 'unchecked'
     if (isActive && path && !applyCachedState(path)) {
       loadUpdateState()
     }

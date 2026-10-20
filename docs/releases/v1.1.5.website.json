@@ -1,0 +1,42 @@
+{
+  "en": {
+    "title": "Accurate incoming updates and SSL status checks",
+    "items": [
+      "Detect real incoming file and property changes without counting commits already present locally.",
+      "Reuse saved server TLS and certificate settings during remote status checks.",
+      "Show failed checks separately from no updates, and keep partial XML out of SVN error messages."
+    ]
+  },
+  "zh-CN": {
+    "title": "准确识别远端更新与修复 SSL 状态检查",
+    "items": [
+      "根据实际文件和属性变化提示更新，不再把本地已有的提交计入待更新记录。",
+      "远端状态检查正确使用已保存的服务器 TLS 和证书设置。",
+      "检查失败与没有更新分别显示，SVN 错误提示不再夹带不完整的 XML。"
+    ]
+  },
+  "zh-TW": {
+    "title": "準確識別遠端更新與修復 SSL 狀態檢查",
+    "items": [
+      "根據實際檔案和屬性變更提示更新，不再把本機已有的提交計入待更新記錄。",
+      "遠端狀態檢查正確使用已儲存的伺服器 TLS 和憑證設定。",
+      "分別顯示檢查失敗與沒有更新，SVN 錯誤訊息不再夾帶不完整的 XML。"
+    ]
+  },
+  "ja": {
+    "title": "リモート更新の正確な検出と SSL 状態確認の修正",
+    "items": [
+      "実際のファイルと属性の変更を検出し、ローカルに反映済みのコミットを更新対象から除外します。",
+      "リモート状態の確認に、保存済みのサーバー別 TLS と証明書の設定を適用します。",
+      "確認の失敗と更新なしを区別し、SVN エラーから不完全な XML を除きます。"
+    ]
+  },
+  "ko": {
+    "title": "정확한 원격 업데이트 감지 및 SSL 상태 확인 수정",
+    "items": [
+      "실제 파일 및 속성 변경을 감지하고 로컬에 이미 반영된 커밋은 업데이트 목록에서 제외합니다.",
+      "원격 상태 확인에 저장된 서버별 TLS 및 인증서 설정을 적용합니다.",
+      "확인 실패와 업데이트 없음을 구분하고 SVN 오류 메시지에서 불완전한 XML을 제거합니다."
+    ]
+  }
+}

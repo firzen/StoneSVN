@@ -11,7 +11,7 @@ function deferred() {
   return { promise, resolve }
 }
 
-function harness() {
+function harness({ logs = [], remoteRevision = 2, incomingRequest = async () => logs } = {}) {
   const update = deferred(), refresh = deferred(), calls = [], lifecycle = {}, timers = new Set()
   const store = {
     currentPath: '/wc', svnInfo: { revision: 1 }, statusList: [],
@@ -42,11 +42,12 @@ function harness() {
     '@/composables/useSvnStatus': {},
     '@/api/svn': {
       svnUpdate: async () => { calls.push('update'); await update.promise },
-      svnRemoteInfo: async () => { calls.push('remote'); return { revision: 2 } },
+      svnRemoteInfo: async () => { calls.push('remote'); return { revision: remoteRevision } },
+      svnIncomingLogs: async () => { calls.push('incoming'); return incomingRequest() },
     },
   }
   const script = fs.readFileSync('src/views/UpdateView.vue', 'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
-  const code = ts.transpileModule(script + '\nexports.actions = { doUpdate, updating };', { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
+  const code = ts.transpileModule(script + '\nexports.actions = { doUpdate, updating, loadUpdateState, incomingLogs, checkState, incomingMessage };', { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
   const context = {
     exports: {}, require: name => { assert.ok(name in mocks, name); return mocks[name] },
     window: {
@@ -96,7 +97,7 @@ test('an active update refreshes local state once before querying the remote rev
   h.update.resolve()
   h.refresh.resolve()
   await pending
-  assert.deepEqual(h.calls, ['update', 'refresh', 'remote'])
+  assert.deepEqual(h.calls, ['update', 'refresh', 'remote', 'incoming'])
 })
 
 test('completion in a different workspace does not refresh that workspace', async () => {
@@ -107,4 +108,63 @@ test('completion in a different workspace does not refresh that workspace', asyn
   h.update.resolve()
   await pending
   assert.deepEqual(h.calls, ['update'])
+})
+
+
+test('a lower root revision does not create incoming commits when SVN reports no remote changes', async () => {
+  const h = harness({ remoteRevision: 4 })
+  h.lifecycle.activate()
+  h.refresh.resolve()
+  await h.loadUpdateState(true)
+  assert.equal(h.store.svnInfo.revision, 2)
+  assert.equal(h.incomingLogs.value.length, 0)
+  assert.deepEqual(h.calls, ['refresh', 'remote', 'incoming'])
+})
+
+test('incoming file changes are shown even when the root revision equals HEAD', async () => {
+  const h = harness({ logs: [{ revision: 1, changed_paths: [{ path: '/file', action: 'M' }] }] })
+  h.lifecycle.activate()
+  h.refresh.resolve()
+  await h.loadUpdateState(true)
+  assert.equal(h.store.svnInfo.revision, 2)
+  assert.equal(h.incomingLogs.value.length, 1)
+  assert.equal(h.incomingLogs.value[0].revision, 1)
+})
+
+
+test('SSL failure leaves update availability unknown and a successful retry restores it', async () => {
+  let fail = true
+  const h = harness({ incomingRequest: async () => {
+    if (fail) throw new Error('svn: E120171: SSL communication failed')
+    return []
+  } })
+  h.lifecycle.activate()
+  h.refresh.resolve()
+  await h.loadUpdateState(true)
+  assert.equal(h.checkState.value, 'failed')
+  assert.equal(h.incomingMessage.value, 'update.checkFailed')
+  assert.match(h.store.error, /E120171/)
+  fail = false
+  await h.loadUpdateState(true)
+  assert.equal(h.checkState.value, 'ready')
+  assert.equal(h.incomingMessage.value, 'update.noIncoming')
+  assert.equal(h.store.error, null)
+})
+
+test('a failed recheck clears stale incoming commits instead of presenting a successful result', async () => {
+  let fail = false
+  const h = harness({ incomingRequest: async () => {
+    if (fail) throw new Error('connection failed')
+    return [{ revision: 3, changed_paths: [] }]
+  } })
+  assert.equal(h.incomingMessage.value, 'update.notChecked')
+  h.lifecycle.activate()
+  h.refresh.resolve()
+  await h.loadUpdateState(true)
+  assert.equal(h.incomingLogs.value.length, 1)
+  fail = true
+  await h.loadUpdateState(true)
+  assert.equal(h.checkState.value, 'failed')
+  assert.equal(h.incomingLogs.value.length, 0)
+  assert.equal(h.incomingMessage.value, 'update.checkFailed')
 })

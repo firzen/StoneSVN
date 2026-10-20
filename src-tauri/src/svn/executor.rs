@@ -52,13 +52,20 @@ async fn execute_svn_with_configurations(
     path: Option<&str>,
     mut configurations: Vec<SslCompatibility>,
 ) -> Result<String, SvnError> {
-    // Local mutations and status scans do not establish TLS connections and
-    // should not pay for an additional workspace metadata query.
+    // Remote status (-u) connects to the server and needs the same scoped TLS
+    // settings as info/log. Only purely local scans skip the metadata query.
+    let remote_status = args.first() == Some(&"status")
+        && args
+            .iter()
+            .take_while(|arg| **arg != "--")
+            .any(|arg| matches!(*arg, "-u" | "--show-updates"));
+    let local_status = args.first() == Some(&"status") && !remote_status;
     let local_working_diff = matches!(args, ["diff", "--", target] if !target.contains("://"));
     if local_working_diff
+        || local_status
         || matches!(
             args.first(),
-            Some(&"status" | &"add" | &"revert" | &"resolve" | &"cleanup" | &"auth")
+            Some(&"add" | &"revert" | &"resolve" | &"cleanup" | &"auth")
         )
     {
         configurations.clear();
@@ -300,7 +307,14 @@ async fn collect_command_output(cmd: &mut Command, deadline: Duration) -> Result
         Ok(stdout)
     } else {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(SvnError::CommandFailed(format!("{}\n{}", stdout, stderr)))
+        let message = if stdout.trim_start().starts_with("<?xml") && !stderr.trim().is_empty() {
+            stderr.trim().to_string()
+        } else {
+            format!("{}\n{}", stdout.trim(), stderr.trim())
+                .trim()
+                .to_string()
+        };
+        Err(SvnError::CommandFailed(message))
     }
 }
 
@@ -339,6 +353,8 @@ mod tests {
             for args in [
                 vec!["checkout", "https://legacy.example:8443/svn/repo", "wc"],
                 vec!["log", "--xml"],
+                vec!["status", "--xml", "--show-updates", "--", "."],
+                vec!["status", "-u", "--", "."],
             ] {
                 let output = execute_svn_with_configuration(
                     executable.clone(),
@@ -384,6 +400,16 @@ mod tests {
                     Some(config.clone()),
                 ),
                 (vec!["log"], Some(root.to_str().unwrap()), None),
+                (
+                    vec!["status", "--xml", "--", "."],
+                    Some(root.to_str().unwrap()),
+                    Some(config.clone()),
+                ),
+                (
+                    vec!["status", "--", "-u"],
+                    Some(root.to_str().unwrap()),
+                    Some(config.clone()),
+                ),
             ] {
                 let output =
                     execute_svn_with_configuration(executable.clone(), &args, cwd, options)
@@ -530,6 +556,27 @@ mod tests {
             Err(SvnError::SvnNotFound) => {}
             Err(err) => panic!("unexpected svn executor error: {err}"),
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn failed_xml_commands_report_diagnostics_without_partial_xml() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let mut command = Command::new("sh");
+        command.args(["-c", "printf '%s' '<?xml version=\"1.0\"?><status><target>'; echo 'svn: E120171: SSL communication failed' >&2; exit 1"]);
+        let error = runtime
+            .block_on(collect_command_output(
+                &mut command,
+                Duration::from_secs(10),
+            ))
+            .unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "SVN 命令执行失败：svn: E120171: SSL communication failed"
+        );
     }
 
     #[cfg(unix)]

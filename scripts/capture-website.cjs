@@ -4,12 +4,13 @@ const fs = require('node:fs')
 const path = require('node:path')
 const screenshots = process.env.SCREENSHOT_DIRECTORY || path.join(__dirname, '../website/assets/screenshots')
 // Documentation also needs dark Properties and English panel details.
+const baseUrl = process.env.SCREENSHOT_BASE_URL || 'http://127.0.0.1:1420'
 const includeDetails = process.env.SCREENSHOT_INCLUDE_DETAILS === '1'
 const languages = [['en', 'en-US'], ['zh-CN', 'zh-CN'], ['zh-TW', 'zh-TW'], ['ja', 'ja-JP'], ['ko', 'ko-KR']]
 async function openApp(page) {
   for (let attempt = 0; ; attempt++) {
     try {
-      await page.goto('http://127.0.0.1:1420')
+      await page.goto(baseUrl)
       break
     } catch (error) {
       if (attempt >= 59) throw error

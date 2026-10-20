@@ -325,6 +325,8 @@ export default {
   },
   update: {
     title: '更新を確認',
+    checkFailed: '更新の確認に失敗しました。再試行して更新の有無を確認してください。',
+    notChecked: 'リモートの更新はまだ確認していません',
     check: '確認',
     localRevision: 'ローカルリビジョン',
     remoteRevision: 'リモートリビジョン',

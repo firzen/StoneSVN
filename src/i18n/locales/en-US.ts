@@ -325,6 +325,8 @@ export default {
   },
   update: {
     title: 'Check for Updates',
+    checkFailed: 'Update check failed. Retry to determine whether updates are available.',
+    notChecked: 'Check for remote updates first',
     check: 'Check',
     localRevision: 'Local Revision',
     remoteRevision: 'Remote Revision',
