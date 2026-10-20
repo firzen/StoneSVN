@@ -241,6 +241,8 @@ File filtering is local and global across workspaces, and disabled by default. E
 
 Distinguish authentication, TLS, and certificate failures. Approve compatibility or certificate exceptions only for trusted servers. Remove saved exceptions in Remembered Servers to validate the next connection again.
 
+Diff viewers provide − / + text-size controls (10–28px), shared across views and remembered after restarting. Commit rows also offer Revert and Trace when supported; double-click a file to compare. After committing, the page keeps the output visible.
+
 ## Troubleshooting and command reference
 
 ### Diagnose by symptom

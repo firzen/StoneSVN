@@ -69,11 +69,11 @@
               <span role="columnheader">{{ $t('commit.file') }}</span>
               <span class="status-cell" role="columnheader">{{ $t('commit.status') }}</span>
               <span role="columnheader">{{ $t('commit.location') }}</span>
-              <span role="columnheader" :aria-label="$t('common.diff')"></span>
+              <span role="columnheader">{{ $t('common.action') }}</span>
             </div>
           </div>
           <VirtualViewport v-if="flatRows.length" ref="fileViewport" class="commit-files" role="rowgroup"
-            :item-count="flatRows.length" :row-height="29" :content-width="640"
+            :item-count="flatRows.length" :row-height="29" :content-width="760"
             :reset-key="`${workspaceStore.currentPath}|${scope}|${searchQuery}|${filterMode}`"
             @scroll="tableScrollLeft = ($event.target as HTMLElement).scrollLeft" @keydown.self="handleRowKey($event, -1)">
             <template #default="{ start, end }">
@@ -83,7 +83,8 @@
                 :aria-expanded="row.node.children.length ? !collapsedPaths.has(row.node.path) : undefined"
                 :tabindex="(activeRowPath || flatRows[0]?.node.path) === row.node.path ? 0 : -1"
                 :data-row-index="start + index" @focusin="activeRowPath = row.node.path"
-                @keydown="handleRowKey($event, start + index)" @click="handleRowClick($event, row.node)">
+                @keydown="handleRowKey($event, start + index)" @click="handleRowClick($event, row.node)"
+                @dblclick="handleRowDoubleClick($event, row.node)">
                 <span class="checkbox-cell" role="gridcell">
                   <input type="checkbox" class="commit-checkbox" :checked="isChecked(row.node)" :indeterminate="isPartial(row.node)"
                     :disabled="loading || workspaceStore.statusIsStale" :aria-label="row.node.path"
@@ -111,8 +112,18 @@
                   </span>
                 </span>
                 <span class="file-location" role="gridcell" :title="parentLocation(row.node.path)">{{ parentLocation(row.node.path) }}</span>
-                <span class="diff-cell" role="gridcell"><button v-if="row.node.entry" type="button" class="diff-link"
-                  :disabled="loading" @click.stop="viewDiff(row.node.entry.path)">{{ $t('common.diff') }}</button></span>
+                <span class="diff-cell" role="gridcell">
+                  <template v-if="row.node.entry">
+                    <button v-if="row.node.entry.status_code !== 'unversioned'" type="button" class="diff-link"
+                      :disabled="loading || workspaceStore.operationBusy || workspaceStore.statusIsStale"
+                      @click.stop="revertFile(row.node.entry)">{{ $t('common.revert') }}</button>
+                    <button v-if="!isDirectoryChange(row.node) && !['unversioned', 'added'].includes(row.node.entry.status_code)" type="button" class="diff-link"
+                      :disabled="loading || workspaceStore.operationBusy"
+                      @click.stop="viewBlame(row.node)">{{ $t('menu.blame') }}</button>
+                    <button type="button" class="diff-link" :disabled="loading || workspaceStore.operationBusy"
+                      @click.stop="viewDiff(row.node.entry.path)">{{ $t('common.diff') }}</button>
+                  </template>
+                </span>
               </div>
             </template>
           </VirtualViewport>
@@ -146,10 +157,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch, h, getCurrentInstance } from 'vue'
+import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { svnAdd, svnCommit, svnLog } from '@/api/svn'
+import { svnAdd, svnCommit, svnLog, svnRevert, svnRevertPreview } from '@/api/svn'
 import { useI18n } from 'vue-i18n'
 import { getStatusClass, getStatusLabelKey } from '@/composables/useSvnStatus'
 import { useWorkspace } from '@/composables/useWorkspace'
@@ -157,9 +169,11 @@ import { useSettings } from '@/composables/useSettings'
 import type { SvnStatus } from '@/types'
 import VirtualViewport from '@/components/VirtualViewport.vue'
 import FileTypeIcon from '@/components/FileTypeIcon.vue'
+import RevertImpactTree from '@/components/RevertImpactTree.vue'
 import { buildChangeTree, filterChangeTree, flattenChangeTree, isDirectoryChange, isWithinDirectory, normalizePath, type ChangeNode } from '@/utils/changeTree'
 
 const { t } = useI18n()
+const messageContext = getCurrentInstance()?.appContext
 const router = useRouter()
 const route = useRoute()
 const workspaceStore = useWorkspaceStore()
@@ -318,11 +332,57 @@ const toggleSubtree = (node: ChangeNode, checked: boolean) => {
   selectedFiles.value = [...selection]
 }
 const handleRowClick = (event: MouseEvent, node: ChangeNode) => {
-  if (loading.value || workspaceStore.statusIsStale) return
+  if (loading.value || workspaceStore.statusIsStale || event.detail > 1) return
   if (event.target instanceof Element && event.target.closest('input, button, a, label')) return
   toggleSelection(node, !isChecked(node), event.shiftKey)
   const element = event.currentTarget as HTMLElement
   element.focus({ preventScroll: true })
+}
+const handleRowDoubleClick = (event: MouseEvent, node: ChangeNode) => {
+  if (!node.entry || isDirectoryChange(node)) return
+  if (event.target instanceof Element && event.target.closest('input, button, a, label')) return
+  viewDiff(node.path)
+}
+const viewBlame = (node: ChangeNode) => {
+  if (loading.value || workspaceStore.operationBusy || !node.entry || isDirectoryChange(node)
+    || ['unversioned', 'added'].includes(node.entry.status_code)) return
+  router.push({ name: 'blame', query: { path: node.path } })
+}
+const revertFile = async (file: SvnStatus) => {
+  const workspace = workspaceStore.currentPath
+  if (!workspace || loading.value || workspaceStore.operationBusy || workspaceStore.statusIsStale || file.status_code === 'unversioned') return
+  const path = file.path
+  loading.value = true
+  workspaceStore.setOperationBusy(true)
+  let attempted = false
+  try {
+    const preview = await svnRevertPreview(workspace, path)
+    if (workspaceStore.currentPath !== workspace || workspaceStore.statusIsStale || !preview.length) return
+    await ElMessageBox.confirm(h('div', [
+      h('p', t(file.directory ? 'svnActions.revertDirectoryHint' : 'workspace.revertFileConfirm')),
+      h('code', { class: 'workspace-file-confirm__path' }, path),
+      h(RevertImpactTree, { entries: preview, root: path }),
+    ]), t('common.revert'), {
+      type: 'warning', customClass: 'workspace-file-confirm svn-revert-confirm', confirmButtonType: 'danger',
+      confirmButtonText: t('common.revert'), cancelButtonText: t('common.cancel'),
+      closeOnClickModal: false, distinguishCancelAndClose: true,
+    }, messageContext)
+    if (workspaceStore.currentPath !== workspace || workspaceStore.statusIsStale) return
+    attempted = true
+    const result = await svnRevert(workspace, [path], preview)
+    output.value = result.success ? result.output || t('svnActions.reverted') : `${t('common.error')}：${result.error || result.output}`
+  } catch (err) {
+    if (err !== 'cancel' && err !== 'close') output.value = `${t('common.error')}：${err}`
+  } finally {
+    try {
+      if (attempted && workspaceStore.currentPath === workspace) await refreshStatusAfterMutation()
+    } catch (err) {
+      output.value = `${t('common.error')}：${err}`
+    } finally {
+      workspaceStore.setOperationBusy(false)
+      loading.value = false
+    }
+  }
 }
 const visiblePaths = computed(() => new Set(changedFiles.value.map(file => file.path)))
 const hiddenSelectedCount = computed(() => selectedFiles.value.filter(path => !visiblePaths.value.has(path)).length)
@@ -428,7 +488,6 @@ const doCommit = async () => {
   }
 
   loading.value = true
-  const committedPath = workspaceStore.currentPath
   workspaceStore.setOperationBusy(true)
   output.value = ''
 
@@ -458,10 +517,6 @@ const doCommit = async () => {
     if (result.success) void loadRecentMessages()
     output.value = result.output
     await refreshStatusAfterMutation()
-
-    setTimeout(() => {
-      if (workspaceStore.currentPath === committedPath) router.push({ name: 'workspace' })
-    }, 1500)
   } catch (err) {
     output.value = `${t('common.error')}：${err}`
   } finally {
@@ -471,6 +526,7 @@ const doCommit = async () => {
 }
 
 const viewDiff = (path: string) => {
+  if (loading.value || workspaceStore.operationBusy) return
   const allFiles = allChangedFiles.value.map(f => f.path)
   const index = allFiles.indexOf(path)
 
@@ -570,7 +626,7 @@ const useRecentMessage = (message: string) => {
 .scope-bar .el-button { margin-left: auto; }
 .file-table-container { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0; font-size: 12px; }
 .file-table-heading { flex-shrink: 0; overflow: hidden; border-bottom: 1px solid var(--commit-border); background: var(--commit-heading); color: var(--commit-text); font-weight: 600; }
-.commit-columns { display: grid; grid-template-columns: 28px minmax(230px, 1.2fr) 76px minmax(200px, 1fr) 60px; align-items: center; min-width: 640px; }
+.commit-columns { display: grid; grid-template-columns: 28px minmax(230px, 1.2fr) 76px minmax(200px, 1fr) 180px; align-items: center; min-width: 760px; }
 .file-table-heading .commit-columns { height: 30px; }
 .commit-columns > [role="columnheader"], .commit-columns > [role="gridcell"] { min-width: 0; padding: 0 8px; }
 .commit-files { background: var(--el-bg-color); }
@@ -594,7 +650,7 @@ const useRecentMessage = (message: string) => {
 .tree-count { flex-shrink: 0; margin-left: 2px; color: var(--commit-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .status-cell { display: flex; align-items: center; justify-content: center; }
 .file-location { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--commit-muted); font-size: 12px; }
-.diff-cell { text-align: center; }
+.diff-cell { display: flex; align-items: center; justify-content: flex-end; gap: 4px; white-space: nowrap; }
 .subtree-select-button { flex-shrink: 0; padding: 2px 4px; border: 0; border-radius: 3px; background: transparent; color: var(--el-color-primary); font: inherit; font-size: 11px; cursor: pointer; }
 .subtree-select-button:hover { text-decoration: underline; }
 .subtree-select-button:disabled { opacity: .5; cursor: default; }

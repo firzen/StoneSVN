@@ -5,33 +5,83 @@ const ts = require('typescript')
 const vm = require('node:vm')
 const vue = require('vue')
 
-function harness(entries) {
+function harness(entries, options = {}) {
   const treeContext = { exports: {} }
   vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/utils/changeTree.ts', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText, treeContext)
   const commits = []
+  const routes = [], reverts = [], previews = [], confirmations = []
+  let refreshes = 0
   const store = vue.reactive({ currentPath: '/wc', statusList: entries, commitDrafts: {}, statusIsStale: false,
     operationBusy: false, setOperationBusy(value) { this.operationBusy = value } })
   const mocks = {
-    vue: { ...vue, onMounted() {}, onBeforeUnmount() {} },
-    'vue-router': { useRouter: () => ({ push() {}, replace() {} }), useRoute: () => ({ query: {} }), onBeforeRouteLeave() {} },
+    vue: { ...vue, getCurrentInstance() {}, onMounted() {}, onBeforeUnmount() {} },
+    'vue-router': { useRouter: () => ({ push(route) { routes.push(route) }, replace() {} }), useRoute: () => ({ query: {} }), onBeforeRouteLeave() {} },
+    'element-plus/es/components/message-box/index': { ElMessageBox: { confirm: async (...args) => {
+      confirmations.push(args)
+      if (options.cancel) throw 'cancel'
+    } } },
+    '@/components/RevertImpactTree.vue': { default: { render() {} } },
     'vue-i18n': { useI18n: () => ({ t: key => key }) },
     '@/stores/workspace': { useWorkspaceStore: () => store },
-    '@/api/svn': { svnCommit: async (...args) => { commits.push(args); return { success: false, output: 'done' } } },
+    '@/api/svn': {
+      svnCommit: async (...args) => { commits.push(args); return { success: false, output: 'done' } },
+      svnRevertPreview: async (...args) => { previews.push(args); return entries },
+      svnRevert: async (...args) => { reverts.push(args); return { success: true, output: 'reverted' } },
+    },
     '@/composables/useSvnStatus': {},
-    '@/composables/useWorkspace': { useWorkspace: () => ({ refreshStatusAfterMutation: async () => {} }) },
+    '@/composables/useWorkspace': { useWorkspace: () => ({ refreshStatusAfterMutation: async () => { refreshes++ } }) },
     '@/composables/useSettings': { useSettings: () => ({ settings: { gitignoreEnabled: false } }) },
     '@/utils/changeTree': treeContext.exports,
   }
   const script = fs.readFileSync('src/views/CommitView.vue', 'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
-  const context = { exports: {}, setTimeout() {}, require: name => { assert.ok(name in mocks, name); return mocks[name] } }
-  vm.runInNewContext(ts.transpileModule(script + '\nexports.actions = { fullTree, selectedFiles, isChecked, isPartial, toggleSubtree, toggleNode, toggleSelection, collapsedPaths, flatRows, searchQuery, commitMessage, doCommit };', {
+  const context = { exports: {}, Element: class {}, sessionStorage: { setItem() {} }, setTimeout() {}, require: name => { assert.ok(name in mocks, name); return mocks[name] } }
+  vm.runInNewContext(ts.transpileModule(script + '\nexports.actions = { fullTree, selectedFiles, isChecked, isPartial, toggleSubtree, toggleNode, toggleSelection, collapsedPaths, flatRows, searchQuery, commitMessage, doCommit, revertFile, viewBlame, handleRowDoubleClick, loading };', {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText, context)
-  return { ...context.exports.actions, store, commits }
+  return { ...context.exports.actions, store, commits, routes, reverts, previews, confirmations, refreshes: () => refreshes }
 }
 const entry = (path, status_code = 'modified', prop_status = 'none') => ({ path, status_code, prop_status })
+
+test('revert previews and confirms the target, then refreshes; cancellation and unversioned files do not mutate', async () => {
+  const file = entry('a.txt')
+  const h = harness([file])
+  await h.revertFile(file)
+  assert.equal(h.confirmations.length, 1)
+  assert.deepEqual(Array.from(h.previews[0]), ['/wc', 'a.txt'])
+  assert.equal(h.reverts[0][0], '/wc')
+  assert.deepEqual(Array.from(h.reverts[0][1]), ['a.txt'])
+  assert.equal(h.reverts[0][2][0], file)
+  assert.equal(h.refreshes(), 1)
+  assert.equal(h.store.operationBusy, false)
+  assert.equal(h.loading.value, false)
+  const cancelled = harness([file], { cancel: true })
+  await cancelled.revertFile(file)
+  assert.equal(cancelled.reverts.length, 0)
+  assert.equal(cancelled.store.operationBusy, false)
+  const unversioned = harness([entry('new.txt', 'unversioned')])
+  await unversioned.revertFile(unversioned.store.statusList[0])
+  assert.equal(unversioned.previews.length, 0)
+})
+
+test('double-click opens file diff and blame opens history, excluding directory and unversioned history', () => {
+  const h = harness([entry('a.txt'), entry('dir/b.txt'), entry('new.txt', 'unversioned')])
+  const node = path => h.flatRows.value.find(row => row.node.path === path).node
+  h.handleRowDoubleClick({ target: null }, node('a.txt'))
+  assert.equal(h.routes[0].name, 'diff')
+  assert.equal(h.routes[0].query.path, 'a.txt')
+  h.handleRowDoubleClick({ target: null }, node('dir'))
+  assert.equal(h.routes.length, 1)
+  h.viewBlame(node('a.txt'))
+  assert.equal(h.routes[1].name, 'blame')
+  assert.equal(h.routes[1].query.path, 'a.txt')
+  h.viewBlame(node('new.txt'))
+  h.viewBlame(node('dir'))
+  h.store.setOperationBusy(true)
+  h.handleRowDoubleClick({ target: null }, node('a.txt'))
+  assert.equal(h.routes.length, 2)
+})
 
 test('a directory checkbox changes only its own selection and preserves child selections', () => {
   const h = harness([entry('dir', 'normal', 'modified'), entry('dir/a.txt'), entry('dir/nested/b.txt'), entry('other.txt')])

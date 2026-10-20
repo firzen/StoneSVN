@@ -349,6 +349,9 @@ export default {
     selectDirectory: 'Select Directory',
   },
   diff: {
+    fontSize: 'Font size',
+    decreaseFontSize: 'Decrease font size',
+    increaseFontSize: 'Increase font size',
     directoryHint: 'Open this directory in the file manager',
     openDirectory: 'Open Directory',
     binaryHint: 'Text preview is unavailable for this file. Open it in another app.',

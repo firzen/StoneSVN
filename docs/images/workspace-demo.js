@@ -57,10 +57,11 @@ export default (async () => {
       if (command === 'svn_status') return files
       if (command === 'svn_info') return info
       if (command === 'svn_local_revision') return 128
+      if (command === 'svn_log' || command === 'svn_file_log') return []
       throw new Error(`Documentation demo does not support ${command}`)
     },
   }
-  updateSettings({ language: 'zh-CN', theme: 'light', gitignoreEnabled: false })
+  updateSettings({ language: 'zh-CN', theme: 'light', gitignoreEnabled: false, diffFontSize: 13 })
   const store = useWorkspaceStore(document.querySelector('#app').__vue_app__.config.globalProperties.$pinia)
   store.recentWorkspaces = []
   store.projectSummaries = {}

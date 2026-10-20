@@ -15,6 +15,7 @@ export interface AppSettings {
   language: string
   gitignoreEnabled: boolean
   filterRules: string
+  diffFontSize: number
 }
 
 const STORAGE_KEY = 'orcasvn-settings'
@@ -28,6 +29,7 @@ const defaults: AppSettings = {
   language: detectSystemLocale(),
   gitignoreEnabled: false,
   filterRules: '.gitignore',
+  diffFontSize: 13,
 }
 
 function httpsOrigin(value: string): string | null {
@@ -58,7 +60,9 @@ function loadSettings(): AppSettings {
           servers[origin] = { legacyTls: true, trustInvalidCertificates: svnLegacyTlsTrustInvalidCertificates === true }
         }
       }
-      return { ...defaults, ...saved, filterRules: typeof saved.filterRules === 'string' ? saved.filterRules : defaults.filterRules, svnServerSecurity: servers }
+      return { ...defaults, ...saved, filterRules: typeof saved.filterRules === 'string' ? saved.filterRules : defaults.filterRules,
+        diffFontSize: Number.isInteger(saved.diffFontSize) && saved.diffFontSize >= 10 && saved.diffFontSize <= 28 ? saved.diffFontSize : defaults.diffFontSize,
+        svnServerSecurity: servers }
     }
   } catch {
     // ignore parse errors

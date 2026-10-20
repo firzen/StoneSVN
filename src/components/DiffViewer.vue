@@ -12,9 +12,17 @@
         :aria-label="$t('diff.nextMatch')" @click="find('next')"><el-icon><ArrowRight /></el-icon></button>
       <button type="button" :disabled="!text || copying" :title="$t('diff.copyAll')"
         :aria-label="$t('diff.copyAll')" @click="copyAll"><el-icon><CopyDocument /></el-icon></button>
+      <div class="diff-font-controls" role="group" :aria-label="$t('diff.fontSize')">
+        <button v-if="fontSize > 10" type="button" :title="$t('diff.decreaseFontSize')"
+          :aria-label="$t('diff.decreaseFontSize')" @click="changeFontSize(-1)">−</button>
+        <span class="font-size-value" aria-live="polite">{{ fontSize }}px</span>
+        <button v-if="fontSize < 28" type="button" :title="$t('diff.increaseFontSize')"
+          :aria-label="$t('diff.increaseFontSize')" @click="changeFontSize(1)">+</button>
+      </div>
     </div>
     <div v-if="indexing" class="indexing-diff" role="status">{{ $t('diff.preparing') }}</div>
     <VirtualViewport v-else ref="viewport" class="diff-lines" :item-count="documentIndex?.offsets.length || 0"
+      :style="{ fontSize: `${fontSize}px`, lineHeight: `${lineHeight}px` }"
       :row-height="rowHeight" :content-width="contentWidth" role="table" :aria-label="$t('diff.title')"
       :aria-rowcount="documentIndex?.offsets.length || 0">
       <template #default="{ start, end }">
@@ -37,10 +45,14 @@ import { ElMessage } from 'element-plus/es/components/message/index'
 import VirtualViewport from './VirtualViewport.vue'
 import { findDiffMatch, getDiffRows, indexDiff, lineAtOffset, type DiffIndex, type DiffRow } from '@/utils/diffDocument'
 import { writeClipboardText } from '@/utils/clipboard'
+import { useSettings } from '@/composables/useSettings'
 
 const props = withDefaults(defineProps<{ text: string; compact?: boolean }>(), { compact: false })
 const emit = defineEmits<{ stats: [stats: { added: number; removed: number }] }>()
 const { t } = useI18n()
+const { settings, updateSettings } = useSettings()
+const fontSize = computed(() => settings.diffFontSize)
+const lineHeight = computed(() => Math.ceil(fontSize.value * 1.5))
 const viewport = ref<InstanceType<typeof VirtualViewport> | null>(null)
 const searchInput = ref<HTMLInputElement | null>(null)
 const documentIndex = shallowRef<DiffIndex | null>(null)
@@ -50,7 +62,7 @@ const activeOffset = ref(-1)
 const noMatch = ref(false)
 const copying = ref(false)
 const characterWidth = ref(8)
-const rowHeight = computed(() => props.compact ? 24 : 28)
+const rowHeight = computed(() => lineHeight.value + (props.compact ? 4 : 8))
 const gutterWidth = computed(() => props.compact ? 70 : 98)
 const contentWidth = computed(() => gutterWidth.value + 24 + (documentIndex.value?.maxColumns || 0) * characterWidth.value)
 const matchedLine = computed(() => activeOffset.value >= 0 && documentIndex.value ? lineAtOffset(documentIndex.value, activeOffset.value) : -1)
@@ -59,6 +71,20 @@ let searchTimer: ReturnType<typeof setTimeout> | undefined
 let searchGeneration = 0
 let documentGeneration = 0
 let disposed = false
+
+function changeFontSize(delta: number) {
+  updateSettings({ diffFontSize: Math.max(10, Math.min(28, fontSize.value + delta)) })
+}
+function measureFont() {
+  if (disposed || !viewport.value?.element) return
+  const canvas = document.createElement('canvas')
+  const context = canvas.getContext('2d')
+  if (context) {
+    context.font = getComputedStyle(viewport.value.element).font
+    characterWidth.value = Math.ceil(context.measureText('M').width) || 8
+  }
+}
+watch([fontSize, viewport], measureFont, { flush: 'post' })
 
 function setIndex(index: DiffIndex) {
   documentIndex.value = index
@@ -159,15 +185,6 @@ watch(query, () => {
   if (query.value) searchTimer = setTimeout(() => find('next', true), 150)
 })
 onMounted(() => {
-  const measureFont = () => {
-    if (disposed || !viewport.value?.element) return
-    const canvas = document.createElement('canvas')
-    const context = canvas.getContext('2d')
-    if (context) {
-      context.font = getComputedStyle(viewport.value.element).font
-      characterWidth.value = Math.ceil(context.measureText('M').width) || 8
-    }
-  }
   measureFont()
   void document.fonts.ready.then(measureFont)
 })
@@ -188,8 +205,9 @@ onBeforeUnmount(() => {
 .diff-tools button:disabled { opacity: .4; cursor: default; }
 .search-status { font-size: var(--app-font-size-xs); color: var(--md-sys-color-on-surface-variant); }
 .indexing-diff { padding: 16px; color: var(--md-sys-color-on-surface-variant); }
-.diff-lines { font-family: var(--app-font-family-mono); font-size: var(--app-font-size-label); line-height: 20px; }
-.compact .diff-lines { font-size: var(--app-font-size-sm); }
+.diff-font-controls { display: flex; align-items: center; flex-shrink: 0; gap: 2px; padding-left: 4px; border-left: 1px solid var(--md-sys-color-outline-variant); }
+.font-size-value { min-width: 32px; text-align: center; font-size: 12px; font-variant-numeric: tabular-nums; }
+.diff-lines { font-family: var(--app-font-family-mono); }
 .diff-row { display: grid; grid-template-columns: 64px 34px minmax(0, 1fr); border-bottom: 1px solid var(--app-color-diff-row-border); }
 .compact .diff-row { grid-template-columns: 46px 24px minmax(0, 1fr); }
 .diff-line-number, .diff-marker { user-select: none; padding: 3px 8px; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container-low); text-align: right; }

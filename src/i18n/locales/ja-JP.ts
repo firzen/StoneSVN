@@ -349,6 +349,9 @@ export default {
     selectDirectory: 'ディレクトリを選択',
   },
   diff: {
+    fontSize: '文字サイズ',
+    decreaseFontSize: '文字を小さくする',
+    increaseFontSize: '文字を大きくする',
     directoryHint: 'このディレクトリはファイルマネージャーで開けます',
     openDirectory: 'ディレクトリを開く',
     binaryHint: 'このファイルのテキストプレビューは利用できません。他のアプリで開いてください。',

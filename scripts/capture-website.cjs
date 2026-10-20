@@ -58,6 +58,14 @@ async function main() {
           await settle(page)
           const actual = await page.evaluate(async () => (await import('/src/i18n/index.ts')).default.global.locale.value)
           if (actual !== locale) throw new Error(`Wrong screenshot locale: ${actual}`)
+          const fontControls = page.locator('.diff-font-controls').first()
+          await fontControls.locator('button').last().click()
+          await page.waitForFunction(() => getComputedStyle(document.querySelector('.diff-lines')).fontSize === '14px')
+          const savedSize = await page.evaluate(() => JSON.parse(localStorage.getItem('orcasvn-settings')).diffFontSize)
+          if (savedSize !== 14) throw new Error(`Diff font size was not saved: ${savedSize}`)
+          await fontControls.locator('button').first().click()
+          await page.waitForFunction(() => getComputedStyle(document.querySelector('.diff-lines')).fontSize === '13px')
+          await settle(page)
           await page.screenshot({ path: path.join(screenshots, `${lang}-workspace-${theme}.png`) })
           if (includeDetails && lang === 'en' && theme === 'light') {
             await page.locator('.workspace-layout .center-panel').screenshot({ path: path.join(screenshots, 'en-file-status.png') })
@@ -76,6 +84,18 @@ async function main() {
           })
           await settle(page)
           await page.screenshot({ path: path.join(screenshots, `${lang}-properties-dark.png`) })
+          await page.evaluate(async () => {
+            (await import('/src/composables/useSettings.ts')).useSettings().updateSettings({ theme: 'light' })
+            await document.querySelector('#app').__vue_app__.config.globalProperties.$router.push({ name: 'commit' })
+          })
+          await settle(page)
+          await page.screenshot({ path: path.join(screenshots, `${lang}-commit.png`) })
+          for (const [file, count] of [['notes/release-checklist.md', 1], ['docs/images/workspace.png', 2], ['src/config.ts', 3]]) {
+            const row = page.locator('.commit-file-row').filter({ has: page.locator(`.tree-name[title="${file}"]`) })
+            if (await row.locator('.diff-link').count() !== count) throw new Error(`Wrong commit actions for ${file}`)
+          }
+          await page.locator('.commit-file-row .tree-name[title="src/config.ts"]').dblclick()
+          await page.waitForSelector('.diff-view .diff-lines')
         }
         if (errors.length) throw new Error(`Screenshot UI errors: ${errors.join('; ')}`)
         console.log(`${lang}: workspace light/dark + properties${includeDetails ? ' light/dark' : ''} captured`)

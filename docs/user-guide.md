@@ -2,7 +2,7 @@
 
 English | [简体中文](user-guide.zh-CN.md)
 
-Applies to the current 1.1.3 source. Updated: 2026-10-19. Older releases may have a different interface.
+Applies to the current 1.1.4 source. Updated: 2026-10-20. Older releases may have a different interface.
 
 This guide covers checkout, reviewing changes, committing, updating, and browsing history for code, documents, and other SVN-managed files. No implementation knowledge is required.
 
@@ -56,7 +56,7 @@ Start checkout and wait for the result. On failure, read the error before checki
 2. Edit files in your editor.
 3. Return to StoneSVN, refresh, and select files to inspect diffs.
 4. Open Commit, verify the selected scope, and write a message.
-5. Commit, then check remaining workspace changes.
+5. Commit, then inspect the output and refreshed file list on the same page. Open Workspace as needed to check remaining changes.
 
 For a change only to `trunk/app.ini`, select that file and describe the configuration fix. Leave unrelated unfinished edits local.
 
@@ -127,13 +127,15 @@ The header checkbox selects or clears the entire current scope, including items 
 
 With a file row focused, Up/Down moves, Home/End jumps, Left/Right collapses, expands, or returns to the parent, and Space toggles selection.
 
+Commit rows offer Revert (with an impact preview and confirmation), Trace for file revision history, and Diff. Unsupported actions are hidden. Double-click a file row to open its diff.
+
 ### Choose the scope
 
 1. Check the working-copy path and file tree.
 2. Select files and directories deliberately. Use Include Descendants for a complete directory scope; expanding nodes or selecting Diff does not change selection.
 3. Search/filter as needed, while checking the selected count.
 4. Review diffs, then recheck selections and the message.
-5. Commit.
+5. Commit. The page stays open with command output and refreshed file status.
 
 Hidden selected files remain included. Use the actual selected count and scope rather than only the visible list.
 
@@ -183,6 +185,10 @@ Select a file for inline preview or use the diff page to choose a file inside th
 Added lines have `+`; removed lines have `-`. Context helps locate the edit. Search is case-sensitive with previous/next navigation; Copy copies the full diff. Distinguish no differences from a load failure.
 
 When reviewing several files from Commit, use Previous/Next and Return to Commit. Binary content may not provide a line-by-line text diff.
+
+### Adjust diff text size
+
+Use the − / + buttons beside diff search to adjust text from 10 to 28 pixels. The size is shared by workspace previews and the comparison page, saved automatically, and retained after restarting.
 
 ## Browse commit history
 

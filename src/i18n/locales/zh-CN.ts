@@ -349,6 +349,9 @@ export default {
     selectDirectory: '选择目录',
   },
   diff: {
+    fontSize: '字体大小',
+    decreaseFontSize: '缩小字体',
+    increaseFontSize: '放大字体',
     directoryHint: '此目录可在文件管理器中打开',
     openDirectory: '打开目录',
     binaryHint: '此文件不支持文本预览，请使用其他应用打开',

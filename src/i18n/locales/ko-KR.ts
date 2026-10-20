@@ -349,6 +349,9 @@ export default {
     selectDirectory: '디렉터리 선택',
   },
   diff: {
+    fontSize: '글꼴 크기',
+    decreaseFontSize: '글꼴 크기 줄이기',
+    increaseFontSize: '글꼴 크기 늘리기',
     directoryHint: '파일 관리자에서 이 디렉터리를 열 수 있습니다',
     openDirectory: '디렉터리 열기',
     binaryHint: '이 파일은 텍스트 미리보기를 지원하지 않습니다. 다른 앱에서 여세요.',
