@@ -96,6 +96,19 @@ async function main() {
           }
           await page.locator('.commit-file-row .tree-name[title="src/config.ts"]').dblclick()
           await page.waitForSelector('.diff-view .diff-lines')
+          await page.evaluate(async () => { await (await import('/docs/images/workspace-demo.js')).showUpdateDemo() })
+          await page.waitForSelector('.update-view')
+          await settle(page)
+          await page.screenshot({ path: path.join(screenshots, `${lang}-update-incoming.png`) })
+          await page.locator('.update-view .header-actions .el-button--primary').click()
+          await page.waitForSelector('.result-summary')
+          await page.locator('.el-message').waitFor({ state: 'hidden' })
+          for (const theme of ['light', 'dark']) {
+            await page.evaluate(async theme => { (await import('/src/composables/useSettings.ts')).useSettings().updateSettings({ theme }) }, theme)
+            await settle(page)
+            await page.screenshot({ path: path.join(screenshots, `${lang}-update-${theme}.png`) })
+          }
+
         }
         if (errors.length) throw new Error(`Screenshot UI errors: ${errors.join('; ')}`)
         console.log(`${lang}: workspace light/dark + properties${includeDetails ? ' light/dark' : ''} captured`)

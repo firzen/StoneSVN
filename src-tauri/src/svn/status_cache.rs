@@ -127,16 +127,10 @@ pub async fn cached_status(
     } else {
         None
     };
-    let rescan_due = force
-        || (workspace.entries.is_some()
-            && workspace
-                .last_full_check
-                .is_none_or(|time| time.elapsed() >= FULL_CHECK_INTERVAL));
-    let previous_inventory = if rescan_due {
-        None
-    } else {
-        workspace.inventory.clone()
-    };
+    // A forced refresh still runs a complete SVN status query below. Reuse
+    // directory/journal baselines for the preceding inventory rather than
+    // discarding them and enumerating the entire filesystem again.
+    let previous_inventory = workspace.inventory.clone();
     // Run directory I/O away from the async command thread; enumerate once per
     // refresh, including while the app is open, with no watcher registration.
     let (scan, restored) = tokio::task::spawn_blocking(move || {

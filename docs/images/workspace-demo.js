@@ -94,3 +94,28 @@ export async function showPropertiesDemo() {
   await document.fonts.ready
   await new Promise(resolve => setTimeout(resolve, 500))
 }
+
+// Update captures use fictional SVN responses; invoking the demo never runs SVN.
+export async function showUpdateDemo() {
+  const original = window.__TAURI_INTERNALS__.invoke
+  let completed = false
+  window.__TAURI_INTERNALS__.invoke = async (command, args) => {
+    if (command === 'svn_incoming_state') return { revision: 130, logs: completed ? [] : [{
+      revision: 130, author: 'demo', date: '2026-10-22T06:00:00Z', message: 'Improve workspace navigation',
+      changed_paths: [{ action: 'M', path: '/trunk/src/config.ts' }, { action: 'A', path: '/trunk/docs/update-guide.md' }],
+    }, { revision: 129, author: 'demo', date: '2026-10-21T03:00:00Z', message: 'Remove legacy configuration',
+      changed_paths: [{ action: 'D', path: '/trunk/src/legacy-config.ts' }],
+    }] }
+    if (command === 'svn_update') {
+      completed = true
+      return { success: true, warning: null, error: null, output: 'U    src/config.ts\nA    docs/update-guide.md\nD    src/legacy-config.ts\nUpdated to revision 130.',
+        files: [['src/config.ts', 'M'], ['docs/update-guide.md', 'A'], ['src/legacy-config.ts', 'D'], ['docs', 'M']].map(([path, action]) => ({
+          path, action, directory: path === 'docs', old_revision: 128, new_revision: 130, target: `https://svn.example.com/stone-demo/trunk/${path}@130`,
+        })) }
+    }
+    if (command === 'svn_local_revision') return completed ? 130 : 128
+    return original(command, args)
+  }
+  await document.querySelector('#app').__vue_app__.config.globalProperties.$router.push({ name: 'update' })
+  await (await import('/node_modules/.vite/deps/vue.js')).nextTick()
+}

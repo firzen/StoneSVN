@@ -1,3 +1,17 @@
+export interface UpdatedFile {
+  directory?: boolean
+  path: string
+  action: string
+  old_revision: number
+  new_revision: number
+  target: string
+}
+
+export interface UpdateResult extends CommandResult {
+  files: UpdatedFile[]
+  warning: string | null
+}
+
 export interface CommandResult {
   success: boolean
   output: string

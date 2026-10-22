@@ -590,14 +590,9 @@ async fn svn_checkout(
 }
 
 #[tauri::command]
-async fn svn_update(path: String, revision: Option<u64>) -> Result<CommandResult, String> {
-    svn::update(&path, revision)
+async fn svn_update(path: String, revision: Option<u64>) -> Result<svn::UpdateResult, String> {
+    svn::update_with_result(&path, revision)
         .await
-        .map(|output| CommandResult {
-            success: true,
-            output,
-            error: None,
-        })
         .map_err(|e| e.to_string())
 }
 
@@ -727,6 +722,23 @@ async fn svn_set_property(
 #[tauri::command]
 async fn svn_local_revision(path: String) -> Result<u64, String> {
     svn::local_revision(&path).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn svn_incoming_logs(path: String, limit: Option<u32>) -> Result<Vec<SvnLogEntry>, String> {
+    svn::incoming_logs(&path, limit.unwrap_or(50))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn svn_incoming_state(
+    path: String,
+    limit: Option<u32>,
+) -> Result<svn::IncomingState, String> {
+    svn::incoming_state(&path, limit.unwrap_or(50))
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1276,10 +1288,20 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .on_window_event(|_window, _event| {
-            // The source-debug launcher owns its dev server and watcher. On
-            // macOS, closing the last window normally leaves the app running;
-            // end this launcher-owned debug session so it can clean up too.
-            #[cfg(debug_assertions)]
+            // Keep the macOS application and its workspace state alive when
+            // closing the window. Explicit Quit still follows Tauri's exit path.
+            #[cfg(target_os = "macos")]
+            if let tauri::WindowEvent::CloseRequested { api, .. } = _event {
+                if _window.label() == "main" {
+                    api.prevent_close();
+                    if let Err(error) = _window.hide() {
+                        tracing::error!(%error, "failed to hide the main window");
+                    }
+                }
+            }
+            // The source-debug launcher owns its dev server and watcher. End
+            // its session when the main window is destroyed on other platforms.
+            #[cfg(all(debug_assertions, not(target_os = "macos")))]
             if matches!(_event, tauri::WindowEvent::Destroyed)
                 && _window.label() == "main"
                 && env::var_os("STONESVN_DEV_LAUNCHER").is_some()
@@ -1306,6 +1328,8 @@ fn main() {
             svn_set_property,
             svn_local_revision,
             svn_remote_info,
+            svn_incoming_logs,
+            svn_incoming_state,
             svn_diff,
             svn_file_preview,
             svn_apply_patch,
@@ -1330,6 +1354,20 @@ fn main() {
             read_unversioned_files,
             restore_unversioned_files,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, _event| {
+            #[cfg(target_os = "macos")]
+            if let tauri::RunEvent::Reopen { .. } = _event {
+                if let Some(window) = _app.get_webview_window("main") {
+                    if let Err(error) = window
+                        .unminimize()
+                        .and_then(|()| window.show())
+                        .and_then(|()| window.set_focus())
+                    {
+                        tracing::error!(%error, "failed to reopen the main window");
+                    }
+                }
+            }
+        });
 }

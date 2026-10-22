@@ -262,8 +262,10 @@ const loadDiff = async () => {
     const old = diffType.value === 'revision' ? oldRev.value : changeRev.value
     const new_ = diffType.value === 'revision' ? newRev.value : undefined
 
-    const result = await svnFilePreview(workspaceStore.currentPath, file, old, new_)
-    if (generation === requestGeneration) diffResult.value = result
+    const target = diffType.value === 'revision' && file === route.query.path && typeof route.query.target === 'string'
+      ? route.query.target : file
+    const result = await svnFilePreview(workspaceStore.currentPath, target, old, new_)
+    if (generation === requestGeneration) diffResult.value = { ...result, path: file }
   } catch (err) {
     if (generation === requestGeneration) {
       diffResult.value = null
@@ -364,8 +366,8 @@ onBeforeRouteLeave((to) => {
 })
 
 watch(
-  () => [route.query.path, route.query.revision] as const,
-  ([path, revision]) => {
+  () => [route.query.path, route.query.revision, route.query.oldRev, route.query.newRev, route.query.target] as const,
+  ([path, revision, oldRevision, newRevision]) => {
     if (!path) return
 
     currentPath.value = path as string
@@ -374,7 +376,12 @@ watch(
     if (idx >= 0) currentFileIndex.value = idx
 
     const parsedRevision = Number(revision)
-    if (Number.isInteger(parsedRevision) && parsedRevision > 0) {
+    if (typeof oldRevision === 'string' && typeof newRevision === 'string') {
+      diffType.value = 'revision'
+      changeRev.value = undefined
+      oldRev.value = Number(oldRevision)
+      newRev.value = Number(newRevision)
+    } else if (Number.isInteger(parsedRevision) && parsedRevision > 0) {
       diffType.value = 'change'
       changeRev.value = parsedRevision
     } else {

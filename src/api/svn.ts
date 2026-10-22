@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { invokeWithConnectionPrompt } from './connection'
-import type { CommandResult, SvnStatus, SvnLogEntry, SvnInfo, SvnAuthUser, DiffResult, FilePreviewResult, BlameLine, StashUnversionedEntry } from '@/types'
+import type { UpdateResult, CommandResult, SvnStatus, SvnLogEntry, SvnInfo, SvnAuthUser, DiffResult, FilePreviewResult, BlameLine, StashUnversionedEntry } from '@/types'
 
 export async function configureSvnExecutable(executable?: string): Promise<string> {
   return invoke<string>('configure_svn_executable', {
@@ -25,8 +25,8 @@ export async function svnCheckout(
   return invoke<CommandResult>('svn_checkout', { url, path, revision })
 }
 
-export async function svnUpdate(path: string, revision?: number): Promise<CommandResult> {
-  return invokeWithConnectionPrompt<CommandResult>('svn_update', { path, revision })
+export async function svnUpdate(path: string, revision?: number): Promise<UpdateResult> {
+  return invokeWithConnectionPrompt<UpdateResult>('svn_update', { path, revision })
 }
 
 export async function svnCommit(
@@ -70,6 +70,14 @@ export async function svnInfo(path: string): Promise<SvnInfo> {
 
 export async function svnLocalRevision(path: string): Promise<number> {
   return invoke<number>('svn_local_revision', { path })
+}
+
+export async function svnIncomingLogs(path: string, limit?: number): Promise<SvnLogEntry[]> {
+  return invokeWithConnectionPrompt<SvnLogEntry[]>('svn_incoming_logs', { path, limit })
+}
+
+export async function svnIncomingState(path: string, limit?: number): Promise<{ revision: number; logs: SvnLogEntry[] }> {
+  return invokeWithConnectionPrompt('svn_incoming_state', { path, limit })
 }
 
 export async function svnRemoteInfo(path: string): Promise<SvnInfo> {

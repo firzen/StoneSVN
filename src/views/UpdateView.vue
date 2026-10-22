@@ -8,11 +8,11 @@
             {{ $t('update.title') }}
           </span>
           <div class="header-actions">
-            <el-button size="small" @click="loadUpdateState(true)" :loading="loading">
+            <el-button size="small" @click="loadUpdateState(true)" :loading="loading" :disabled="updating">
               <el-icon><Refresh /></el-icon>
               {{ $t('update.check') }}
             </el-button>
-            <el-button type="primary" size="small" @click="doUpdate" :loading="updating" :disabled="!workspaceStore.currentPath">
+            <el-button type="primary" size="small" @click="doUpdate" :loading="updating" :disabled="!workspaceStore.currentPath || workspaceStore.operationBusy">
               <el-icon><RefreshRight /></el-icon>
               {{ $t('common.update') }}
             </el-button>
@@ -23,138 +23,83 @@
       <el-empty v-if="!workspaceStore.currentPath" :description="$t('log.openWorkspaceFirst')" class="empty-workspace" />
 
       <div v-else class="update-content">
-        <div class="revision-strip">
-          <div>
-            <span>{{ $t('update.localRevision') }}</span>
-            <strong>r{{ localRevision || '-' }}</strong>
+        <div v-if="updating" class="update-progress" role="status"><el-icon class="is-loading"><Loading /></el-icon>{{ $t('update.running') }}</div>
+        <div class="update-navigation">
+          <div class="update-tabs" role="tablist" :aria-label="$t('common.update')">
+            <button v-for="tab in visibleTabs" :id="`update-tab-${tab.key}`" :key="tab.key" type="button" role="tab"
+              :aria-selected="activeTab === tab.key" aria-controls="update-panel" :tabindex="activeTab === tab.key ? 0 : -1"
+              :class="{ active: activeTab === tab.key }" @click="activeTab = tab.key" @keydown="navigateTabs($event, tab.key)">
+              {{ tab.label }} <span>{{ tab.count }}</span>
+            </button>
           </div>
-          <div>
-            <span>{{ $t('update.remoteRevision') }}</span>
-            <strong>r{{ remoteRevision || '-' }}</strong>
-          </div>
-          <div>
-            <span>{{ $t('update.incomingCount') }}</span>
-            <strong>{{ incomingLogs.length }}</strong>
-          </div>
-          <div>
-            <span>{{ $t('update.localChangeCount') }}</span>
-            <strong>{{ localChanges.length }}</strong>
+          <div class="update-summary" aria-live="polite">
+            <span>{{ $t('update.localRevision') }} <strong>r{{ localRevision || '-' }}</strong></span>
+            <span aria-hidden="true">→</span>
+            <span>{{ $t('update.remoteRevision') }} <strong>{{ checkState === 'ready' ? `r${remoteRevision}` : '—' }}</strong></span>
           </div>
         </div>
-
-        <section class="update-section">
-          <div class="section-header">
-            <h3>{{ $t('update.incomingTitle') }}</h3>
-            <span>{{ $t('update.incomingHint') }}</span>
-          </div>
-          <el-table :data="incomingLogs" stripe class="update-table" max-height="280" row-key="revision"
-            @row-click="showCommitDetails" :row-style="{ cursor: 'pointer' }">
-            <el-table-column prop="revision" :label="$t('log.revision')" width="90" align="center">
-              <template #default="{ row }">
-                <button type="button" class="revision-link" @click.stop="showCommitDetails(row)">
-                  <el-tag type="primary" size="small" effect="plain">r{{ row.revision }}</el-tag>
-                </button>
-              </template>
-            </el-table-column>
-            <el-table-column prop="author" :label="$t('log.author')" width="140" />
-            <el-table-column :label="$t('log.date')" width="180">
-              <template #default="{ row }">{{ formatDate(row.date) }}</template>
-            </el-table-column>
-            <el-table-column prop="message" :label="$t('log.commitMessage')" show-overflow-tooltip />
-            <el-table-column :label="$t('log.changedFiles')" width="110" align="center">
-              <template #default="{ row }">{{ row.changed_paths?.length || 0 }}</template>
-            </el-table-column>
-          </el-table>
-          <div v-if="!loading && incomingLogs.length === 0" class="empty-line">
-            {{ $t('update.noIncoming') }}
-          </div>
-        </section>
-
-        <div class="list-divider"></div>
-
-        <section class="update-section">
-          <div class="section-header">
-            <h3>{{ $t('update.localTitle') }}</h3>
-            <span>{{ $t('update.localHint') }}</span>
-          </div>
-          <el-table :data="localChanges" stripe class="update-table" max-height="280" row-key="path">
-            <el-table-column prop="status_code" :label="$t('commit.status')" width="120" align="center">
-              <template #default="{ row }">
-                <span class="status-badge" :class="getStatusClass(row.status_code)">
-                  {{ $t(getStatusLabelKey(row.status_code)) }}
-                </span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="path" :label="$t('commit.file')" show-overflow-tooltip>
-              <template #default="{ row }">
-                <button class="file-link" type="button" @click="viewDiff(row.path)">
-                  {{ row.path }}
-                </button>
-              </template>
-            </el-table-column>
-            <el-table-column :label="$t('common.action')" width="90" align="center">
-              <template #default="{ row }">
-                <el-button text size="small" @click="viewDiff(row.path)">
-                  {{ $t('common.diff') }}
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <div v-if="!loading && localChanges.length === 0" class="empty-line">
-            {{ $t('workspace.noChanges') }}
-          </div>
-        </section>
-      </div>
-      <el-dialog v-model="detailsVisible" :title="$t('log.commitDetails')"
-        width="min(880px, calc(100vw - 32px))" top="8vh" append-to-body destroy-on-close>
-        <div v-if="selectedLog" class="revision-details">
-          <dl class="revision-metadata">
-            <div><dt>{{ $t('log.revision') }}</dt><dd>r{{ selectedLog.revision }}</dd></div>
-            <div><dt>{{ $t('log.author') }}</dt><dd>{{ selectedLog.author }}</dd></div>
-            <div><dt>{{ $t('log.date') }}</dt><dd>{{ formatDate(selectedLog.date) }}</dd></div>
-          </dl>
-          <h4>{{ $t('log.commitMessage') }}</h4>
-          <pre class="revision-message">{{ selectedLog.message }}</pre>
-          <h4>{{ $t('log.changedFiles') }} <span class="detail-count">{{ selectedLog.changed_paths?.length || 0 }}</span></h4>
-          <div class="revision-files" role="table" :aria-label="$t('log.changedFiles')"
-            :aria-rowcount="(selectedLog.changed_paths?.length || 0) + 1">
-            <div class="revision-file-row revision-files-header" role="row">
-              <span role="columnheader">{{ $t('commit.status') }}</span>
-              <span role="columnheader">{{ $t('commit.file') }}</span>
+        <div id="update-panel" class="update-panel" role="tabpanel" :aria-labelledby="`update-tab-${activeTab}`">
+          <template v-if="activeTab === 'incoming'">
+            <p v-if="checkState !== 'ready' && incomingLogs.length" class="panel-hint" role="status">{{ incomingMessage }}</p>
+            <template v-if="incomingLogs.length">
+              <div class="incoming-versions" :style="{ height: `${Math.min(incomingLogs.length || 1, 8) * 33 + 34}px` }">
+                <el-table :data="incomingLogs" :empty-text="incomingMessage" class="update-table version-table" row-key="revision"
+                  stripe highlight-current-row :current-row-key="selectedIncoming?.revision" height="100%"
+                  @row-click="selectIncomingRevision" :row-style="{ cursor: 'pointer' }">
+                  <el-table-column :label="$t('log.revision')" width="90" align="center">
+                    <template #default="{ row }"><button type="button" class="revision-link" @click.stop="selectIncomingRevision(row)"><el-tag type="primary" size="small" effect="plain">r{{ row.revision }}</el-tag></button></template>
+                  </el-table-column>
+                  <el-table-column prop="author" :label="$t('log.author')" width="130" show-overflow-tooltip>
+                    <template #default="{ row }"><span class="version-meta"><el-icon><User /></el-icon>{{ row.author }}</span></template>
+                  </el-table-column>
+                  <el-table-column :label="$t('log.date')" width="190">
+                    <template #default="{ row }"><span class="version-meta"><el-icon><Calendar /></el-icon>{{ formatDate(row.date) }}</span></template>
+                  </el-table-column>
+                  <el-table-column prop="message" :label="$t('log.commitMessage')" min-width="220" show-overflow-tooltip />
+                  <el-table-column :label="$t('log.changedFiles')" width="110" align="center">
+                    <template #default="{ row }"><el-tag size="small" effect="plain">{{ row.changed_paths?.length || 0 }}</el-tag></template>
+                  </el-table-column>
+                </el-table>
+              </div>
+              <div class="incoming-files-heading">
+                <strong>{{ $t('log.changedFiles') }}</strong>
+                <span v-if="selectedIncoming">r{{ selectedIncoming.revision }} · {{ $t('update.changedItems', { count: incomingRows.length }) }}</span>
+              </div>
+              <UpdateFileList v-if="selectedIncoming" :key="selectedIncoming.revision" :rows="incomingRows" :empty-text="$t('common.noData')" @diff="viewIncomingDiff" />
+            </template>
+            <div v-else class="incoming-empty" role="status">
+              <el-icon v-if="checkState === 'ready'"><CircleCheck /></el-icon>
+              <span>{{ incomingMessage }}</span>
             </div>
-            <VirtualViewport v-if="selectedLog.changed_paths?.length" :item-count="selectedLog.changed_paths.length"
-              :row-height="32" :reset-key="selectedLog.revision" role="rowgroup">
-              <template #default="{ start, end }">
-                <div v-for="(file, index) in selectedLog.changed_paths.slice(start, end)" :key="file.path"
-                  class="revision-file-row" :class="{ striped: (start + index) % 2 }" role="row" :aria-rowindex="start + index + 2">
-                  <span role="cell"><el-tag size="small" :type="actionTagType(file.action)">
-                    {{ $t(['A', 'D', 'M', 'R'].includes(file.action) ? `log.action${file.action}` : 'log.actionUnknown') }}
-                  </el-tag></span>
-                  <span class="revision-file-path" role="cell" :title="file.path">{{ file.path }}</span>
-                </div>
-              </template>
-            </VirtualViewport>
-            <div v-else class="empty-line" role="row"><span role="cell">{{ $t('common.noData') }}</span></div>
-          </div>
+          </template>
+          <template v-else>
+            <div class="result-summary" role="status" :class="{ 'has-conflicts': hasUpdateConflicts }">
+              <strong>{{ $t(hasUpdateConflicts ? 'update.completedConflicts' : 'update.completed') }}</strong>
+              <span>r{{ updateStartRevision }} → r{{ updateEndRevision || '—' }}</span>
+              <time v-if="completedAt" :datetime="completedAt">{{ formatDate(completedAt) }}</time>
+            </div>
+            <el-alert v-if="updateWarning" class="result-warning" :title="$t('update.resultFailed')" :description="updateWarning" type="warning" :closable="false" />
+            <UpdateFileList v-if="!updateWarning || updatedRows.length" key="result" :rows="updatedRows" :empty-text="updateWarning ? $t('update.resultFailed') : $t('update.noUpdatedFiles')" @diff="openUpdatedRow" />
+            <div v-else class="result-unavailable"></div>
+            <details v-if="updateOutput" class="execution-details"><summary>{{ $t('update.executionDetails') }}</summary><pre>{{ updateOutput }}</pre></details>
+          </template>
         </div>
-        <template #footer><el-button @click="detailsVisible = false">{{ $t('common.close') }}</el-button></template>
-      </el-dialog>
+      </div>
     </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onDeactivated, onUnmounted, ref, shallowRef, watch } from 'vue'
+import { computed, onActivated, onDeactivated, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus/es/components/message/index'
-import { svnLog, svnRemoteInfo, svnUpdate } from '@/api/svn'
+import { svnIncomingState, svnUpdate } from '@/api/svn'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useWorkspace } from '@/composables/useWorkspace'
-import { getStatusClass, getStatusLabelKey } from '@/composables/useSvnStatus'
 import { useSettings } from '@/composables/useSettings'
-import type { SvnLogEntry } from '@/types'
-import VirtualViewport from '@/components/VirtualViewport.vue'
+import type { SvnLogEntry, UpdatedFile } from '@/types'
+import UpdateFileList from '@/components/UpdateFileList.vue'
 
 type UpdateStateCache = {
   remoteRevision: number
@@ -171,30 +116,70 @@ const { settings } = useSettings()
 
 const loading = ref(false)
 const updating = ref(false)
+const updatedFiles = ref<UpdatedFile[]>([])
+const updateCompleted = ref(false)
+const updateWarning = ref('')
+const activeTab = ref('incoming')
+const completedAt = ref('')
+const updateStartRevision = ref(0)
+const updateEndRevision = ref(0)
+const updateOutput = ref('')
+const hasUpdateConflicts = computed(() => updatedFiles.value.some(file => file.action === 'C'))
+const visibleTabs = computed(() => [
+  { key: 'incoming', label: t('update.incomingTitle'), count: checkState.value === 'ready' ? incomingLogs.value.length : '—' },
+  ...(updateCompleted.value ? [{ key: 'result', label: t('update.updatedTitle'), count: updateWarning.value ? '—' : updatedFiles.value.length }] : []),
+])
+const selectedIncomingRevision = ref<number | null>(null)
+const selectedIncoming = computed(() => incomingLogs.value.find(log => log.revision === selectedIncomingRevision.value) || incomingLogs.value[0] || null)
+const selectIncomingRevision = (entry: SvnLogEntry) => { selectedIncomingRevision.value = entry.revision }
+const actionStatus = (action: string) => ({ A: 'added', M: 'modified', D: 'deleted', R: 'replaced', C: 'conflicted' } as Record<string, string>)[action] || 'unknown'
+const incomingRows = computed(() => (selectedIncoming.value?.changed_paths || []).map(file => ({ path: file.path, status: actionStatus(file.action) })))
+const viewIncomingDiff = (row: { path: string }) => {
+  const entry = selectedIncoming.value
+  const repositoryRoot = workspaceStore.svnInfo?.repository_root?.replace(/\/$/, '')
+  if (!entry || !repositoryRoot) return
+  const file = entry.changed_paths.find(file => file.path === row.path)
+  if (!file) return
+  const pegRevision = file.action === 'D' ? Math.max(0, entry.revision - 1) : entry.revision
+  const repositoryPath = row.path.startsWith('/') ? row.path : `/${row.path}`
+  router.push({ name: 'diff', query: { path: `${repositoryRoot}${repositoryPath}@${pegRevision}`, revision: String(entry.revision) } })
+}
+const updatedRows = computed(() => updatedFiles.value.map(file => ({ path: file.path,
+  status: actionStatus(file.action),
+  directory: file.directory,
+})))
+const openUpdatedRow = (row: { path: string }) => {
+  const file = updatedFiles.value.find(file => file.path === row.path)
+  if (file) viewUpdatedDiff(file)
+}
+const navigateTabs = (event: KeyboardEvent, key: string) => {
+  const tabs = visibleTabs.value
+  const index = tabs.findIndex(tab => tab.key === key)
+  let next = index
+  if (event.key === 'ArrowRight') next = (index + 1) % tabs.length
+  else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length
+  else if (event.key === 'Home') next = 0
+  else if (event.key === 'End') next = tabs.length - 1
+  else return
+  event.preventDefault()
+  activeTab.value = tabs[next].key
+  document.getElementById(`update-tab-${activeTab.value}`)?.focus()
+}
 const incomingLogs = ref<SvnLogEntry[]>([])
 const remoteRevision = ref(0)
-const selectedLog = shallowRef<SvnLogEntry | null>(null)
-const detailsVisible = ref(false)
-const showCommitDetails = (entry: SvnLogEntry) => {
-  selectedLog.value = entry
-  detailsVisible.value = true
-}
-const actionTagType = (action: string) => {
-  switch (action) {
-    case 'A': return 'success'
-    case 'D': return 'danger'
-    case 'M': return 'warning'
-    case 'R': return 'primary'
-    default: return 'info'
-  }
-}
+const checkState = ref<'unchecked' | 'checking' | 'ready' | 'failed'>('unchecked')
+const incomingMessage = computed(() => {
+  if (checkState.value === 'failed') return t('update.checkFailed')
+  if (checkState.value === 'checking') return t('common.loading')
+  if (checkState.value === 'unchecked') return t('update.notChecked')
+  return t(incomingLogs.value.length ? 'update.incomingHint' : 'update.noIncoming')
+})
 let isActive = false
 let updateStateTimer: number | undefined
 let updateRequestGeneration = 0
 const updateStateIntervalMs = 30_000
 
 const localRevision = computed(() => workspaceStore.svnInfo?.revision || 0)
-const localChanges = computed(() => workspaceStore.statusList.filter(status => status.status_code !== 'normal' && status.status_code !== ''))
 
 const formatDate = (date: string) => date ? new Date(date).toLocaleString(locale.value) : ''
 
@@ -202,6 +187,7 @@ const applyCachedState = (path: string) => {
   const cached = updateStateCache.get(path)
   if (!cached) return false
 
+  checkState.value = 'ready'
   remoteRevision.value = cached.remoteRevision
   incomingLogs.value = cached.incomingLogs.map(entry => ({
     ...entry,
@@ -210,7 +196,7 @@ const applyCachedState = (path: string) => {
   return true
 }
 
-const loadUpdateState = async (force = false) => {
+const loadUpdateState = async (force = false, localAlreadyRefreshed = false) => {
   // A completed update must refresh shared workspace state even after navigation.
   if (!workspaceStore.currentPath || (!force && (!isActive || loading.value || updating.value))) return
   const requestedPath = workspaceStore.currentPath
@@ -219,20 +205,20 @@ const loadUpdateState = async (force = false) => {
     && workspaceStore.currentPath === requestedPath
     && isActive
   loading.value = true
+  checkState.value = 'checking'
   try {
-    const refreshed = await (force ? refreshStatusAfterMutation() : refreshStatusIfStale(updateStateIntervalMs))
-    if (!isCurrent() || !refreshed) return
-    const info = await svnRemoteInfo(requestedPath)
+    const refreshed = localAlreadyRefreshed || await (force ? refreshStatusAfterMutation() : refreshStatusIfStale(updateStateIntervalMs))
     if (!isCurrent()) return
-    remoteRevision.value = info.revision
-    const local = workspaceStore.svnInfo?.revision || 0
-    if (info.revision > local) {
-      const logs = await svnLog(requestedPath, settings.logLimit || 50, info.revision, local + 1)
-      if (!isCurrent()) return
-      incomingLogs.value = logs
-    } else {
-      incomingLogs.value = []
+    if (!refreshed) {
+      checkState.value = 'unchecked'
+      return
     }
+    const state = await svnIncomingState(requestedPath, settings.logLimit || 50)
+    if (!isCurrent()) return
+    remoteRevision.value = state.revision
+    incomingLogs.value = state.logs
+    checkState.value = 'ready'
+    workspaceStore.setError(null)
     updateStateCache.set(requestedPath, {
       remoteRevision: remoteRevision.value,
       incomingLogs: incomingLogs.value.map(entry => ({
@@ -242,6 +228,9 @@ const loadUpdateState = async (force = false) => {
     })
   } catch (err) {
     if (!isCurrent()) return
+    checkState.value = 'failed'
+    incomingLogs.value = []
+    updateStateCache.delete(requestedPath)
     workspaceStore.setError(String(err))
     ElMessage.error(`${t('common.error')}：${err}`)
   } finally {
@@ -252,15 +241,33 @@ const loadUpdateState = async (force = false) => {
 const doUpdate = async () => {
   if (!workspaceStore.currentPath || workspaceStore.operationBusy) return
   const requestedPath = workspaceStore.currentPath
+  updateRequestGeneration += 1
+  loading.value = false
+  const startRevision = localRevision.value
   updating.value = true
   workspaceStore.setOperationBusy(true)
   try {
-    await svnUpdate(requestedPath)
+    const result = await svnUpdate(requestedPath)
     if (workspaceStore.currentPath !== requestedPath) return
+    updateStartRevision.value = startRevision
+    updatedFiles.value = result.files
+    updateCompleted.value = true
+    activeTab.value = 'result'
+    completedAt.value = new Date().toISOString()
+    updateOutput.value = result.output || ''
+    updateEndRevision.value = 0
+    updateWarning.value = result.warning || ''
     updateStateCache.delete(requestedPath)
-    await loadUpdateState(true)
+    incomingLogs.value = []
+    checkState.value = 'unchecked'
+    const refreshed = await refreshStatusAfterMutation()
     if (workspaceStore.currentPath !== requestedPath) return
-    ElMessage.success(`${t('common.update')} ${t('common.success')}`)
+    updateEndRevision.value = refreshed ? localRevision.value : 0
+    // Remote history may be slow. It must not hold the completed mutation busy,
+    // and the fresh local scan must not be repeated by this background request.
+    if (isActive && refreshed) void loadUpdateState(true, true)
+    if (hasUpdateConflicts.value || updateWarning.value) ElMessage.warning(t(hasUpdateConflicts.value ? 'update.completedConflicts' : 'update.resultFailed'))
+    else ElMessage.success(t('update.completed'))
   } catch (err) {
     if (workspaceStore.currentPath !== requestedPath) return
     workspaceStore.setError(String(err))
@@ -271,12 +278,14 @@ const doUpdate = async () => {
   }
 }
 
-const viewDiff = (path: string) => {
-  router.push({ name: 'diff', query: { path } })
+const viewUpdatedDiff = (file: UpdatedFile) => {
+  router.push({ name: 'diff', query: {
+    path: file.path, target: file.target,
+    oldRev: String(file.old_revision), newRev: String(file.new_revision),
+  } })
 }
 
 const stopUpdatePolling = () => {
-  detailsVisible.value = false
   isActive = false
   if (updateStateTimer !== undefined) {
     window.clearInterval(updateStateTimer)
@@ -304,9 +313,17 @@ watch(
     updateRequestGeneration += 1
     loading.value = false
     incomingLogs.value = []
-    detailsVisible.value = false
-    selectedLog.value = null
+    updatedFiles.value = []
+    updateCompleted.value = false
+    updateWarning.value = ''
+    activeTab.value = 'incoming'
+    completedAt.value = ''
+    updateOutput.value = ''
+    updateStartRevision.value = 0
+    updateEndRevision.value = 0
+    selectedIncomingRevision.value = null
     remoteRevision.value = 0
+    checkState.value = 'unchecked'
     if (isActive && path && !applyCachedState(path)) {
       loadUpdateState()
     }
@@ -315,208 +332,43 @@ watch(
 </script>
 
 <style scoped>
-.revision-link { display: inline-flex; padding: 0; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }
-.revision-link:focus-visible { outline: 2px solid var(--el-color-primary); outline-offset: 3px; }
-.revision-link:hover { filter: brightness(.92); }
-.revision-details { color: var(--el-text-color-primary); }
-.revision-metadata { display: grid; grid-template-columns: 100px minmax(120px, 1fr) minmax(180px, 1fr); gap: 12px; margin: 0; padding: 12px; border: 1px solid var(--el-border-color-light); border-radius: 6px; }
-.revision-metadata dt { color: var(--el-text-color-secondary); font-size: 12px; }
-.revision-metadata dd { margin: 4px 0 0; overflow-wrap: anywhere; font-size: 13px; }
-.revision-details h4 { margin: 16px 0 8px; font-size: 13px; }
-.detail-count { margin-left: 6px; color: var(--el-text-color-secondary); font-weight: 400; }
-.revision-message { margin: 0; padding: 12px; max-height: 140px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--el-border-color-light); border-radius: 6px; background: var(--el-fill-color-light); font: 13px/1.6 var(--app-font-family); }
-.revision-files { display: flex; flex-direction: column; height: 260px; max-height: 36vh; min-height: 100px; overflow: hidden; border: 1px solid var(--el-border-color-light); border-radius: 6px; }
-.revision-file-row { display: grid; grid-template-columns: 82px minmax(0, 1fr); align-items: center; height: 32px; padding: 0 8px; gap: 8px; font-size: 12px; }
-.revision-file-row.striped { background: rgba(127, 127, 127, .07); }
-.revision-files-header { flex-shrink: 0; font-weight: 600; border-bottom: 1px solid var(--el-border-color-light); }
-.revision-file-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 600px) { .revision-metadata { grid-template-columns: 1fr; } }
+.revision-link { display: inline-flex; padding: 0; border: 0; background: transparent; cursor: pointer; }
 
-.update-view {
-  height: 100%;
-}
-
-.update-card {
-  min-height: 100%;
-  border-radius: var(--app-radius-lg);
-}
-
-.card-header,
-.header-actions {
-  display: flex;
-  align-items: center;
-}
-
-.card-header {
-  justify-content: space-between;
-}
-
-.card-title {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--app-spacing-sm);
-  font-weight: 700;
-}
-
-.header-actions {
-  gap: var(--app-spacing-sm);
-}
-
-.empty-workspace {
-  height: 420px;
-}
-
-.update-content {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.revision-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(120px, 1fr));
-  gap: 8px;
-}
-
-.revision-strip div {
-  padding: 10px 12px;
-  border: 1px solid var(--md-sys-color-outline-variant);
-  border-radius: var(--app-radius-md);
-  background: var(--el-fill-color-light);
-}
-
-.revision-strip span,
-.section-header span {
-  display: block;
-  color: var(--el-text-color-secondary);
-  font-size: var(--app-font-size-xs);
-}
-
-.revision-strip strong {
-  display: block;
-  margin-top: 4px;
-  color: var(--el-text-color-primary);
-  font-size: var(--app-font-size-title);
-}
-
-:global(.theme-dark) .revision-strip div,
-:global(.dark) .revision-strip div {
-  border-color: rgba(115, 115, 115, .14);
-  background: var(--md-sys-color-surface-container);
-}
-
-:global(.theme-dark) .revision-strip span,
-:global(.theme-dark) .section-header span,
-:global(.dark) .revision-strip span,
-:global(.dark) .section-header span {
-  color: var(--md-sys-color-on-surface-variant);
-}
-
-:global(.theme-dark) .revision-strip strong,
-:global(.dark) .revision-strip strong {
-  color: var(--md-sys-color-on-surface);
-}
-
-.update-section {
-  min-height: 0;
-}
-
-.section-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.section-header h3 {
-  margin: 0;
-  color: var(--el-text-color-primary);
-  font-size: 15px;
-}
-
-.update-table {
-  border-radius: var(--app-radius-md);
-  overflow: hidden;
-}
-
-:global(.theme-dark) .update-table,
-:global(.dark) .update-table {
-  --el-table-border-color: rgba(115, 115, 115, .12);
-  border: 1px solid rgba(115, 115, 115, .1);
-}
-
-:global(.theme-dark) .update-table :deep(.el-table__inner-wrapper::before),
-:global(.theme-dark) .update-table :deep(.el-table__inner-wrapper::after),
-:global(.dark) .update-table :deep(.el-table__inner-wrapper::before),
-:global(.dark) .update-table :deep(.el-table__inner-wrapper::after) {
-  background-color: rgba(115, 115, 115, .1);
-}
-
-:global(.theme-dark) .update-table :deep(th.el-table__cell),
-:global(.theme-dark) .update-table :deep(td.el-table__cell),
-:global(.dark) .update-table :deep(th.el-table__cell),
-:global(.dark) .update-table :deep(td.el-table__cell) {
-  border-color: rgba(115, 115, 115, .1);
-}
-
-.list-divider {
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(115, 115, 115, .18),
-    transparent
-  );
-}
-
-.empty-line {
-  padding: 12px;
-  color: var(--el-text-color-secondary);
-  font-size: var(--app-font-size-sm);
-  text-align: center;
-}
-
-.status-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 72px;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: var(--app-radius-full);
-  font-size: var(--app-font-size-xs);
-  font-weight: 700;
-}
-
-.file-link {
-  max-width: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--md-sys-color-primary);
-  font-family: var(--app-font-family-mono);
-  font-size: var(--app-font-size-sm);
-  text-align: left;
-  cursor: pointer;
-}
-
-.file-link:hover {
-  text-decoration: underline;
-}
-
-:global(.theme-dark) .file-link,
-:global(.dark) .file-link {
-  color: var(--md-sys-color-primary);
-}
-
-:global(.theme-dark) .file-link:hover,
-:global(.dark) .file-link:hover {
-  color: var(--md-sys-color-on-primary-container);
-}
-
-@media (max-width: 860px) {
-  .revision-strip {
-    grid-template-columns: repeat(2, minmax(120px, 1fr));
-  }
-}
+.update-view { height: 100%; min-height: 460px !important; width: 100%; }
+.update-card { min-width: 0; min-height: 460px !important; height: 100%; }
+.update-card :deep(> .el-card__body) { display: flex; flex-direction: column; overflow: hidden; }
+.card-header, .header-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card-title { display: flex; align-items: center; gap: 6px; }
+.update-content { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.update-navigation { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 0 24px; padding: 0 12px; border-bottom: 1px solid var(--workbench-border); }
+.update-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-left: auto; padding: 8px 0; color: var(--commit-muted); font-size: 11px; }
+.update-summary > span { white-space: nowrap; }
+.update-summary strong { margin-left: 4px; color: var(--commit-text); font-weight: 500; }
+.update-tabs { display: flex; min-width: 0; max-width: 100%; overflow-x: auto; }
+.update-tabs button { white-space: nowrap; background: transparent; border: 0; border-bottom: 2px solid transparent; padding: 7px 12px; color: var(--commit-muted); font: inherit; cursor: pointer; }
+.update-tabs button.active { border-bottom-color: var(--commit-accent); color: var(--commit-accent); }
+.update-tabs button span { margin-left: 6px; font-variant-numeric: tabular-nums; }
+.update-tabs button:focus-visible { outline: 2px solid var(--commit-accent); outline-offset: -3px; }
+.update-panel { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.panel-hint { margin: 0; padding: 6px 12px; color: var(--commit-muted); }
+.incoming-versions { flex: 0 1 auto; min-height: 96px; max-height: 38%; overflow: hidden; }
+.version-meta { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.incoming-files-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; padding: 6px 12px; border-top: 1px solid var(--workbench-border); border-bottom: 1px solid var(--workbench-border); background: var(--workbench-toolbar); }
+.incoming-files-heading span, .incoming-empty { color: var(--commit-muted); }
+.incoming-empty { display: flex; flex: 1; align-items: center; justify-content: center; gap: 8px; padding: 32px 14px; }
+.incoming-empty .el-icon { font-size: 18px; }
+.revision-link:focus-visible { outline: 2px solid var(--commit-accent); outline-offset: 2px; }
+.result-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; padding: 7px 12px; border-bottom: 1px solid var(--workbench-border); }
+.result-summary strong { color: var(--el-color-success); }
+.result-summary.has-conflicts strong { color: var(--el-color-warning); }
+.result-summary span { color: var(--commit-muted); }
+.result-summary time { margin-left: auto; color: var(--commit-muted); font-size: 11px; }
+.result-unavailable { flex: 1; }
+.result-warning { flex-shrink: 0; }
+.execution-details { flex-shrink: 0; border-top: 1px solid var(--workbench-border); padding: 6px 12px; }
+.execution-details summary { cursor: pointer; color: var(--commit-muted); }
+.execution-details pre { max-height: 140px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.update-progress { display: flex; align-items: center; gap: 8px; padding: 6px 12px; color: var(--commit-accent); }
+@media (max-width: 900px) { .update-view, .update-card { min-height: 600px !important; } }
+@media (max-width: 600px) { .update-navigation { gap: 0 12px; } .update-tabs button { padding: 7px 8px; } }
 </style>

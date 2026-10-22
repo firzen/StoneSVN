@@ -89,32 +89,6 @@
 .log-view.compact-workbench .log-pagination { padding: 8px 14px; border-top: 1px solid var(--workbench-border); }
 .log-view.compact-workbench .log-table { border-radius: 0; }
 
-.update-view.compact-workbench .update-content { gap: 0; }
-.update-view.compact-workbench .revision-strip { gap: 0; border-bottom: 1px solid var(--workbench-border); }
-.update-view.compact-workbench .revision-strip > div {
-  padding: 8px 14px;
-  border: 0;
-  border-right: 1px solid var(--workbench-border);
-  border-radius: 0;
-  background: var(--workbench-toolbar);
-}
-.update-view.compact-workbench .revision-strip > div:last-child { border-right: 0; }
-.update-view.compact-workbench .revision-strip strong { margin-top: 2px; font-size: 14px; }
-.update-view.compact-workbench .section-header {
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-  min-height: 36px;
-  margin: 0;
-  padding: 6px 14px;
-  border-bottom: 1px solid var(--workbench-border);
-  background: var(--workbench-toolbar);
-}
-.update-view.compact-workbench .section-header h3 { font-size: 12px; font-weight: 600; }
-.update-view.compact-workbench .list-divider { background: var(--workbench-border); }
-.update-view.compact-workbench .update-table { border-radius: 0; }
-.update-view.compact-workbench .status-badge { min-width: 48px; min-height: 19px; height: 19px; border-radius: 3px; padding: 0 4px; font-size: 11px; }
-
 @media (max-width: 1100px) {
   .log-view.compact-workbench .log-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .log-view.compact-workbench .log-date-range { grid-column: 1 / -1; width: 100%; }
