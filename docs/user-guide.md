@@ -2,7 +2,7 @@
 
 English | [简体中文](user-guide.zh-CN.md)
 
-Applies to the current 1.1.4 source. Updated: 2026-10-20. Older releases may have a different interface.
+Applies to the current 1.1.5 source. Updated: 2026-10-20. Older releases may have a different interface.
 
 This guide covers checkout, reviewing changes, committing, updating, and browsing history for code, documents, and other SVN-managed files. No implementation knowledge is required.
 
@@ -169,6 +169,8 @@ The page shows local/remote revisions, listed remote commits, and local edits.
 2. Back up or stash supported unfinished work when needed.
 3. Select Update and wait.
 4. Check the workspace for conflicts and remaining edits.
+
+Incoming commits are selected from actual remote file and property changes using each node’s BASE revision. Commits already present locally are excluded even when the working-copy root has an older revision. A failed check leaves update availability unknown; retry before concluding that no updates are available. Remote checks reuse the saved security settings for the matching server.
 
 The remote commit count refers to the currently listed records, not the entire history. Update may merge local edits or produce conflicts; it does not commit local work.
 

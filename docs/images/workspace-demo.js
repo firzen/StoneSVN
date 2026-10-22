@@ -55,9 +55,9 @@ export default (async () => {
       if (command === 'svn_file_preview') return { path: args.file, diff, old_revision: 128, new_revision: 128, preview_kind: 'text', image_data: null, can_open: false }
       if (command === 'svn_diff') return { path: args.file, diff, old_revision: 128, new_revision: 128 }
       if (command === 'svn_status') return files
-      if (command === 'svn_info') return info
+      if (command === 'svn_info' || command === 'svn_remote_info') return info
       if (command === 'svn_local_revision') return 128
-      if (command === 'svn_log' || command === 'svn_file_log') return []
+      if (command === 'svn_log' || command === 'svn_file_log' || command === 'svn_incoming_logs') return []
       throw new Error(`Documentation demo does not support ${command}`)
     },
   }
