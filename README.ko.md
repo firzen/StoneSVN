@@ -10,7 +10,7 @@ StoneSVN은 Tauri, Rust, Vue 3로 만든 크로스 플랫폼 SVN 데스크톱 �
 
 현재 소스의 개발 화면으로, 2026-10-18에 가상의 프로젝트, 경로 및 Diff 데이터로 촬영했습니다. 실제 저장소나 개인 정보는 포함하지 않습니다. [다크 테마](docs/images/screenshots/ko-workspace-dark.png).
 
-현재 정식 버전은 **1.1.5**입니다. [릴리스 노트](docs/releases/v1.1.5.md)를 확인하세요.
+현재 정식 버전은 **1.1.6**입니다. [릴리스 노트](docs/releases/v1.1.6.md)를 확인하세요.
 
 ## 주요 기능
 

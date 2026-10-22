@@ -91,6 +91,8 @@ Moving a versioned file directly in a file manager can produce Missing status. D
 1. Confirm the project path. Save editor content and, if necessary, back up or stash supported unfinished changes.
 2. Open Update and select Check to inspect local/remote revisions and the listed commits.
 3. Select Update and wait. It retrieves remote changes and may merge local edits or create conflicts.
+
+In v1.1.6, select an incoming revision to review its files. After updating, This update retains the actual changed files; double-click a file to compare the before/after revisions. File lists support status/path filters, directory grouping, and path copying.
 4. Return to the workspace and inspect the result. Resolve conflicts using the section below, then review your local diff even if the update was clean.
 
 Incoming commits are selected from actual remote file and property changes using each node’s BASE revision. Commits already present locally are excluded even when the working-copy root has an older revision. A failed check leaves update availability unknown; retry before concluding that no updates are available. Remote checks reuse the saved security settings for the matching server.

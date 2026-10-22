@@ -2,7 +2,7 @@
 
 English | [简体中文](user-guide.zh-CN.md)
 
-Applies to the current 1.1.5 source. Updated: 2026-10-20. Older releases may have a different interface.
+Applies to the current 1.1.5 source. Updated: 2026-10-22. Older releases may have a different interface.
 
 This guide covers checkout, reviewing changes, committing, updating, and browsing history for code, documents, and other SVN-managed files. No implementation knowledge is required.
 
@@ -159,16 +159,19 @@ Use the team-agreed value to avoid timing out the first connection too early.
 
 Adapt reused messages. After failure, retain the error and refresh to check the actual result rather than assuming complete success or no changes.
 
+On macOS, closing the main window keeps the workspace state in the running application. Select the Dock icon to reopen it, or use Quit to exit.
+
 ## Get remote updates
 
 An update can continue after you change pages. Completion refreshes the shared local revision and status. Leaving Update pauses automatic remote polling; returning resumes it.
 
-The page shows local/remote revisions, listed remote commits, and local edits.
+The page shows local/remote revisions and tabs for incoming revisions and the latest update result. Select an incoming revision to review its files. File lists support status and path filters, directory grouping, and path copying.
 
 1. Select Check and review remote commits and local changes.
 2. Back up or stash supported unfinished work when needed.
 3. Select Update and wait.
-4. Check the workspace for conflicts and remaining edits.
+4. Review actual changed files, completion time, and conflicts in This update. Double-click a file to compare its before/after repository revisions; expand execution details for command output.
+5. Check the workspace for conflicts and remaining local edits. The result remains until another update or workspace switch and does not represent uncommitted local work.
 
 Incoming commits are selected from actual remote file and property changes using each node’s BASE revision. Commits already present locally are excluded even when the working-copy root has an older revision. A failed check leaves update availability unknown; retry before concluding that no updates are available. Remote checks reuse the saved security settings for the matching server.
 

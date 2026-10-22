@@ -1,0 +1,42 @@
+{
+  "en": {
+    "title": "Review incoming changes and update results",
+    "items": [
+      "Browse incoming revisions and changed files; filter by status or path, group by directory, and copy paths.",
+      "Keep the actual files changed by an update and compare their before/after revisions, with conflict and completion details.",
+      "Refresh local state before checking remote history in the background. On macOS, reopen the preserved workspace from the Dock after closing the window."
+    ]
+  },
+  "zh-CN": {
+    "title": "审阅待更新内容与本次更新结果",
+    "items": [
+      "查看待更新版本及变更文件，支持状态筛选、路径搜索、目录分组和复制路径。",
+      "更新后保留实际变更文件，可比较更新前后版本，并查看冲突与完成详情。",
+      "先刷新本地状态，再在后台检查远端历史；macOS 关闭窗口后可从 Dock 重新打开保留的工作区。"
+    ]
+  },
+  "zh-TW": {
+    "title": "檢閱待更新內容與本次更新結果",
+    "items": [
+      "查看待更新版本與變更檔案，支援狀態篩選、路徑搜尋、目錄分組及複製路徑。",
+      "更新後保留實際變更檔案，可比較更新前後版本，並查看衝突與完成詳情。",
+      "先重新整理本機狀態，再於背景檢查遠端歷史；macOS 關閉視窗後可從 Dock 重新開啟保留的工作區。"
+    ]
+  },
+  "ja": {
+    "title": "更新前後の変更を確認",
+    "items": [
+      "受信リビジョンと変更ファイルを確認し、状態やパスで絞り込み、ディレクトリ別の表示やパスのコピーができます。",
+      "更新で実際に変更されたファイルを保持し、更新前後のリビジョンを比較できます。競合や完了情報も表示します。",
+      "ローカル状態の更新後に、リモート履歴をバックグラウンドで確認します。macOS ではウィンドウを閉じても作業状態を保持し、Dock から再表示できます。"
+    ]
+  },
+  "ko": {
+    "title": "받을 변경 사항과 업데이트 결과 검토",
+    "items": [
+      "받을 리비전과 변경 파일을 확인하고 상태 및 경로 필터, 디렉터리별 보기, 경로 복사를 사용할 수 있습니다.",
+      "업데이트로 실제 변경된 파일을 유지하고 업데이트 전후 리비전을 비교하며 충돌과 완료 정보를 확인할 수 있습니다.",
+      "로컬 상태를 새로 고친 뒤 원격 기록을 백그라운드에서 확인합니다. macOS에서는 창을 닫아도 작업 상태를 유지하고 Dock에서 다시 열 수 있습니다."
+    ]
+  }
+}
