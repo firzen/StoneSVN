@@ -1,0 +1,37 @@
+{
+  "en": {
+    "title": "Load incoming revisions faster",
+    "items": [
+      "Batch history requests for remote additions instead of querying each new file or directory separately.",
+      "Preserve per-node BASE revisions, switched subtree URLs, and revision limits; cover large additions and multilingual paths with SVN integration tests."
+    ]
+  },
+  "zh-CN": {
+    "title": "加快待更新版本加载",
+    "items": [
+      "批量查询远端新增内容的历史记录，避免为每个新增文件或目录单独发送请求。",
+      "保留各节点 BASE 版本、切换目录地址与版本数量限制，并通过 SVN 集成测试覆盖大量新增项及多语言路径。"
+    ]
+  },
+  "zh-TW": {
+    "title": "加快待更新版本載入",
+    "items": [
+      "批次查詢遠端新增內容的歷史記錄，避免為每個新增檔案或目錄個別傳送請求。",
+      "保留各節點 BASE 版本、切換目錄位址與版本數量限制，並透過 SVN 整合測試涵蓋大量新增項目及多語言路徑。"
+    ]
+  },
+  "ja": {
+    "title": "受信リビジョンの読み込みを高速化",
+    "items": [
+      "リモートで追加されたファイルやディレクトリの履歴をまとめて取得し、個別のリクエストを削減します。",
+      "各ノードの BASE リビジョン、切り替えたディレクトリの URL、表示件数の制限を維持し、大量の追加と多言語パスを SVN 統合テストで確認します。"
+    ]
+  },
+  "ko": {
+    "title": "받을 리비전 로딩 속도 개선",
+    "items": [
+      "원격에서 추가된 파일과 디렉터리의 기록을 일괄 조회하여 개별 요청을 줄입니다.",
+      "각 노드의 BASE 리비전, 전환된 디렉터리 URL, 표시 개수 제한을 유지하고 대량 추가와 다국어 경로를 SVN 통합 테스트로 검증합니다."
+    ]
+  }
+}

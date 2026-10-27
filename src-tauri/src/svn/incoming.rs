@@ -22,6 +22,14 @@ fn affects_pending(changed: &str, action: &str, pending: &str, subtree: bool) ->
         || (matches!(action, "A" | "D" | "R") && pending.starts_with(&format!("{changed}/")))
 }
 
+struct IncomingPath {
+    url: String,
+    base: u64,
+    subtree: bool,
+    root_url: String,
+    relative: String,
+}
+
 #[derive(serde::Serialize)]
 pub struct IncomingState {
     pub revision: u64,
@@ -77,32 +85,57 @@ pub async fn incoming_state(path: &str, limit: u32) -> Result<IncomingState, Svn
             .strip_prefix(root)
             .unwrap()
             .trim_start_matches('/');
-        pending.push((url_for_path(url, relative)?, entry.base, entry.subtree));
+        pending.push(IncomingPath {
+            url: url_for_path(url, relative)?,
+            base: entry.base,
+            subtree: entry.subtree,
+            root_url: url.clone(),
+            relative: relative.to_string(),
+        });
     }
     let mut result = Vec::new();
     // Query the working-copy URLs, rather than requiring access to logs for
     // the repository root. Include switched subtrees under their actual URLs.
+    let mut queries = Vec::new();
     let mut query_urls: Vec<_> = roots.into_iter().map(|(_, url)| url).collect();
-    // Missing nodes have no BASE. Query their own history rather than scanning
-    // all repository history or assuming their parent's revision applies.
-    query_urls.extend(
-        pending
-            .iter()
-            .filter(|(_, base, _)| *base == 0)
-            .map(|(url, _, _)| url.clone()),
-    );
     query_urls.sort();
     query_urls.dedup();
     for query_url in query_urls {
         let scoped: Vec<_> = pending
             .iter()
-            .filter(|(url, base, _)| {
-                url == &query_url
-                    || (*base > 0
-                        && url.starts_with(&format!("{}/", query_url.trim_end_matches('/'))))
-            })
+            .filter(|node| node.root_url == query_url)
             .collect();
-        let Some(min_base) = scoped.iter().map(|(_, base, _)| *base).min() else {
+        let existing: Vec<_> = scoped
+            .iter()
+            .copied()
+            .filter(|node| node.base > 0)
+            .collect();
+        if !existing.is_empty() {
+            queries.push((query_url.clone(), Vec::new(), existing));
+        }
+        let missing: Vec<_> = scoped.into_iter().filter(|node| node.base == 0).collect();
+        for batch in missing.chunks(64) {
+            // SVN accepts multiple relative paths below one URL. Batch missing
+            // nodes so a large incoming addition needs one history walk rather
+            // than a separate network round trip for every file. Keep their
+            // history independent of existing nodes' BASE revisions.
+            let mut targets: Vec<_> = batch
+                .iter()
+                .map(|node| {
+                    if node.relative.is_empty() {
+                        ".".to_string()
+                    } else {
+                        node.relative.clone()
+                    }
+                })
+                .collect();
+            targets.sort();
+            targets.dedup();
+            queries.push((query_url.clone(), targets, batch.to_vec()));
+        }
+    }
+    for (query_url, targets, mut scoped) in queries {
+        let Some(min_base) = scoped.iter().map(|node| node.base).min() else {
             continue;
         };
         let mut start = head;
@@ -112,21 +145,19 @@ pub async fn incoming_state(path: &str, limit: u32) -> Result<IncomingState, Svn
         while start > min_base && found < limit.max(1) {
             let range = format!("{start}:{}", min_base + 1);
             let target = format!("{query_url}@{head}");
-            let xml = execute_svn(
-                &[
-                    "log",
-                    "--xml",
-                    "--verbose",
-                    "--limit",
-                    "100",
-                    "-r",
-                    &range,
-                    "--",
-                    &target,
-                ],
-                Some(path),
-            )
-            .await?;
+            let mut args = vec![
+                "log",
+                "--xml",
+                "--verbose",
+                "--limit",
+                "100",
+                "-r",
+                &range,
+                "--",
+                &target,
+            ];
+            args.extend(targets.iter().map(String::as_str));
+            let xml = execute_svn(&args, Some(path)).await?;
             let logs = parse_log_xml(&xml)?;
             if logs.is_empty() {
                 break;
@@ -139,11 +170,17 @@ pub async fn incoming_state(path: &str, limit: u32) -> Result<IncomingState, Svn
                     let url = url_for_path(&workspace.repository_root, &changed.path)?;
                     exhausted |=
                         changed.action == "A" && affects_pending(&url, "A", &query_url, false);
-                    incoming |= scoped.iter().any(|(path, base, subtree)| {
-                        log.revision > *base
-                            && affects_pending(&url, &changed.action, path, *subtree)
+                    incoming |= scoped.iter().any(|node| {
+                        log.revision > node.base
+                            && affects_pending(&url, &changed.action, &node.url, node.subtree)
                     });
+                    if !targets.is_empty() && matches!(changed.action.as_str(), "A" | "R") {
+                        // Each missing node has its own creation boundary. An
+                        // earlier incarnation of that path is not incoming.
+                        scoped.retain(|node| !affects_pending(&url, "A", &node.url, false));
+                    }
                 }
+                exhausted |= scoped.is_empty();
                 if incoming {
                     result.push(log);
                     found += 1;
@@ -293,6 +330,38 @@ mod tests {
             assert_eq!(
                 logs.iter().map(|l| l.revision).collect::<Vec<_>>(),
                 vec![12]
+            );
+            run(&wc, &["update"]);
+            assert!(incoming_logs(wc.to_str().unwrap(), 50)
+                .await
+                .unwrap()
+                .is_empty());
+
+            // Batch multiple new paths, including nested directories, URL
+            // escapes, and enough files to require a second bounded batch.
+            run(&other, &["update"]);
+            std::fs::create_dir(other.join("新增 @% directory")).unwrap();
+            for index in 0..70 {
+                std::fs::write(
+                    other.join(format!("新增 @% directory/文件 {index}@%.txt")),
+                    "new\n",
+                )
+                .unwrap();
+            }
+            run(&other, &["add", "--force", "--", "."]);
+            run(&other, &["commit", "-m", "many incoming additions"]); // r13
+            std::fs::write(other.join("another @ file.txt"), "new\n").unwrap();
+            run(&other, &["add", "--force", "--", "."]);
+            run(&other, &["commit", "-m", "another incoming addition"]); // r14
+            let logs = incoming_logs(wc.to_str().unwrap(), 50).await.unwrap();
+            assert_eq!(
+                logs.iter().map(|l| l.revision).collect::<Vec<_>>(),
+                vec![14, 13]
+            );
+            let logs = incoming_logs(wc.to_str().unwrap(), 1).await.unwrap();
+            assert_eq!(
+                logs.iter().map(|l| l.revision).collect::<Vec<_>>(),
+                vec![14]
             );
             run(&wc, &["update"]);
             assert!(incoming_logs(wc.to_str().unwrap(), 50)

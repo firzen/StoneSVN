@@ -10,7 +10,7 @@ StoneSVN 是一款以 Tauri、Rust 和 Vue 3 打造的跨平台 SVN 桌面用戶
 
 目前原始碼的開發介面，於 2026-10-18 擷取；專案、路徑與差異皆為虛構資料，不含真實儲存庫或個人資訊。[深色主題](docs/images/screenshots/zh-TW-workspace-dark.png)。
 
-目前正式版本為 **1.1.6**，更新內容見[發布說明](docs/releases/v1.1.6.md)。
+目前正式版本為 **1.1.7**，更新內容見[發布說明](docs/releases/v1.1.7.md)。
 
 ## 核心功能
 
