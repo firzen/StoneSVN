@@ -92,4 +92,12 @@ This checks and packages all four platforms, retains build artifacts for seven d
 
 Windows uses SlikSVN 1.14.5 and enables UTF-8 only for temporary CI SVN processes, retaining multilingual-path regressions. SVN is not bundled with installers. macOS is ad-hoc signed and not notarized. CI checks, packaging, and screenshots do not replace manual installation, startup, and real-repository acceptance on each platform.
 
+## Build caching and timing
+
+The stable workflow uses a dedicated Rust cache per runner platform, populated only after a successful job. This keeps both test dependencies and the release/custom-protocol dependencies built by Tauri, including explicit macOS target directories, separate from CI and prerelease caches. Rust compiler, dependency, and configuration changes still affect the cache key. Exact cache hits are immutable: if a future workflow changes which targets or features are built without changing dependencies, increment the `stable-release-v1` cache namespace to populate a complete cache again. A new namespace needs one successful cold run before measuring a warm run.
+
+Every platform still runs `npm run check`. Packaging uses `src-tauri/tauri.ci.conf.json` only after that step succeeds, reusing the frontend in `dist` instead of rebuilding it. Normal local Tauri builds keep their frontend build hook. Keep the action's build-only mode, retries, DMG environment, architecture/signature checks, and nine-asset publication gate when optimizing further.
+
+Compare two `validate_only=true` runs of the same source to measure cold and warm cache performance without publishing. Inspect individual step durations and Rust `Finished` messages; the slowest desktop job determines release time. Website synchronization is a separate build/deployment and should be measured separately.
+
 The official repository is `firzen/StoneSVN`; installers are distributed through GitHub Releases. The application identifier remains `com.orcasvn.desktop` for existing local-data compatibility. Historical WinGet distribution identifiers are not reused.

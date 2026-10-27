@@ -93,7 +93,10 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
-          cache-on-failure: true
+          # Keep complete test + packaging dependencies separate from CI/prerelease
+          # jobs. An exact cache hit is immutable, even if it lacks a build target.
+          shared-key: stable-release-v1-${{ matrix.platform }}
+          cache-on-failure: false
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -175,7 +178,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           retryAttempts: 2
-          args: ${{ matrix.platform == 'macos-15-intel' && '--target x86_64-apple-darwin --verbose' || matrix.platform == 'macos-15' && '--target aarch64-apple-darwin --verbose' || '--verbose' }}
+          # npm run check already built and type-checked dist in this checkout.
+          args: --config src-tauri/tauri.ci.conf.json ${{ matrix.platform == 'macos-15-intel' && '--target x86_64-apple-darwin --verbose' || matrix.platform == 'macos-15' && '--target aarch64-apple-darwin --verbose' || '--verbose' }}
 
       - name: Verify macOS ad-hoc signature
         if: startsWith(matrix.platform, 'macos-')

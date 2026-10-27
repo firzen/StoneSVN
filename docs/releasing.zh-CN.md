@@ -92,4 +92,12 @@ gh workflow run tauri-build.yml --repo firzen/StoneSVN --ref main -f validate_on
 
 Windows 固定使用 SlikSVN 1.14.5，并仅为临时 CI SVN 进程启用 UTF-8，保留多语言路径回归。SVN 不随安装包分发。macOS 使用 Ad-hoc 签名，未经过 Apple 公证。CI 的检查、打包及截图不能替代各平台安装启动与真实仓库操作的人工验收。
 
+## 构建缓存与耗时
+
+稳定版工作流按运行器平台使用独立的 Rust 缓存，并仅在作业成功后保存。测试依赖和 Tauri 打包所需的 release/custom-protocol 依赖（包括 macOS 显式目标目录）与普通 CI、预发布缓存分开保存。Rust 编译器、依赖与配置变化仍会影响缓存键。精确命中的缓存不可覆盖：如果后续工作流在依赖不变时调整构建目标或特性，应递增 `stable-release-v1` 缓存命名空间，重新生成完整缓存。新命名空间需要先成功运行一次冷缓存构建，再测量热缓存构建。
+
+四个平台仍执行 `npm run check`。只有该步骤成功后，打包才使用 `src-tauri/tauri.ci.conf.json`，复用已经生成的 `dist` 前端产物，避免再次构建。正常本地 Tauri 构建仍保留前端构建钩子。继续优化时需保留 action 仅构建模式、重试、DMG 环境、架构与签名检查及九个资产的发布门禁。
+
+对同一提交连续运行两次 `validate_only=true`，可以在不发版的情况下比较冷、热缓存性能。检查各步骤耗时和 Rust 的 `Finished` 日志；最慢的桌面作业决定发布耗时。官网同步是独立的构建与部署，应单独计时。
+
 StoneSVN 的正式仓库为 `firzen/StoneSVN`，安装包通过 GitHub Releases 分发。应用标识仍为 `com.orcasvn.desktop`，保留原有本地数据兼容；不复用历史 WinGet 分发标识。
