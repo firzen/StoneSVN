@@ -39,3 +39,5 @@ Status dashboard: https://alternativeto.net/my-submissions/
 Submitted: Free / Open source / MIT; Windows, Mac and Linux; svn-client tag; firzen author with GitHub profile; official SVG icon and one English workspace screenshot. Platform notes state the external CLI requirement and macOS signing limits. Description has no promotional external links, consistent with FAQ.
 
 TortoiseSVN and SmartSVN alternatives were submitted and confirmed as two apps on the owner preview. No votes or reviews submitted. Pending listing approval, not public exposure.
+
+Public visibility update 2026-10-26T15:20:58+08:00: unauthenticated web read and search results now expose the complete About/Alternatives listing without the owner-only review banner. Public listing confirmed at this check; exact approval timestamp and authenticated queue status remain unverified due to locked Mac.

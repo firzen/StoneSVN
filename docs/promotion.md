@@ -338,3 +338,46 @@ Other Mac channels screened: MacTools requires a reciprocal homepage badge (not 
 Follow-up automation stonesvn remains active every 12 hours, now explicitly includes the new Mac-focused submissions, AlternativeTo owner-only pending status, Startup Collections and the comparison/directory URLs. Only verified meaningful changes notify.
 
 Live desktop browser visual review confirmed that the new Mac comparison table, source links and navigation render correctly. A real mobile viewport test was not performed.
+
+
+## Follow-up audit - 2026-10-26T02:15:45+08:00
+
+- New confirmed change: DevShelf PR https://github.com/RitualDev-Lab/DevShelf/pull/92 is MERGED (2026-10-19 08:24:57 UTC / 16:24:57 CST); issue 91 closed with a bot receipt. Independently fetched all eight shelf files from the public main branch: StoneSVN is present in shelf/cli-tools.json with the correct source URL and description. Source: https://github.com/RitualDev-Lab/DevShelf/blob/main/shelf/cli-tools.json . The PR files endpoint currently returns an empty file list, so the catalog source was checked separately. Public website route /shelf/cli-tools.json returns 404; no dedicated live webpage or search ranking claim is made. This merge and main-branch inclusion are now the notified baseline; do not notify again without another change.
+- All other logged issue/PR statuses were refreshed through GitHub. Open App Scout PR 389 is still OPEN/unmerged with only the known ready bot comment; not approved. Other catalog PRs are open/unmerged except OSSDrop PR 87, whose newly confirmed merge is recorded below; no newly confirmed rejection.
+  - https://github.com/521xueweihan/HelloGitHub/issues/4023 — open, merged=None, comments=0
+  - https://github.com/OSSDrop/OSSDrop/pull/87 — closed, merged=2026-10-21T22:07:18Z, comments=1
+  - https://github.com/RitualDev-Lab/DevShelf/issues/91 — closed, merged=None, comments=2
+  - https://github.com/RitualDev-Lab/DevShelf/pull/92 — closed, merged=2026-10-19T08:24:57Z, comments=2
+  - https://github.com/Sofyan232/lists-opensource/issues/25 — open, merged=None, comments=0
+  - https://github.com/chrysler-stone/awesome-tauri-apps/pull/27 — open, merged=None, comments=0
+  - https://github.com/cuongtk8/awesome-linux-apps/pull/75 — open, merged=None, comments=0
+  - https://github.com/eryajf/learning-weekly/issues/158 — open, merged=None, comments=0
+  - https://github.com/jaywcjlove/awesome-mac/issues/3601 — open, merged=None, comments=0
+  - https://github.com/junaid33/opensource.builders/issues/591 — open, merged=None, comments=0
+  - https://github.com/postpdm/awesome-vcs-tools/pull/4 — open, merged=None, comments=0
+  - https://github.com/ruanyf/weekly/issues/12518 — open, merged=None, comments=0
+  - https://github.com/serhii-londar/open-source-mac-os-apps/pull/1676 — open, merged=None, comments=0
+  - https://github.com/tortuvshin/open-apps/pull/389 — open, merged=None, comments=1
+- Refreshed the nine logged GitHub discussions. The eight standalone showcases have zero comments; the shared tw93 thread was checked for replies to the StoneSVN self-submission rather than interpreting unrelated later posts as StoneSVN feedback. No new community approval confirmed.
+- Public directory checks: macapps.org, Made with Vue.js, TiloBox, Open Source Startups, open-source.store and Startup Collections homepages are reachable but fetched pages did not show StoneSVN. This does not prove rejection or exhaustively establish absence. Public search found no new verified listing. Made with Tauri and LibHunt public HTTP fetches returned 403; LibHunt licence correction remains unverified. AlternativeTo public read failed and owner-only My submissions could not be checked.
+- Browser checks blocked: CUA native app reports Mac locked and automatic unlock unavailable; extension navigation also timed out. No credentials or security settings changed. Google Search Console, Bing homepage/all current sitemap URLs, AlternativeTo owner queue and Bing AI Performance were NOT freshly verified. Preserve prior confirmed indexing baselines; no new indexing or AI citations claimed. The user needs to unlock the Mac before browser-dependent checks can resume. No repeat submissions, indexing requests, paid actions, account creation or emails.
+
+
+### Additional confirmed merge: OSSDrop
+
+OSSDrop PR https://github.com/OSSDrop/OSSDrop/pull/87 merged at 2026-10-21 22:07:18 UTC (2026-10-22 06:07:18 CST). Maintainer riponcm explicitly confirmed acceptance, MIT/OrcaSVN lineage and the 2026-10-22 publishing window, with expected listing https://ossdrop.com/tool/stonesvn . Independently fetched current main data/tools.json and confirmed StoneSVN is present, added=2026-10-22. The maintainer fixed the stale README.en.md docs URL to QUICKSTART.md. Public listing-page fetch currently failed, so main-branch catalog inclusion and maintainer approval are confirmed; live webpage availability and search indexing are not independently confirmed. No claim flow, signup, boost redemption, paid action or repost performed. This merge is now a notified baseline alongside DevShelf; do not repeatedly notify while unchanged.
+
+
+## Follow-up audit - 2026-10-26T15:20:58+08:00
+
+Newly verified public visibility (notify once; new baseline):
+
+- AlternativeTo: https://alternativeto.net/software/stonesvn/about/ was successfully read through the unauthenticated web tool, with the complete StoneSVN listing, MIT/Free labels, Windows/Mac/Linux, screenshot, official links and two alternatives. It no longer showed the prior owner-only waiting-for-review banner in that public response. A search result also returned its public About and Alternatives pages. This establishes public listing visibility; exact approval time and the authenticated My submissions status could not be checked because the Mac is locked. A separate direct HTTP request returned 403, so availability varies by client; no attempt to evade a challenge. Do not notify this public listing again while unchanged.
+- OSSDrop: https://ossdrop.com/tool/stonesvn returned HTTP 200 with visible page text naming StoneSVN, its SVN workspace description, MIT licence, source and official website, added 2026-10-22. The visible page has 0 discussion comments. Saved public text was checked, independently of the already-notified merged PR. Some fetch clients returned 403/error, but the successful unauthenticated response included the actual listing body. Public listing confirmed; no paid placement, claim action or badge insertion. Do not repeat this listing notification while unchanged.
+- Reddit r/svn original post https://www.reddit.com/r/svn/comments/1x96r5k/ now returns the full project introduction and official links to an unauthenticated web read, without the removal-by-filters message seen on submission. Record as original post publicly readable at this check, not proof that every account restriction was lifted or that a moderator endorsed it. No repost or modification. r/SideProject still explicitly shows removed by Reddit filters. r/tauri remains publicly readable. No user comments were exposed in these fetched Reddit pages; comment counts/replies are not conclusively verified.
+
+GitHub: DevShelf and OSSDrop merge states unchanged. Open App Scout 389 retried successfully after a timeout: OPEN, unmerged, one known bot comment, updated 2026-10-18; no human acceptance. VCS PR 4 and macOS catalog PR 1676 also retried: OPEN/unmerged/0 comments. Other logged issues and PRs returned the same baseline. Vite discussion 23825 now has one substantive reply by tal7aouy about fixed dev-server ports, clearScreen, watcher ignore, envPrefix, HMR host, type-checking and the native SVN boundary. This is peer feedback, not an endorsement or listing approval. No external reply or code change made during this monitor. The seven other standalone GitHub showcases still have zero comments; tw93 StoneSVN comment has zero replies.
+
+Directories: searched the submitted directory domains; no additional verified public listing found for Made with Tauri, Made with Vue.js, TiloBox, Open Source Startups, open-source.store, Startup Collections or macapps.org. Reachable fetched homepages alone do not establish rejection or exhaustive absence. Made with Tauri and LibHunt direct requests returned 403; LibHunt licence correction unverified. DevShelf public main catalog inclusion remains the known baseline; no new dedicated live page confirmed.
+
+Search/GEO: live sitemap fetched successfully and still has 12 URLs, including /en/, /en/guides/, five setup/workflow guides and the macOS comparison. Mac is still locked; CUA could not unlock it. Consequently GSC, Bing URL inspection for every English sitemap page, Bing AI Performance and authenticated AlternativeTo queue were not freshly checked. No new Google/Bing indexing or AI citation claim. Lock-screen blocker already notified previously; do not repeatedly prompt while unchanged. Existing search/indexing baselines retained. No repost, indexing request, paid action, account creation or email sent.
