@@ -129,6 +129,9 @@
                 <el-tag class="path-tag" type="primary">
                   <FileTypeIcon :path="diffResult?.path || currentPath" :directory="diffResult?.preview_kind === 'directory'" />
                   <span class="path-label" :title="diffResult?.path">{{ $t('diff.file') }}：{{ diffResult?.path }}</span>
+                  <OpenWorkspaceFileButton v-if="diffResult?.can_open"
+                    :workspace-path="workspaceStore.currentPath || ''" :file="diffResult.path"
+                    :directory="diffResult.preview_kind === 'directory'" />
                 </el-tag>
                 <el-tag v-if="diffResult?.old_revision && diffResult?.new_revision" type="info">
                   {{ $t('common.version') }}：{{ diffResult?.old_revision }} → {{ diffResult?.new_revision }}
@@ -160,6 +163,7 @@ import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { open } from '@tauri-apps/plugin-dialog'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { svnFilePreview } from '@/api/svn'
+import OpenWorkspaceFileButton from '@/components/OpenWorkspaceFileButton.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useI18n } from 'vue-i18n'
 import { toWorkspaceRelativePath } from '@/utils/workspacePath'

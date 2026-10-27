@@ -52,7 +52,11 @@ export default (async () => {
         ],
       }
       if (command === 'svn_connection_info') return info
-      if (command === 'svn_file_preview') return { path: args.file, diff, old_revision: 128, new_revision: 128, preview_kind: 'text', image_data: null, can_open: false }
+      if (command === 'svn_file_preview') return { path: args.file, diff, old_revision: 128, new_revision: 128, preview_kind: 'text', image_data: null, can_open: !args.oldRev && !args.newRev && args.file !== 'src/legacy-config.ts' }
+      if (command === 'open_workspace_file') {
+        window.__documentationOpenedFile = { ...args }
+        return
+      }
       if (command === 'svn_diff') return { path: args.file, diff, old_revision: 128, new_revision: 128 }
       if (command === 'svn_status') return files
       if (command === 'svn_info' || command === 'svn_remote_info') return info

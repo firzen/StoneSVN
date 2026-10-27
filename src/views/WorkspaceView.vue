@@ -155,6 +155,8 @@
                   @keydown.end.prevent="focusFile(filteredFiles.length - 1)"
                 >{{ file.path }}</button>
                 <div class="file-actions">
+                  <OpenWorkspaceFileButton v-if="!['deleted', 'missing'].includes(file.status_code)"
+                    :workspace-path="workspaceStore.currentPath || ''" :file="file.path" :directory="file.directory" />
                   <span @click.stop><SvnConflictActions :workspace="workspaceStore.currentPath!" :file="file.path" :status="file"
                     :disabled="pendingFileAction !== null" @mutated="refreshStatusAfterMutation" /></span>
                   <el-tooltip :content="$t('common.diff')" placement="top" :show-after="150">
@@ -222,7 +224,12 @@
           </div>
           <div v-else-if="diffResult" class="diff-content">
             <div class="diff-header">
-              <el-tag class="diff-path-tag" type="primary" size="small" :title="selectedFile">{{ selectedFile }}</el-tag>
+              <el-tag class="diff-path-tag" type="primary" size="small" :title="selectedFile">
+                <span class="diff-path-label">{{ selectedFile }}</span>
+                <OpenWorkspaceFileButton v-if="diffResult.can_open"
+                  :workspace-path="workspaceStore.currentPath || ''" :file="diffResult.path"
+                  :directory="diffResult.preview_kind === 'directory'" />
+              </el-tag>
               <div v-if="diffResult?.preview_kind === 'text'" class="diff-stats">
                 <el-tag type="success" size="small">+{{ diffStats.added }}</el-tag>
                 <el-tag type="danger" size="small">-{{ diffStats.removed }}</el-tag>
@@ -255,6 +262,7 @@ import { getStatusClass, getStatusLabelKey } from '@/composables/useSvnStatus'
 import { useWorkspace } from '@/composables/useWorkspace'
 import VirtualViewport from '@/components/VirtualViewport.vue'
 import FilePreview from '@/components/FilePreview.vue'
+import OpenWorkspaceFileButton from '@/components/OpenWorkspaceFileButton.vue'
 import GlassLoading from '@/components/GlassLoading.vue'
 import { GitBranch } from '@/components/icons/materialIcons'
 import { writeClipboardText } from '@/utils/clipboard'
@@ -1036,6 +1044,13 @@ const handleFileAction = async (file: SvnStatus) => {
 }
 
 .diff-path-tag :deep(.el-tag__content) {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.diff-path-label {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

@@ -29,8 +29,8 @@
         <div v-for="line in visibleRows(start, end)" :key="line.index" class="diff-row"
           :class="[line.className, { 'is-search-match': matchedLine === line.index - 1 }]"
           :style="{ height: `${rowHeight}px` }" role="row" :aria-rowindex="line.index">
-          <span class="diff-line-number" role="cell">{{ line.index }}</span>
-          <span class="diff-marker" role="cell">{{ line.marker }}</span>
+          <span class="diff-line-number" role="cell" :data-label="line.index" :aria-label="String(line.index)"></span>
+          <span class="diff-marker" role="cell" :data-label="line.marker" :aria-label="line.marker"></span>
           <code class="diff-code" role="cell"><template v-for="(part, partIndex) in highlight(line)" :key="partIndex"><mark v-if="part.match">{{ part.text }}</mark><template v-else>{{ part.text }}</template></template></code>
         </div>
       </template>
@@ -210,7 +210,9 @@ onBeforeUnmount(() => {
 .diff-lines { font-family: var(--app-font-family-mono); }
 .diff-row { display: grid; grid-template-columns: 64px 34px minmax(0, 1fr); border-bottom: 1px solid var(--app-color-diff-row-border); }
 .compact .diff-row { grid-template-columns: 46px 24px minmax(0, 1fr); }
-.diff-line-number, .diff-marker { user-select: none; padding: 3px 8px; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container-low); text-align: right; }
+/* Generated gutter labels stay out of copied text, including cross-row selections. */
+.diff-line-number, .diff-marker { -webkit-user-select: none; user-select: none; padding: 3px 8px; color: var(--md-sys-color-on-surface-variant); background: var(--md-sys-color-surface-container-low); text-align: right; }
+.diff-line-number::before, .diff-marker::before { content: attr(data-label); }
 .diff-marker { text-align: center; font-weight: 700; }
 .diff-code { padding: 3px 12px; white-space: pre; tab-size: 8; color: var(--md-sys-color-on-surface); font: inherit; }
 .compact .diff-line-number, .compact .diff-marker, .compact .diff-code { padding-top: 1px; padding-bottom: 1px; }

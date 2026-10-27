@@ -59,6 +59,12 @@ async function main() {
           await settle(page)
           const actual = await page.evaluate(async () => (await import('/src/i18n/index.ts')).default.global.locale.value)
           if (actual !== locale) throw new Error(`Wrong screenshot locale: ${actual}`)
+          const otherFile = page.locator('.workspace-files .file-item').filter({ has: page.locator('.file-path[title="docs/user-guide.md"]') })
+          await otherFile.locator('.open-file-button').click()
+          await page.waitForFunction(() => window.__documentationOpenedFile?.file === 'docs/user-guide.md')
+          if (await page.locator('.workspace-files .file-item.selected .file-path').getAttribute('title') !== 'src/config.ts') throw new Error('Opening a file changed the workspace selection')
+          await page.locator('.right-panel .open-file-button').click()
+          await page.waitForFunction(() => window.__documentationOpenedFile?.file === 'src/config.ts')
           const fontControls = page.locator('.diff-font-controls').first()
           await fontControls.locator('button').last().click()
           await page.waitForFunction(() => getComputedStyle(document.querySelector('.diff-lines')).fontSize === '14px')
@@ -97,6 +103,25 @@ async function main() {
           }
           await page.locator('.commit-file-row .tree-name[title="src/config.ts"]').dblclick()
           await page.waitForSelector('.diff-view .diff-lines')
+          const openFile = page.locator('.diff-view .open-file-button')
+          await openFile.click()
+          await page.waitForFunction(() => window.__documentationOpenedFile?.file === 'src/config.ts')
+          const selection = await page.evaluate(() => {
+            const codes = [...document.querySelectorAll('.diff-view .diff-code')]
+            const range = document.createRange()
+            range.setStart(codes[0], 0)
+            range.setEnd(codes.at(-1), codes.at(-1).childNodes.length)
+            const selected = window.getSelection()
+            selected.removeAllRanges()
+            selected.addRange(range)
+            const result = { actual: selected.toString(), expected: codes.map(code => code.textContent).join('\n') }
+            selected.removeAllRanges()
+            return result
+          })
+          const normalize = text => text.replace(/\s+/g, ' ').trim()
+          if (normalize(selection.actual) !== normalize(selection.expected)) throw new Error('Diff selection includes gutter labels')
+          await settle(page)
+          await page.screenshot({ path: path.join(screenshots, `${lang}-comparison.png`) })
           await page.evaluate(async () => { await (await import('/docs/images/workspace-demo.js')).showUpdateDemo() })
           await page.waitForSelector('.update-view')
           await settle(page)

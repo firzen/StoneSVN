@@ -1,0 +1,37 @@
+{
+  "en": {
+    "title": "Select diff content and open files easily",
+    "items": [
+      "Select and copy diff content without line numbers or gutter markers, while preserving symbols in the file itself.",
+      "Open local files directly from small icons in the workspace file list and preview, or beside the comparison file path."
+    ]
+  },
+  "zh-CN": {
+    "title": "更方便地选择对比正文与打开文件",
+    "items": [
+      "选择和复制对比正文时排除行号及左侧标记，保留正文自身的符号。",
+      "通过工作区文件列表、预览及对比文件路径旁的小图标直接打开本地文件。"
+    ]
+  },
+  "zh-TW": {
+    "title": "更方便地選取差異內容與開啟檔案",
+    "items": [
+      "選取與複製差異內容時排除行號及左側標記，保留檔案內容本身的符號。",
+      "透過工作區檔案清單、預覽及比較檔案路徑旁的小圖示直接開啟本機檔案。"
+    ]
+  },
+  "ja": {
+    "title": "差分の選択とファイルを開く操作を改善",
+    "items": [
+      "差分の選択・コピーから行番号と左端の記号を除外し、ファイル内容の記号は保持します。",
+      "ワークスペースのファイル一覧とプレビュー、比較中のファイルパスの横にある小さなアイコンからローカルファイルを直接開けます。"
+    ]
+  },
+  "ko": {
+    "title": "차이 내용 선택 및 파일 열기 개선",
+    "items": [
+      "차이 내용을 선택하거나 복사할 때 줄 번호와 왼쪽 표시를 제외하고 파일 내용의 기호는 유지합니다.",
+      "작업 공간 파일 목록과 미리 보기, 비교 중인 파일 경로 옆의 작은 아이콘으로 로컬 파일을 바로 엽니다."
+    ]
+  }
+}
