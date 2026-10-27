@@ -849,7 +849,21 @@ mod tests {
         #[cfg(unix)]
         assert_eq!(stats.enumerated_directories, 0);
         assert_eq!(stats.checked_files, 3);
+        let modified = fs::metadata(root.join("a/edit"))
+            .unwrap()
+            .modified()
+            .unwrap();
         fs::write(root.join("a/edit"), "edit").unwrap();
+        // The snapshot compares metadata. Make this edit observable even if
+        // Windows assigns both rapid writes the same last-write timestamp.
+        fs::OpenOptions::new()
+            .write(true)
+            .open(root.join("a/edit"))
+            .unwrap()
+            .set_times(
+                fs::FileTimes::new().set_modified(modified + std::time::Duration::from_secs(2)),
+            )
+            .unwrap();
         let (edited, _stats) = capture_measured(&root, Some(&unchanged)).unwrap();
         assert_eq!(edited, capture_measured(&root, None).unwrap().0);
         assert_eq!(

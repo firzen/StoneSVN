@@ -22,6 +22,15 @@ fn affects_pending(changed: &str, action: &str, pending: &str, subtree: bool) ->
         || (matches!(action, "A" | "D" | "R") && pending.starts_with(&format!("{changed}/")))
 }
 
+fn needs_url_history_target(relative: &str) -> bool {
+    relative
+        .rsplit('/')
+        .next()
+        .unwrap_or(relative)
+        .rsplit_once('@')
+        .is_some_and(|(path, _)| path.ends_with([' ', '.']))
+}
+
 struct IncomingPath {
     url: String,
     base: u64,
@@ -113,7 +122,17 @@ pub async fn incoming_state(path: &str, limit: u32) -> Result<IncomingState, Svn
         if !existing.is_empty() {
             queries.push((query_url.clone(), Vec::new(), existing));
         }
-        let missing: Vec<_> = scoped.into_iter().filter(|node| node.base == 0).collect();
+        let mut missing = Vec::new();
+        for node in scoped.into_iter().filter(|node| node.base == 0) {
+            // SVN canonicalizes the part before the last @ as a local path,
+            // even for relative log targets. On Windows that trims spaces or
+            // dots before @. Use the escaped full URL for these special names.
+            if needs_url_history_target(&node.relative) {
+                queries.push((node.url.clone(), Vec::new(), vec![node]));
+            } else {
+                missing.push(node);
+            }
+        }
         for batch in missing.chunks(64) {
             // SVN accepts multiple relative paths below one URL. Batch missing
             // nodes so a large incoming addition needs one history walk rather
@@ -207,6 +226,21 @@ pub async fn incoming_state(path: &str, limit: u32) -> Result<IncomingState, Svn
 mod tests {
     use super::*;
     use std::process::Command;
+
+    #[test]
+    fn relative_history_targets_preserve_names_before_at() {
+        for path in ["another @ file.txt", "dir/name.@file.txt", "dir/a @name"] {
+            assert!(needs_url_history_target(path), "{path}");
+        }
+        for path in [
+            "normal.txt",
+            "文件 0@%.txt",
+            "dir @name/file.txt",
+            "a@b.txt",
+        ] {
+            assert!(!needs_url_history_target(path), "{path}");
+        }
+    }
 
     #[test]
     fn incoming_logs_follow_each_nodes_base_revision() {
