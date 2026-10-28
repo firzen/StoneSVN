@@ -1,0 +1,32 @@
+{
+  "en": {
+    "title": "Open commit directories in the file manager",
+    "items": [
+      "Double-click directories in the commit change list to open them in Finder or the system file manager. Double-clicking files still opens their diff."
+    ]
+  },
+  "zh-CN": {
+    "title": "双击打开提交列表目录",
+    "items": [
+      "双击提交改动列表中的目录，通过 Finder 或系统文件浏览器打开；双击文件仍查看差异。"
+    ]
+  },
+  "zh-TW": {
+    "title": "按兩下開啟提交清單目錄",
+    "items": [
+      "按兩下提交變更清單中的目錄，透過 Finder 或系統檔案管理員開啟；按兩下檔案仍檢視差異。"
+    ]
+  },
+  "ja": {
+    "title": "コミット一覧のディレクトリを開く",
+    "items": [
+      "コミットの変更一覧でディレクトリをダブルクリックすると、Finder またはシステムのファイルマネージャーで開きます。ファイルのダブルクリックでは引き続き差分を表示します。"
+    ]
+  },
+  "ko": {
+    "title": "커밋 목록의 디렉터리 열기",
+    "items": [
+      "커밋 변경 목록에서 디렉터리를 두 번 클릭하면 Finder 또는 시스템 파일 관리자에서 열립니다. 파일을 두 번 클릭하면 기존처럼 차이를 표시합니다."
+    ]
+  }
+}

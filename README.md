@@ -14,7 +14,7 @@ Built with Tauri, Rust, and Vue 3, it uses the local SVN CLI and preserves SVN's
 
 Development UI from the current source, captured on 2026-10-18 with fictional projects, paths, and diffs. No real repository or personal data is shown. [Dark theme](docs/images/screenshots/en-workspace-dark.png).
 
-Current stable version: **1.1.8**. See the [release notes](docs/releases/v1.1.8.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
+Current stable version: **1.1.9**. See the [release notes](docs/releases/v1.1.9.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
 
 ## Highlights
 

@@ -10,7 +10,7 @@ function harness(entries, options = {}) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/utils/changeTree.ts', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText, treeContext)
-  const commits = []
+  const commits = [], opened = []
   const routes = [], reverts = [], previews = [], confirmations = []
   let refreshes = 0
   const store = vue.reactive({ currentPath: '/wc', statusList: entries, commitDrafts: {}, statusIsStale: false,
@@ -26,6 +26,7 @@ function harness(entries, options = {}) {
     'vue-i18n': { useI18n: () => ({ t: key => key }) },
     '@/stores/workspace': { useWorkspaceStore: () => store },
     '@/api/svn': {
+      openWorkspaceFile: async (...args) => { opened.push(args); if (options.openError) throw options.openError },
       svnCommit: async (...args) => { commits.push(args); return { success: false, output: 'done' } },
       svnRevertPreview: async (...args) => { previews.push(args); return entries },
       svnRevert: async (...args) => { reverts.push(args); return { success: true, output: 'reverted' } },
@@ -37,10 +38,10 @@ function harness(entries, options = {}) {
   }
   const script = fs.readFileSync('src/views/CommitView.vue', 'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   const context = { exports: {}, Element: class {}, sessionStorage: { setItem() {} }, setTimeout() {}, require: name => { assert.ok(name in mocks, name); return mocks[name] } }
-  vm.runInNewContext(ts.transpileModule(script + '\nexports.actions = { fullTree, selectedFiles, isChecked, isPartial, toggleSubtree, toggleNode, toggleSelection, collapsedPaths, flatRows, searchQuery, commitMessage, doCommit, revertFile, viewBlame, handleRowDoubleClick, loading };', {
+  vm.runInNewContext(ts.transpileModule(script + '\nexports.actions = { fullTree, selectedFiles, isChecked, isPartial, toggleSubtree, toggleNode, toggleSelection, collapsedPaths, flatRows, searchQuery, commitMessage, doCommit, revertFile, viewBlame, handleRowDoubleClick, loading, output };', {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText, context)
-  return { ...context.exports.actions, store, commits, routes, reverts, previews, confirmations, refreshes: () => refreshes }
+  return { ...context.exports.actions, store, commits, opened, routes, reverts, previews, confirmations, refreshes: () => refreshes }
 }
 const entry = (path, status_code = 'modified', prop_status = 'none') => ({ path, status_code, prop_status })
 
@@ -175,4 +176,29 @@ test('changing filters or hiding the anchor resets a shift range; stale status b
   h.store.statusIsStale = true
   h.toggleSelection(node('folder/a'), false, true)
   assert.equal(h.selectedFiles.value.length, 3)
+})
+
+
+test('double-click opens context, changed, empty and root directories in the file manager', async () => {
+  const h = harness([entry('dir/child.txt'), { ...entry('empty', 'added'), directory: true }, { ...entry('.'), directory: true }])
+  h.selectedFiles.value = ['dir/child.txt']
+  for (const path of ['dir', 'empty', '.']) {
+    const node = h.flatRows.value.find(row => row.node.path === path).node
+    await h.handleRowDoubleClick({ target: null }, node)
+  }
+  assert.deepEqual(h.opened.map(args => Array.from(args)), [['/wc', 'dir'], ['/wc', 'empty'], ['/wc', '.']])
+  assert.deepEqual(Array.from(h.selectedFiles.value), ['dir/child.txt'])
+  assert.equal(h.routes.length, 0)
+  h.loading.value = true
+  await h.handleRowDoubleClick({ target: null }, h.fullTree.value[0])
+  h.loading.value = false
+  h.store.operationBusy = true
+  await h.handleRowDoubleClick({ target: null }, h.fullTree.value[0])
+  assert.equal(h.opened.length, 3)
+})
+
+test('directory open failures are reported', async () => {
+  const h = harness([entry('dir/child.txt')], { openError: 'directory missing' })
+  await h.handleRowDoubleClick({ target: null }, h.fullTree.value[0])
+  assert.match(h.output.value, /directory missing/)
 })

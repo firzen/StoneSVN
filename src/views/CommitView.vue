@@ -161,7 +161,7 @@ import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch, h, getCurre
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { svnAdd, svnCommit, svnLog, svnRevert, svnRevertPreview } from '@/api/svn'
+import { openWorkspaceFile, svnAdd, svnCommit, svnLog, svnRevert, svnRevertPreview } from '@/api/svn'
 import { useI18n } from 'vue-i18n'
 import { getStatusClass, getStatusLabelKey } from '@/composables/useSvnStatus'
 import { useWorkspace } from '@/composables/useWorkspace'
@@ -338,10 +338,18 @@ const handleRowClick = (event: MouseEvent, node: ChangeNode) => {
   const element = event.currentTarget as HTMLElement
   element.focus({ preventScroll: true })
 }
-const handleRowDoubleClick = (event: MouseEvent, node: ChangeNode) => {
-  if (!node.entry || isDirectoryChange(node)) return
+const handleRowDoubleClick = async (event: MouseEvent, node: ChangeNode) => {
+  if (loading.value || workspaceStore.operationBusy || !workspaceStore.currentPath) return
   if (event.target instanceof Element && event.target.closest('input, button, a, label')) return
-  viewDiff(node.path)
+  if (isDirectoryChange(node)) {
+    try {
+      await openWorkspaceFile(workspaceStore.currentPath, node.path)
+    } catch (err) {
+      output.value = `${t('common.error')}：${err}`
+    }
+  } else if (node.entry) {
+    viewDiff(node.path)
+  }
 }
 const viewBlame = (node: ChangeNode) => {
   if (loading.value || workspaceStore.operationBusy || !node.entry || isDirectoryChange(node)
