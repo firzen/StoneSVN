@@ -235,7 +235,13 @@ mod tests {
             );
         };
         run("svnadmin", &["create", "repo"]);
-        let url = format!("file://{}", root.join("repo").display());
+        let url = format!(
+            "file:///{}",
+            root.join("repo")
+                .to_string_lossy()
+                .replace('\\', "/")
+                .trim_start_matches('/')
+        );
         run("svn", &["checkout", &url, "wc"]);
         let file = root.join("wc/README.md");
         fs::write(&file, "# Before\n").unwrap();
