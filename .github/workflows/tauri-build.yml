@@ -78,7 +78,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-22.04, windows-latest, macos-15, macos-15-intel]
+        platform: [ubuntu-22.04, windows-latest, macos-26, macos-15-intel]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -195,7 +195,7 @@ jobs:
         with:
           retryAttempts: 2
           # npm run check already built and type-checked dist in this checkout.
-          args: --config src-tauri/tauri.ci.conf.json ${{ matrix.platform == 'macos-15-intel' && '--target x86_64-apple-darwin --verbose' || matrix.platform == 'macos-15' && '--target aarch64-apple-darwin --verbose' || '--verbose' }}
+          args: --config src-tauri/tauri.ci.conf.json ${{ matrix.platform == 'macos-15-intel' && '--target x86_64-apple-darwin --verbose' || matrix.platform == 'macos-26' && '--target aarch64-apple-darwin --verbose' || '--verbose' }}
 
       - name: Verify macOS ad-hoc signature
         if: startsWith(matrix.platform, 'macos-')
