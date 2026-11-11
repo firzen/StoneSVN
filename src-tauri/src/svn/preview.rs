@@ -1,5 +1,7 @@
 use super::executor::SvnError;
-use super::operations::{diff, normalize_workspace_diff_file, resolve_workspace_file_path};
+use super::operations::{
+    diff_with_text_override, normalize_workspace_diff_file, resolve_workspace_file_path,
+};
 use crate::DiffResult;
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
@@ -119,6 +121,7 @@ pub async fn file_preview(
         image_data: None,
         can_open: false,
     };
+    let mut verified_local_text = false;
     if !historical {
         let local = Path::new(workspace).join(&file);
         // Missing/deleted paths still need an SVN diff; other I/O errors must surface.
@@ -159,6 +162,7 @@ pub async fn file_preview(
                     preview.preview_kind = "binary";
                     return Ok(preview);
                 }
+                verified_local_text = true;
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(SvnError::CommandFailed(error.to_string())),
@@ -168,7 +172,10 @@ pub async fn file_preview(
         preview.preview_kind = "binary";
         return Ok(preview);
     }
-    preview.result = diff(workspace, &file, old_rev, new_rev).await?;
+    // SVN may mark UTF-8 documents as application/octet-stream. Only override
+    // that metadata after inspecting local content; binary previews stay blocked.
+    preview.result =
+        diff_with_text_override(workspace, &file, old_rev, new_rev, verified_local_text).await?;
     if preview
         .result
         .diff
@@ -196,6 +203,80 @@ mod tests {
         assert!(binary_extension("Report.DOCX"));
         assert_eq!(image_mime("photo.JPG"), Some("image/jpeg"));
         assert_eq!(image_mime("code.ts"), None);
+    }
+
+    #[test]
+    fn previews_markdown_with_binary_svn_mime_type() {
+        use std::process::Command;
+        if Command::new("svn").arg("--version").output().is_err()
+            || Command::new("svnadmin").arg("--version").output().is_err()
+        {
+            return;
+        }
+        let root = std::env::temp_dir().join(format!(
+            "stonesvn-markdown-preview-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&root).unwrap();
+        let run = |program: &str, args: &[&str]| {
+            let output = Command::new(program)
+                .args(args)
+                .current_dir(&root)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        };
+        run("svnadmin", &["create", "repo"]);
+        let url = format!("file://{}", root.join("repo").display());
+        run("svn", &["checkout", &url, "wc"]);
+        let file = root.join("wc/README.md");
+        fs::write(&file, "# Before\n").unwrap();
+        run("svn", &["add", "wc/README.md"]);
+        run(
+            "svn",
+            &[
+                "propset",
+                "svn:mime-type",
+                "application/octet-stream",
+                "wc/README.md",
+            ],
+        );
+        run("svn", &["commit", "wc", "-m", "fixture"]);
+        fs::write(&file, "# After 正文\n").unwrap();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let result = runtime
+            .block_on(file_preview(
+                root.join("wc").to_str().unwrap(),
+                "README.md",
+                None,
+                None,
+            ))
+            .unwrap();
+        assert_eq!(result.preview_kind, "text");
+        assert!(result.result.diff.contains("+# After 正文"));
+        assert!(result.result.diff.contains("-# Before"));
+        fs::write(&file, b"binary\0data").unwrap();
+        let result = runtime
+            .block_on(file_preview(
+                root.join("wc").to_str().unwrap(),
+                "README.md",
+                None,
+                None,
+            ))
+            .unwrap();
+        assert_eq!(result.preview_kind, "binary");
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

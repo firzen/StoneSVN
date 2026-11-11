@@ -2,31 +2,36 @@
   "en": {
     "title": "Open commit directories in the file manager",
     "items": [
-      "Double-click directories in the commit change list to open them in Finder or the system file manager. Double-clicking files still opens their diff."
+      "Double-click directories in the commit change list to open them in Finder or the system file manager. Double-clicking files still opens their diff.",
+      "Preview working-copy diffs for Markdown and other detected text files even when SVN MIME metadata marks them as binary."
     ]
   },
   "zh-CN": {
     "title": "双击打开提交列表目录",
     "items": [
-      "双击提交改动列表中的目录，通过 Finder 或系统文件浏览器打开；双击文件仍查看差异。"
+      "双击提交改动列表中的目录，通过 Finder 或系统文件浏览器打开；双击文件仍查看差异。",
+      "修复 Markdown 等文本文件被 SVN MIME 属性标记为二进制时无法预览工作副本差异的问题。"
     ]
   },
   "zh-TW": {
     "title": "按兩下開啟提交清單目錄",
     "items": [
-      "按兩下提交變更清單中的目錄，透過 Finder 或系統檔案管理員開啟；按兩下檔案仍檢視差異。"
+      "按兩下提交變更清單中的目錄，透過 Finder 或系統檔案管理員開啟；按兩下檔案仍檢視差異。",
+      "修正 Markdown 等文字檔案被 SVN MIME 屬性標記為二進位時無法預覽工作副本差異的問題。"
     ]
   },
   "ja": {
     "title": "コミット一覧のディレクトリを開く",
     "items": [
-      "コミットの変更一覧でディレクトリをダブルクリックすると、Finder またはシステムのファイルマネージャーで開きます。ファイルのダブルクリックでは引き続き差分を表示します。"
+      "コミットの変更一覧でディレクトリをダブルクリックすると、Finder またはシステムのファイルマネージャーで開きます。ファイルのダブルクリックでは引き続き差分を表示します。",
+      "SVN の MIME 属性でバイナリに指定された Markdown などのテキストファイルでも、作業コピーの差分を表示できるようにしました。"
     ]
   },
   "ko": {
     "title": "커밋 목록의 디렉터리 열기",
     "items": [
-      "커밋 변경 목록에서 디렉터리를 두 번 클릭하면 Finder 또는 시스템 파일 관리자에서 열립니다. 파일을 두 번 클릭하면 기존처럼 차이를 표시합니다."
+      "커밋 변경 목록에서 디렉터리를 두 번 클릭하면 Finder 또는 시스템 파일 관리자에서 열립니다. 파일을 두 번 클릭하면 기존처럼 차이를 표시합니다.",
+      "SVN MIME 속성에서 바이너리로 지정된 Markdown 등 텍스트 파일도 작업 사본 차이를 미리 볼 수 있도록 수정했습니다。"
     ]
   }
 }

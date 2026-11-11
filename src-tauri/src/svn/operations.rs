@@ -735,8 +735,21 @@ pub async fn diff(
     old_rev: Option<u64>,
     new_rev: Option<u64>,
 ) -> Result<DiffResult, SvnError> {
+    diff_with_text_override(workspace, file, old_rev, new_rev, false).await
+}
+
+pub(super) async fn diff_with_text_override(
+    workspace: &str,
+    file: &str,
+    old_rev: Option<u64>,
+    new_rev: Option<u64>,
+    force_text: bool,
+) -> Result<DiffResult, SvnError> {
     let diff_file = normalize_workspace_diff_file(workspace, file)?;
-    let args = build_diff_args(&diff_file, old_rev, new_rev)?;
+    let mut args = build_diff_args(&diff_file, old_rev, new_rev)?;
+    if force_text {
+        args.insert(1, "--force".to_string());
+    }
     let args_refs: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
     // Most previews are tracked changes. Ask for their diff directly instead
     // of launching an extra status process for every selected file.
