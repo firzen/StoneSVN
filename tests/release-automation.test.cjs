@@ -6,7 +6,7 @@ const path = require('node:path')
 const { execFileSync } = require('node:child_process')
 const { readVersions } = require('../scripts/validate-prerelease.cjs')
 const { createManifest, readNotes } = require('../scripts/website-release.cjs')
-const { verify } = require('../scripts/collect-release-assets.cjs')
+const { verify, expected } = require('../scripts/collect-release-assets.cjs')
 const root = path.resolve(__dirname, '..')
 const tag = 'v1.2.3'
 const sampleNotes = Object.fromEntries(['en', 'zh-CN', 'zh-TW', 'ja', 'ko'].map(lang => [lang, { title: 'Release', items: ['A reviewed change'] }]))
@@ -64,4 +64,13 @@ test('release preparation updates all version sources and refuses incomplete not
   assert.throws(check, /Missing website release notes/)
   assert.throws(() => run(version))
   assert.throws(() => run('98.0.0'))
+})
+
+test('every stable runner has a unique distribution asset set', () => {
+  const workflow = fs.readFileSync(path.join(root, '.github/workflows/tauri-build.yml'), 'utf8')
+  const platforms = workflow.match(/platform: \[([^\]]+)\]/)[1].split(',').map(value => value.trim())
+  assert.deepEqual(Object.keys(expected).sort(), platforms.sort())
+  const assets = Object.values(expected).flat()
+  assert.equal(assets.length, 9)
+  assert.equal(new Set(assets).size, 9)
 })

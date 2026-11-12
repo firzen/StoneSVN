@@ -6,7 +6,7 @@ const output = path.resolve('release-assets')
 const expected = {
   'ubuntu-22.04': [`StoneSVN_${version}_amd64.AppImage`, `StoneSVN_${version}_amd64.deb`, `StoneSVN-${version}-1.x86_64.rpm`],
   'windows-latest': [`StoneSVN_${version}_x64-setup.exe`, `StoneSVN_${version}_x64_en-US.msi`],
-  'macos-15': [`StoneSVN_${version}_aarch64.dmg`, 'StoneSVN_aarch64.app.tar.gz'],
+  'macos-26': [`StoneSVN_${version}_aarch64.dmg`, 'StoneSVN_aarch64.app.tar.gz'],
   'macos-15-intel': [`StoneSVN_${version}_x64.dmg`, 'StoneSVN_x64.app.tar.gz'],
 }
 function verify(names, wanted) {
@@ -38,7 +38,7 @@ if (require.main === module) {
     const wanted = expected[platform]
     if (!wanted) throw new Error('Unsupported RELEASE_PLATFORM')
     fs.mkdirSync(output, { recursive: true })
-    const target = platform === 'macos-15' ? 'aarch64-apple-darwin' : platform === 'macos-15-intel' ? 'x86_64-apple-darwin' : ''
+    const target = platform === 'macos-26' ? 'aarch64-apple-darwin' : platform === 'macos-15-intel' ? 'x86_64-apple-darwin' : ''
     const bundle = path.join('src-tauri/target', target, 'release/bundle')
     for (const name of wanted) {
       if (name.endsWith('.app.tar.gz')) {
@@ -54,4 +54,4 @@ if (require.main === module) {
   }
   console.log('Validated release assets')
 }
-module.exports = { verify }
+module.exports = { verify, expected }
