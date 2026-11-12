@@ -292,6 +292,7 @@ export default {
     actionUnknown: '未知',
   },
   commit: {
+    deleteSelectedConfirm: '確定刪除勾選的檔案或目錄？目錄內容也會刪除。版本檔案將標記為 SVN 刪除，有本機修改時 SVN 可能拒絕操作；未版本檔案將永久刪除，不會移至垃圾桶。',
     selectWithChildren: '連同子項',
     expandDirectory: '展開 {path}',
     collapseDirectory: '收合 {path}',

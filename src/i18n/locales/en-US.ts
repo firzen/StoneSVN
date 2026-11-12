@@ -292,6 +292,7 @@ export default {
     actionUnknown: 'Unknown',
   },
   commit: {
+    deleteSelectedConfirm: 'Delete the selected files or directories? Directory contents will also be deleted. Versioned items will be scheduled for SVN deletion; SVN may refuse items with local changes. Unversioned items are permanently deleted without using the trash.',
     selectWithChildren: 'Include children',
     expandDirectory: 'Expand {path}',
     collapseDirectory: 'Collapse {path}',

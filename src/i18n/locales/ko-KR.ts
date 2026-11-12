@@ -292,6 +292,7 @@ export default {
     actionUnknown: '알 수 없음',
   },
   commit: {
+    deleteSelectedConfirm: '선택한 파일 또는 디렉터리를 삭제하시겠습니까? 디렉터리 내용도 삭제됩니다. 버전 관리 항목은 SVN 삭제가 예약되며 로컬 변경이 있으면 SVN이 거부할 수 있습니다. 버전 관리되지 않은 항목은 휴지통을 사용하지 않고 영구 삭제됩니다.',
     selectWithChildren: '하위 항목 포함',
     expandDirectory: '{path} 펼치기',
     collapseDirectory: '{path} 접기',

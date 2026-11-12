@@ -292,6 +292,7 @@ export default {
     actionUnknown: '不明',
   },
   commit: {
+    deleteSelectedConfirm: '選択したファイルまたはディレクトリを削除しますか？ディレクトリの内容も削除されます。管理対象は SVN の削除予定になります。ローカル変更がある場合、SVN が拒否することがあります。未管理の項目はごみ箱を使わず完全に削除されます。',
     selectWithChildren: '子項目も選択',
     expandDirectory: '{path} を展開',
     collapseDirectory: '{path} を折りたたむ',

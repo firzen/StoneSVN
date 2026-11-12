@@ -144,6 +144,8 @@
           </span>
         </div>
         <div class="footer-actions">
+          <el-button type="danger" size="small" :disabled="loading || workspaceStore.operationBusy || workspaceStore.statusIsStale || deleteTargets.length === 0"
+            @click="deleteSelectedFiles">{{ $t('common.delete') }}</el-button>
           <el-button size="small" :disabled="loading" @click="resetForm">{{ $t('common.reset') }}</el-button>
           <el-button type="primary" size="small" @click="doCommit" :loading="loading"
             :aria-label="$t(hasUnversionedSelection ? 'commit.addAndReview' : 'common.commit')"
@@ -161,7 +163,7 @@ import { ref, computed, nextTick, onMounted, onBeforeUnmount, watch, h, getCurre
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
 import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { openWorkspaceFile, svnAdd, svnCommit, svnLog, svnRevert, svnRevertPreview } from '@/api/svn'
+import { deleteUnversioned, svnDelete, openWorkspaceFile, svnAdd, svnCommit, svnLog, svnRevert, svnRevertPreview } from '@/api/svn'
 import { useI18n } from 'vue-i18n'
 import { getStatusClass, getStatusLabelKey } from '@/composables/useSvnStatus'
 import { useWorkspace } from '@/composables/useWorkspace'
@@ -379,6 +381,52 @@ const revertFile = async (file: SvnStatus) => {
     attempted = true
     const result = await svnRevert(workspace, [path], preview)
     output.value = result.success ? result.output || t('svnActions.reverted') : `${t('common.error')}：${result.error || result.output}`
+  } catch (err) {
+    if (err !== 'cancel' && err !== 'close') output.value = `${t('common.error')}：${err}`
+  } finally {
+    try {
+      if (attempted && workspaceStore.currentPath === workspace) await refreshStatusAfterMutation()
+    } catch (err) {
+      output.value = `${t('common.error')}：${err}`
+    } finally {
+      workspaceStore.setOperationBusy(false)
+      loading.value = false
+    }
+  }
+}
+const deleteTargets = computed(() => {
+  const selected = allChangedFiles.value.filter(file => selectedSet.value.has(file.path)
+    && file.path !== '.' && file.status_code !== 'deleted')
+  return selected.filter(file => !selected.some(parent => parent !== file && parent.directory
+    && isWithinDirectory(file.path, parent.path)))
+})
+const deleteSelectedFiles = async () => {
+  const workspace = workspaceStore.currentPath
+  if (!workspace || loading.value || workspaceStore.operationBusy || workspaceStore.statusIsStale || !deleteTargets.value.length) return
+  const targets = [...deleteTargets.value]
+  loading.value = true
+  workspaceStore.setOperationBusy(true)
+  let attempted = false
+  try {
+    await ElMessageBox.confirm(h('div', [
+      h('p', t('commit.deleteSelectedConfirm')),
+      h('pre', { style: { maxHeight: '240px', overflow: 'auto', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' } }, targets.map(file => file.path).join('\n')),
+    ]), t('common.delete'), {
+      type: 'warning', confirmButtonType: 'danger', confirmButtonText: t('common.delete'),
+      cancelButtonText: t('common.cancel'), closeOnClickModal: false, distinguishCancelAndClose: true,
+    }, messageContext)
+    if (workspaceStore.currentPath !== workspace || workspaceStore.statusIsStale) return
+    if (targets.some(target => !allChangedFiles.value.some(file => file.path === target.path && file.status_code === target.status_code))) return
+    const messages: string[] = []
+    for (const unversioned of [false, true]) {
+      const files = targets.filter(file => (file.status_code === 'unversioned') === unversioned).map(file => file.path)
+      if (!files.length) continue
+      attempted = true
+      const result = await (unversioned ? deleteUnversioned(workspace, files) : svnDelete(workspace, files))
+      if (!result.success) throw new Error(result.error || result.output)
+      if (result.output) messages.push(result.output)
+    }
+    output.value = messages.join('\n') || t('common.success')
   } catch (err) {
     if (err !== 'cancel' && err !== 'close') output.value = `${t('common.error')}：${err}`
   } finally {
@@ -676,7 +724,7 @@ const useRecentMessage = (message: string) => {
 .hidden-selection { color: var(--el-color-warning); overflow-wrap: anywhere; }
 .footer-actions { display: flex; align-items: center; flex-shrink: 0; gap: 8px; }
 .footer-actions .el-button { height: 30px; min-height: 30px; margin-left: 0; padding: 0 12px; font-size: 12px; }
-.footer-actions .el-button:not(.el-button--primary) { background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); border-color: var(--md-sys-color-outline); }
+.footer-actions .el-button:not(.el-button--primary):not(.el-button--danger) { background: var(--md-sys-color-surface-container-lowest); color: var(--md-sys-color-on-surface); border-color: var(--md-sys-color-outline); }
 .footer-actions .el-icon { margin-right: 5px; }
 
 @media (max-width: 860px) {

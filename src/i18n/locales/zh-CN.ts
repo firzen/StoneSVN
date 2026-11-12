@@ -292,6 +292,7 @@ export default {
     actionUnknown: '未知',
   },
   commit: {
+    deleteSelectedConfirm: '确定删除勾选的文件或目录？目录内容也会删除。版本文件将标记为 SVN 删除，存在本地修改时 SVN 可能拒绝操作；未版本文件将永久删除，不会进入回收站。',
     selectWithChildren: '连同子项',
     expandDirectory: '展开 {path}',
     collapseDirectory: '收起 {path}',

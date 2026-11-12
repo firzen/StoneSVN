@@ -10,7 +10,7 @@ function harness(entries, options = {}) {
   vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/utils/changeTree.ts', 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText, treeContext)
-  const commits = [], opened = []
+  const commits = [], opened = [], deletions = []
   const routes = [], reverts = [], previews = [], confirmations = []
   let refreshes = 0
   const store = vue.reactive({ currentPath: '/wc', statusList: entries, commitDrafts: {}, statusIsStale: false,
@@ -27,6 +27,8 @@ function harness(entries, options = {}) {
     '@/stores/workspace': { useWorkspaceStore: () => store },
     '@/api/svn': {
       openWorkspaceFile: async (...args) => { opened.push(args); if (options.openError) throw options.openError },
+      svnDelete: async (...args) => { deletions.push(['svn', ...args]); return { success: !options.deleteError, error: 'delete failed', output: '' } },
+      deleteUnversioned: async (...args) => { deletions.push(['disk', ...args]); return { success: true, output: '' } },
       svnCommit: async (...args) => { commits.push(args); return { success: false, output: 'done' } },
       svnRevertPreview: async (...args) => { previews.push(args); return entries },
       svnRevert: async (...args) => { reverts.push(args); return { success: true, output: 'reverted' } },
@@ -38,10 +40,10 @@ function harness(entries, options = {}) {
   }
   const script = fs.readFileSync('src/views/CommitView.vue', 'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   const context = { exports: {}, Element: class {}, sessionStorage: { setItem() {} }, setTimeout() {}, require: name => { assert.ok(name in mocks, name); return mocks[name] } }
-  vm.runInNewContext(ts.transpileModule(script + '\nexports.actions = { fullTree, selectedFiles, isChecked, isPartial, toggleSubtree, toggleNode, toggleSelection, collapsedPaths, flatRows, searchQuery, commitMessage, doCommit, revertFile, viewBlame, handleRowDoubleClick, loading, output };', {
+  vm.runInNewContext(ts.transpileModule(script + '\nexports.actions = { deleteSelectedFiles, deleteTargets, fullTree, selectedFiles, isChecked, isPartial, toggleSubtree, toggleNode, toggleSelection, collapsedPaths, flatRows, searchQuery, commitMessage, doCommit, revertFile, viewBlame, handleRowDoubleClick, loading, output };', {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText, context)
-  return { ...context.exports.actions, store, commits, opened, routes, reverts, previews, confirmations, refreshes: () => refreshes }
+  return { ...context.exports.actions, store, deletions, commits, opened, routes, reverts, previews, confirmations, refreshes: () => refreshes }
 }
 const entry = (path, status_code = 'modified', prop_status = 'none') => ({ path, status_code, prop_status })
 
@@ -201,4 +203,38 @@ test('directory open failures are reported', async () => {
   const h = harness([entry('dir/child.txt')], { openError: 'directory missing' })
   await h.handleRowDoubleClick({ target: null }, h.fullTree.value[0])
   assert.match(h.output.value, /directory missing/)
+})
+
+
+test('batch deletion confirms, separates SVN and unversioned targets, and refreshes', async () => {
+  const h = harness([entry('a.txt'), entry('new.txt', 'unversioned'), entry('gone.txt', 'deleted')])
+  h.selectedFiles.value = ['a.txt', 'new.txt', 'gone.txt']
+  await h.deleteSelectedFiles()
+  assert.equal(h.confirmations.length, 1)
+  assert.equal(h.deletions.length, 2)
+  assert.equal(h.deletions[0][0], 'svn')
+  assert.deepEqual(Array.from(h.deletions[0][2]), ['a.txt'])
+  assert.equal(h.deletions[1][0], 'disk')
+  assert.deepEqual(Array.from(h.deletions[1][2]), ['new.txt'])
+  assert.equal(h.refreshes(), 1)
+  assert.equal(h.store.operationBusy, false)
+})
+
+test('batch deletion cancellation does nothing and failure still refreshes', async () => {
+  for (const options of [{ cancel: true }, { deleteError: true }]) {
+    const h = harness([entry('a.txt')], options)
+    h.selectedFiles.value = ['a.txt']
+    await h.deleteSelectedFiles()
+    assert.equal(h.deletions.length, options.cancel ? 0 : 1)
+    assert.equal(h.refreshes(), options.cancel ? 0 : 1)
+    assert.equal(h.loading.value, false)
+    assert.equal(h.store.operationBusy, false)
+    if (options.deleteError) assert.match(h.output.value, /delete failed/)
+  }
+})
+
+test('batch deletion collapses selected descendants under a selected directory', () => {
+  const h = harness([{ ...entry('dir', 'unversioned'), directory: true }, entry('dir/a.txt', 'unversioned')])
+  h.selectedFiles.value = ['dir', 'dir/a.txt']
+  assert.deepEqual(Array.from(h.deleteTargets.value, file => file.path), ['dir'])
 })
