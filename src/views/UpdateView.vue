@@ -40,6 +40,7 @@
         </div>
         <div id="update-panel" class="update-panel" role="tabpanel" :aria-labelledby="`update-tab-${activeTab}`">
           <template v-if="activeTab === 'incoming'">
+            <p v-if="incoming.state.value && incoming.state.value.total !== null && incoming.state.value.total > incomingLogs.length" class="panel-hint">{{ $t('update.showingIncoming', { shown: incomingLogs.length, total: incoming.state.value.total }) }}</p>
             <p v-if="checkState !== 'ready' && incomingLogs.length" class="panel-hint" role="status">{{ incomingMessage }}</p>
             <template v-if="incomingLogs.length">
               <div class="incoming-versions" :style="{ height: `${Math.min(incomingLogs.length || 1, 8) * 33 + 34}px` }">
@@ -90,31 +91,24 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onActivated, onDeactivated, onUnmounted, ref, watch } from 'vue'
+import { computed, onActivated, onDeactivated, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus/es/components/message/index'
-import { svnIncomingState, svnUpdate } from '@/api/svn'
+import { svnUpdate } from '@/api/svn'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useWorkspace } from '@/composables/useWorkspace'
-import { useSettings } from '@/composables/useSettings'
+import { useIncomingUpdates } from '@/composables/useIncomingUpdates'
 import type { SvnLogEntry, UpdatedFile } from '@/types'
 import UpdateFileList from '@/components/UpdateFileList.vue'
-
-type UpdateStateCache = {
-  remoteRevision: number
-  incomingLogs: SvnLogEntry[]
-}
-
-const updateStateCache = new Map<string, UpdateStateCache>()
 
 const router = useRouter()
 const { t, locale } = useI18n()
 const workspaceStore = useWorkspaceStore()
-const { refreshStatusAfterMutation, refreshStatusIfStale } = useWorkspace()
-const { settings } = useSettings()
+const { refreshStatusAfterMutation } = useWorkspace()
+const incoming = useIncomingUpdates()
 
-const loading = ref(false)
+const loading = computed(() => checkState.value === 'checking')
 const updating = ref(false)
 const updatedFiles = ref<UpdatedFile[]>([])
 const updateCompleted = ref(false)
@@ -126,7 +120,7 @@ const updateEndRevision = ref(0)
 const updateOutput = ref('')
 const hasUpdateConflicts = computed(() => updatedFiles.value.some(file => file.action === 'C'))
 const visibleTabs = computed(() => [
-  { key: 'incoming', label: t('update.incomingTitle'), count: checkState.value === 'ready' ? incomingLogs.value.length : '—' },
+  { key: 'incoming', label: t('update.incomingTitle'), count: incoming.state.value?.total ?? '—' },
   ...(updateCompleted.value ? [{ key: 'result', label: t('update.updatedTitle'), count: updateWarning.value ? '—' : updatedFiles.value.length }] : []),
 ])
 const selectedIncomingRevision = ref<number | null>(null)
@@ -165,9 +159,9 @@ const navigateTabs = (event: KeyboardEvent, key: string) => {
   activeTab.value = tabs[next].key
   document.getElementById(`update-tab-${activeTab.value}`)?.focus()
 }
-const incomingLogs = ref<SvnLogEntry[]>([])
-const remoteRevision = ref(0)
-const checkState = ref<'unchecked' | 'checking' | 'ready' | 'failed'>('unchecked')
+const incomingLogs = computed(() => incoming.state.value?.logs || [])
+const remoteRevision = computed(() => incoming.state.value?.revision || 0)
+const checkState = computed(() => incoming.state.value?.status || 'unchecked')
 const incomingMessage = computed(() => {
   if (checkState.value === 'failed') return t('update.checkFailed')
   if (checkState.value === 'checking') return t('common.loading')
@@ -175,74 +169,25 @@ const incomingMessage = computed(() => {
   return t(incomingLogs.value.length ? 'update.incomingHint' : 'update.noIncoming')
 })
 let isActive = false
-let updateStateTimer: number | undefined
-let updateRequestGeneration = 0
-const updateStateIntervalMs = 30_000
-
 const localRevision = computed(() => workspaceStore.svnInfo?.revision || 0)
-
 const formatDate = (date: string) => date ? new Date(date).toLocaleString(locale.value) : ''
 
-const applyCachedState = (path: string) => {
-  const cached = updateStateCache.get(path)
-  if (!cached) return false
-
-  checkState.value = 'ready'
-  remoteRevision.value = cached.remoteRevision
-  incomingLogs.value = cached.incomingLogs.map(entry => ({
-    ...entry,
-    changed_paths: [...(entry.changed_paths || [])],
-  }))
-  return true
-}
-
 const loadUpdateState = async (force = false, localAlreadyRefreshed = false) => {
-  // A completed update must refresh shared workspace state even after navigation.
-  if (!workspaceStore.currentPath || (!force && (!isActive || loading.value || updating.value))) return
-  const requestedPath = workspaceStore.currentPath
-  const generation = ++updateRequestGeneration
-  const isCurrent = () => generation === updateRequestGeneration
-    && workspaceStore.currentPath === requestedPath
-    && isActive
-  loading.value = true
-  checkState.value = 'checking'
-  try {
-    const refreshed = localAlreadyRefreshed || await (force ? refreshStatusAfterMutation() : refreshStatusIfStale(updateStateIntervalMs))
-    if (!isCurrent()) return
-    if (!refreshed) {
-      checkState.value = 'unchecked'
-      return
-    }
-    const state = await svnIncomingState(requestedPath, settings.logLimit || 50)
-    if (!isCurrent()) return
-    remoteRevision.value = state.revision
-    incomingLogs.value = state.logs
-    checkState.value = 'ready'
-    workspaceStore.setError(null)
-    updateStateCache.set(requestedPath, {
-      remoteRevision: remoteRevision.value,
-      incomingLogs: incomingLogs.value.map(entry => ({
-        ...entry,
-        changed_paths: [...(entry.changed_paths || [])],
-      })),
-    })
-  } catch (err) {
-    if (!isCurrent()) return
-    checkState.value = 'failed'
-    incomingLogs.value = []
-    updateStateCache.delete(requestedPath)
-    workspaceStore.setError(String(err))
-    ElMessage.error(`${t('common.error')}：${err}`)
-  } finally {
-    if (generation === updateRequestGeneration) loading.value = false
+  const path = workspaceStore.currentPath
+  if (!path || (!force && (!isActive || updating.value || workspaceStore.isLoading))) return
+  if (force && !localAlreadyRefreshed && !await refreshStatusAfterMutation()) return
+  if (workspaceStore.currentPath !== path) return
+  const success = await incoming.check(path, force, force && !localAlreadyRefreshed)
+  if (force && !localAlreadyRefreshed && isActive && workspaceStore.currentPath === path) {
+    workspaceStore.setError(success ? null : incoming.state.value?.error || null)
+    if (!success && incoming.state.value?.error) ElMessage.error(`${t('common.error')}：${incoming.state.value.error}`)
   }
 }
 
 const doUpdate = async () => {
   if (!workspaceStore.currentPath || workspaceStore.operationBusy) return
   const requestedPath = workspaceStore.currentPath
-  updateRequestGeneration += 1
-  loading.value = false
+  incoming.invalidate(requestedPath)
   const startRevision = localRevision.value
   updating.value = true
   workspaceStore.setOperationBusy(true)
@@ -257,15 +202,13 @@ const doUpdate = async () => {
     updateOutput.value = result.output || ''
     updateEndRevision.value = 0
     updateWarning.value = result.warning || ''
-    updateStateCache.delete(requestedPath)
-    incomingLogs.value = []
-    checkState.value = 'unchecked'
+    incoming.invalidate(requestedPath)
     const refreshed = await refreshStatusAfterMutation()
     if (workspaceStore.currentPath !== requestedPath) return
     updateEndRevision.value = refreshed ? localRevision.value : 0
     // Remote history may be slow. It must not hold the completed mutation busy,
     // and the fresh local scan must not be repeated by this background request.
-    if (isActive && refreshed) void loadUpdateState(true, true)
+    if (refreshed) void loadUpdateState(true, true)
     if (hasUpdateConflicts.value || updateWarning.value) ElMessage.warning(t(hasUpdateConflicts.value ? 'update.completedConflicts' : 'update.resultFailed'))
     else ElMessage.success(t('update.completed'))
   } catch (err) {
@@ -285,34 +228,15 @@ const viewUpdatedDiff = (file: UpdatedFile) => {
   } })
 }
 
-const stopUpdatePolling = () => {
-  isActive = false
-  if (updateStateTimer !== undefined) {
-    window.clearInterval(updateStateTimer)
-    updateStateTimer = undefined
-  }
-  updateRequestGeneration += 1
-  loading.value = false
-}
-
 onActivated(() => {
   isActive = true
-  if (workspaceStore.currentPath) {
-    applyCachedState(workspaceStore.currentPath)
-    void loadUpdateState()
-  }
-  updateStateTimer = window.setInterval(() => { void loadUpdateState() }, updateStateIntervalMs)
+  void loadUpdateState()
 })
-
-onDeactivated(stopUpdatePolling)
-onUnmounted(stopUpdatePolling)
+onDeactivated(() => { isActive = false })
 
 watch(
   () => workspaceStore.currentPath,
   (path) => {
-    updateRequestGeneration += 1
-    loading.value = false
-    incomingLogs.value = []
     updatedFiles.value = []
     updateCompleted.value = false
     updateWarning.value = ''
@@ -322,9 +246,7 @@ watch(
     updateStartRevision.value = 0
     updateEndRevision.value = 0
     selectedIncomingRevision.value = null
-    remoteRevision.value = 0
-    checkState.value = 'unchecked'
-    if (isActive && path && !applyCachedState(path)) {
+    if (isActive && path) {
       loadUpdateState()
     }
   }

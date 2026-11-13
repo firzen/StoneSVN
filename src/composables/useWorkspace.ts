@@ -1,6 +1,7 @@
 import { useWorkspaceStore } from '@/stores/workspace'
 import { svnStatus, svnInfo, svnLocalRevision } from '@/api/svn'
 import { open } from '@tauri-apps/plugin-dialog'
+import { useIncomingUpdates } from '@/composables/useIncomingUpdates'
 import { useSettings } from '@/composables/useSettings'
 import { parseFilterRules } from '@/utils/gitignore'
 import { filterByGitignoreAsync } from '@/utils/gitignoreWorker'
@@ -205,7 +206,11 @@ export function useWorkspace() {
     const path = workspaceStore.currentPath
     if (!path) return Promise.resolve(false)
     if (pendingRequest?.path === path && pendingRequest.force && pendingRequest.generation === workspaceRequestGeneration) return pendingRequest.promise
-    return trackRequest(path, () => performRefreshStatus(true), true)
+    return trackRequest(path, async () => {
+      const success = await performRefreshStatus(true)
+      if (workspaceStore.currentPath === path) void useIncomingUpdates().check(path, true, true)
+      return success
+    }, true)
   }
 
   // A mutation or setting change requires a scan started after that change;

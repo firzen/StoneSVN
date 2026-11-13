@@ -325,6 +325,10 @@ export default {
     committable: '已修改',
   },
   update: {
+    badgeHint: '有 {count} 个待更新版本',
+    badgeFailed: '检查失败，上次检测有 {count} 个待更新版本',
+    showingIncoming: '显示 {shown} / {total} 个待更新版本',
+
     running: '正在更新工作副本…',
     completed: '更新完成',
     completedConflicts: '更新完成，存在待处理冲突',

@@ -325,6 +325,10 @@ export default {
     committable: '変更済み',
   },
   update: {
+    badgeHint: '未更新のリビジョンが {count} 件あります',
+    badgeFailed: '確認失敗。前回の確認では未更新のリビジョンが {count} 件ありました',
+    showingIncoming: '未更新のリビジョン {total} 件中 {shown} 件を表示',
+
     running: '作業コピーを更新中…',
     completed: '更新完了',
     completedConflicts: '更新完了・未解決の競合があります',

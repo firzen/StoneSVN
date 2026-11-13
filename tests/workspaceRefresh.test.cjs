@@ -10,7 +10,7 @@ function deferred() {
   return { promise, resolve, reject }
 }
 function harness() {
-  const requests = [], snapshots = new Map(), writes = [], invalidations = []
+  const remoteChecks = [], requests = [], snapshots = new Map(), writes = [], invalidations = []
   const store = {
     currentPath: '/a', statusList: [], svnInfo: null, gitignorePatterns: [],
     setCurrentPath(path) { this.currentPath = path },
@@ -27,6 +27,7 @@ function harness() {
   const settings = { gitignoreEnabled: false, filterRules: '.gitignore' }
   let filter = async (list, patterns) => matchContext.exports.filterByGitignore(list, patterns)
   const mocks = {
+    '@/composables/useIncomingUpdates': { useIncomingUpdates: () => ({ check: async (...args) => { remoteChecks.push(args); return true } }) },
     '@/stores/workspace': { useWorkspaceStore: () => store },
     '@/api/svn': {
       svnStatus: (path, force = false) => { const request = { path, force, ...deferred() }; requests.push(request); return request.promise },
@@ -42,7 +43,7 @@ function harness() {
   const context = { exports: {}, require: name => { assert.ok(name in mocks, name); return mocks[name] } }
   const code = ts.transpileModule(fs.readFileSync('src/composables/useWorkspace.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
   vm.runInNewContext(code, context)
-  return { store, settings, requests, snapshots, writes, invalidations, useWorkspace: context.exports.useWorkspace, setFilter: value => { filter = value } }
+  return { remoteChecks, store, settings, requests, snapshots, writes, invalidations, useWorkspace: context.exports.useWorkspace, setFilter: value => { filter = value } }
 }
 
 test('separate consumers share an in-flight refresh and background polls reuse fresh state', async () => {
@@ -52,12 +53,15 @@ test('separate consumers share an in-flight refresh and background polls reuse f
   assert.equal(h.requests.length, 1)
   h.requests[0].resolve([{ path: 'first' }])
   assert.equal(await first, true)
+  assert.deepEqual(h.remoteChecks, [['/a', true, true]])
   await b.refreshStatusIfStale(60_000)
   assert.equal(h.requests.length, 1)
+  assert.equal(h.remoteChecks.length, 1)
   const manual = a.refreshStatus()
   assert.equal(h.requests.length, 2)
   h.requests[1].resolve([{ path: 'manual' }])
   assert.equal(await manual, true)
+  assert.equal(h.remoteChecks.length, 2)
 })
 
 test('failed refresh is retried rather than treated as fresh', async () => {

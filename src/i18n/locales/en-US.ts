@@ -325,6 +325,10 @@ export default {
     committable: 'Modified',
   },
   update: {
+    badgeHint: '{count} incoming revisions',
+    badgeFailed: 'Check failed; last check found {count} incoming revisions',
+    showingIncoming: 'Showing {shown} of {total} incoming revisions',
+
     running: 'Updating working copy…',
     completed: 'Update completed',
     completedConflicts: 'Update completed with unresolved conflicts',

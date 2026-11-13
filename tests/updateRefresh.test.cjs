@@ -14,7 +14,7 @@ function deferred() {
 function harness({ logs = [], remoteRevision = 2, incomingRequest = async () => logs, updated = [], warning = null } = {}) {
   const update = deferred(), refresh = deferred(), calls = [], lifecycle = {}, timers = new Set()
   const store = vue.reactive({
-    currentPath: '/wc', svnInfo: { revision: 1, repository_root: 'https://svn.example.com/repo' }, statusList: [],
+    currentPath: '/wc', isLoading: true, svnInfo: { revision: 1, repository_root: 'https://svn.example.com/repo' }, statusList: [],
     setError(error) { this.error = error },
     setOperationBusy(value) { this.operationBusy = value },
   })
@@ -42,9 +42,13 @@ function harness({ logs = [], remoteRevision = 2, incomingRequest = async () => 
     '@/composables/useSvnStatus': {},
     '@/api/svn': {
       svnUpdate: async () => { calls.push('update'); await update.promise; return { files: updated, warning } },
-      svnIncomingState: async () => { calls.push('incoming'); return { revision: remoteRevision, logs: await incomingRequest() } },
+      svnIncomingState: async () => { calls.push('incoming'); const result = await incomingRequest(); return { revision: remoteRevision, logs: [...result], total: result.length } },
     },
   }
+  const sharedContext = { exports: {}, require: name => { assert.ok(name in mocks, name); return mocks[name] } }
+  vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/composables/useIncomingUpdates.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, sharedContext)
+  mocks['@/composables/useIncomingUpdates'] = sharedContext.exports
+  // Activation starts the global silent check; settle it before exercising mutations.
   const script = fs.readFileSync('src/views/UpdateView.vue', 'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   const code = ts.transpileModule(script + '\nexports.actions = { doUpdate, updating, loadUpdateState, incomingLogs, checkState, incomingMessage, updatedFiles, updateCompleted, viewUpdatedDiff, activeTab, updateEndRevision, hasUpdateConflicts, visibleTabs, selectedIncoming, selectIncomingRevision, incomingRows, viewIncomingDiff };', { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
   const context = {
@@ -68,14 +72,14 @@ test('leaving during an update still refreshes the shared revision and conflict 
   h.update.resolve()
   h.refresh.resolve()
   await pending
-  assert.deepEqual(h.calls, ['update', 'refresh'])
+  assert.deepEqual(h.calls, ['update', 'refresh', 'incoming'])
   assert.equal(h.store.svnInfo.revision, 2)
   assert.equal(h.store.statusList[0].status_code, 'conflicted')
   assert.equal(h.updating.value, false)
   assert.equal(h.store.operationBusy, false)
 })
 
-test('deactivation during the post-update refresh suppresses remote requests', async () => {
+test('deactivation during the post-update refresh still updates the global badge', async () => {
   const h = harness()
   h.lifecycle.activate()
   const pending = h.doUpdate()
@@ -85,7 +89,7 @@ test('deactivation during the post-update refresh suppresses remote requests', a
   h.lifecycle.deactivate()
   h.refresh.resolve()
   await pending
-  assert.deepEqual(h.calls, ['update', 'refresh'])
+  assert.deepEqual(h.calls, ['update', 'refresh', 'incoming'])
   assert.equal(h.store.svnInfo.revision, 2)
 })
 
@@ -150,7 +154,7 @@ test('SSL failure leaves update availability unknown and a successful retry rest
   assert.equal(h.store.error, null)
 })
 
-test('a failed recheck clears stale incoming commits instead of presenting a successful result', async () => {
+test('a failed recheck retains the last incoming commits and marks them stale', async () => {
   let fail = false
   const h = harness({ incomingRequest: async () => {
     if (fail) throw new Error('connection failed')
@@ -164,7 +168,7 @@ test('a failed recheck clears stale incoming commits instead of presenting a suc
   fail = true
   await h.loadUpdateState(true)
   assert.equal(h.checkState.value, 'failed')
-  assert.equal(h.incomingLogs.value.length, 0)
+  assert.equal(h.incomingLogs.value.length, 1)
   assert.equal(h.incomingMessage.value, 'update.checkFailed')
 })
 
@@ -247,9 +251,11 @@ test('incoming versions select their own file list and fall back when the select
   h.viewIncomingDiff(h.incomingRows.value[0])
   assert.equal(h.calls.at(-1).query.path, 'https://svn.example.com/repo/trunk/old.txt@7')
   assert.equal(h.calls.at(-1).query.revision, '8')
-  h.incomingLogs.value = [logs[0]]
+  logs.splice(1)
+  await h.loadUpdateState(true)
   assert.equal(h.selectedIncoming.value.revision, 9)
-  h.incomingLogs.value = []
+  logs.splice(0)
+  await h.loadUpdateState(true)
   assert.equal(h.selectedIncoming.value, null)
   assert.equal(h.incomingRows.value.length, 0)
 })

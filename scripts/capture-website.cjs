@@ -125,6 +125,7 @@ async function main() {
           await page.evaluate(async () => { await (await import('/docs/images/workspace-demo.js')).showUpdateDemo() })
           await page.waitForSelector('.update-view')
           await settle(page)
+          if (await page.locator('.incoming-badge').textContent() !== '2') throw new Error('Incoming badge does not match the demo revisions')
           await page.screenshot({ path: path.join(screenshots, `${lang}-update-incoming.png`) })
           await page.locator('.update-view .header-actions .el-button--primary').click()
           await page.waitForSelector('.result-summary')

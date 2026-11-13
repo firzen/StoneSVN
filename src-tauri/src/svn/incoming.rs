@@ -2,6 +2,7 @@ use super::executor::{execute_svn, SvnError};
 use super::operations::info;
 use super::parser::{parse_incoming_status_xml, parse_log_xml};
 use crate::SvnLogEntry;
+use std::collections::HashSet;
 
 fn url_for_path(base: &str, relative: &str) -> Result<String, SvnError> {
     let mut url = tauri::Url::parse(base).map_err(|e| SvnError::ParseError(e.to_string()))?;
@@ -43,6 +44,7 @@ struct IncomingPath {
 pub struct IncomingState {
     pub revision: u64,
     pub logs: Vec<SvnLogEntry>,
+    pub total: usize,
 }
 
 pub async fn incoming_logs(path: &str, limit: u32) -> Result<Vec<SvnLogEntry>, SvnError> {
@@ -69,6 +71,7 @@ pub async fn incoming_state(path: &str, limit: u32) -> Result<IncomingState, Svn
         return Ok(IncomingState {
             revision: head,
             logs: Vec::new(),
+            total: 0,
         });
     }
     let workspace = info(path).await?;
@@ -103,6 +106,7 @@ pub async fn incoming_state(path: &str, limit: u32) -> Result<IncomingState, Svn
         });
     }
     let mut result = Vec::new();
+    let mut revisions = HashSet::new();
     // Query the working-copy URLs, rather than requiring access to logs for
     // the repository root. Include switched subtrees under their actual URLs.
     let mut queries = Vec::new();
@@ -159,9 +163,9 @@ pub async fn incoming_state(path: &str, limit: u32) -> Result<IncomingState, Svn
         };
         let mut start = head;
         let mut found = 0;
-        // Filter before applying the display limit, so newer local commits
-        // cannot hide older incoming changes. Pin pages to the status HEAD.
-        while start > min_base && found < limit.max(1) {
+        // Walk all pages for the exact count, retaining only the newest
+        // display entries per query. Pin pages to the status HEAD.
+        while start > min_base {
             let range = format!("{start}:{}", min_base + 1);
             let target = format!("{query_url}@{head}");
             let mut args = vec![
@@ -201,11 +205,11 @@ pub async fn incoming_state(path: &str, limit: u32) -> Result<IncomingState, Svn
                 }
                 exhausted |= scoped.is_empty();
                 if incoming {
-                    result.push(log);
-                    found += 1;
-                    if found >= limit.max(1) {
-                        break;
+                    revisions.insert(log.revision);
+                    if found < limit.max(1) {
+                        result.push(log);
                     }
+                    found += 1;
                 }
             }
             if exhausted {
@@ -219,6 +223,7 @@ pub async fn incoming_state(path: &str, limit: u32) -> Result<IncomingState, Svn
     Ok(IncomingState {
         revision: head,
         logs: result,
+        total: revisions.len(),
     })
 }
 
@@ -387,9 +392,10 @@ mod tests {
             std::fs::write(other.join("another @ file.txt"), "new\n").unwrap();
             run(&other, &["add", "--force", "--", "."]);
             run(&other, &["commit", "-m", "another incoming addition"]); // r14
-            let logs = incoming_logs(wc.to_str().unwrap(), 50).await.unwrap();
+            let state = incoming_state(wc.to_str().unwrap(), 50).await.unwrap();
+            assert_eq!(state.total, 2); // New-path batches share the same revisions.
             assert_eq!(
-                logs.iter().map(|l| l.revision).collect::<Vec<_>>(),
+                state.logs.iter().map(|l| l.revision).collect::<Vec<_>>(),
                 vec![14, 13]
             );
             let logs = incoming_logs(wc.to_str().unwrap(), 1).await.unwrap();
@@ -402,6 +408,29 @@ mod tests {
                 .await
                 .unwrap()
                 .is_empty());
+
+            // The badge counts beyond both the display limit and log page size.
+            // Each commit touches two paths but counts as one revision.
+            for index in 0..105 {
+                for name in ["远端@文件.txt", "props.txt"] {
+                    std::fs::write(other.join(name), format!("remote {index}\n")).unwrap();
+                }
+                run(&other, &["commit", "-m", "count incoming"]);
+            }
+            let state = incoming_state(wc.to_str().unwrap(), 50).await.unwrap();
+            assert_eq!(state.total, 105);
+            assert_eq!(state.logs.len(), 50);
+            let state = incoming_state(wc.to_str().unwrap(), 1).await.unwrap();
+            assert_eq!(state.total, 105);
+            assert_eq!(state.logs.len(), 1);
+            run(&wc, &["update"]);
+            assert_eq!(
+                incoming_state(wc.to_str().unwrap(), 50)
+                    .await
+                    .unwrap()
+                    .total,
+                0
+            );
         });
         std::fs::remove_dir_all(directory).unwrap();
     }

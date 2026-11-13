@@ -20,8 +20,9 @@
           <el-icon><PropertyIcon /></el-icon><span>{{ $t('properties.title') }}</span>
         </button>
         <span class="toolbar-divider" aria-hidden="true"></span>
-        <button class="tool-button" :class="{ active: routeName === 'update' }" :aria-current="routeName === 'update' ? 'page' : undefined" :title="$t('menu.update')" :disabled="workspaceStore.operationBusy" @click="navigateTo('update')">
+        <button class="tool-button" :class="{ active: routeName === 'update' }" :aria-current="routeName === 'update' ? 'page' : undefined" :title="incomingTitle" :aria-label="incomingTitle" :disabled="workspaceStore.operationBusy" @click="navigateTo('update')">
           <el-icon><RefreshRight /></el-icon><span>{{ $t('menu.update') }}</span>
+          <span v-if="incomingTotal > 0" class="incoming-badge" aria-hidden="true">{{ incomingTotal > 99 ? '99+' : incomingTotal }}</span>
         </button>
         <button class="tool-button" :class="{ active: routeName === 'commit' }" :aria-current="routeName === 'commit' ? 'page' : undefined" :title="$t('menu.commit')" :disabled="workspaceStore.operationBusy" @click="navigateTo('commit')">
           <el-icon><Upload /></el-icon><span>{{ $t('menu.commit') }}</span>
@@ -163,7 +164,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus/es/components/message/index'
@@ -172,6 +173,7 @@ import { useWorkspaceStore } from '@/stores/workspace'
 import { writeClipboardText } from '@/utils/clipboard'
 import { useWorkspace } from '@/composables/useWorkspace'
 import { useUpdateCheck } from '@/composables/useUpdateCheck'
+import { useIncomingUpdates, incomingCheckIntervalMs } from '@/composables/useIncomingUpdates'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import {
   Archive,
@@ -196,7 +198,29 @@ const {
   openReleasePage,
 } = useUpdateCheck()
 const routeView = ref<{ refresh?: () => void | Promise<void> } | null>(null)
-const refreshCurrentView = () => routeName.value === 'properties' ? routeView.value?.refresh?.() : refreshStatus()
+const incoming = useIncomingUpdates()
+const incomingTotal = computed(() => incoming.state.value?.total || 0)
+const incomingTitle = computed(() => {
+  const state = incoming.state.value
+  if (state?.status === 'failed') return state.total !== null
+    ? t('update.badgeFailed', { count: state.total }) : t('update.checkFailed')
+  return incomingTotal.value > 0 ? t('update.badgeHint', { count: incomingTotal.value }) : t('menu.update')
+})
+const refreshCurrentView = async () => {
+  const path = workspaceStore.currentPath
+  try {
+    if (routeName.value === 'properties') await routeView.value?.refresh?.()
+    else await refreshStatus()
+  } finally {
+    if (routeName.value === 'properties' && path && workspaceStore.currentPath === path) void incoming.check(path, true, true)
+  }
+}
+const checkIncomingSilently = () => {
+  if (document.hidden || !workspaceStore.currentPath || workspaceStore.isLoading || workspaceStore.operationBusy) return
+  void incoming.check(workspaceStore.currentPath)
+}
+watch(() => [workspaceStore.currentPath, workspaceStore.isLoading, workspaceStore.operationBusy], checkIncomingSilently)
+let incomingTimer: number | undefined
 const cachedViews = ref(['WorkspaceView', 'LogView', 'UpdateView'])
 const statusRefreshIntervalMs = 60_000
 let statusRefreshTimer: number | undefined
@@ -302,6 +326,10 @@ const refreshStatusSilently = async () => {
 }
 
 onMounted(async () => {
+  window.addEventListener('focus', checkIncomingSilently)
+  document.addEventListener('visibilitychange', checkIncomingSilently)
+  incomingTimer = window.setInterval(checkIncomingSilently, incomingCheckIntervalMs)
+  checkIncomingSilently()
   void checkForUpdates()
   const launchPath = await launchWorkspacePath().catch(() => null)
   if (!launchPath || !(await loadWorkspace(launchPath))) {
@@ -311,6 +339,9 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('focus', checkIncomingSilently)
+  document.removeEventListener('visibilitychange', checkIncomingSilently)
+  if (incomingTimer !== undefined) window.clearInterval(incomingTimer)
   if (statusRefreshTimer !== undefined) {
     window.clearInterval(statusRefreshTimer)
   }
@@ -421,7 +452,27 @@ onUnmounted(() => {
   background: var(--md-sys-color-outline-variant);
 }
 
+.incoming-badge {
+  position: absolute;
+  top: 1px;
+  left: calc(50% + 10px);
+  box-sizing: border-box;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 3px;
+  border-radius: 9px;
+  background: #c62828;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
 .tool-button {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -61,6 +61,7 @@ export default (async () => {
       if (command === 'svn_status') return files
       if (command === 'svn_info' || command === 'svn_remote_info') return info
       if (command === 'svn_local_revision') return 128
+      if (command === 'svn_incoming_state') return { revision: 128, logs: [], total: 0 }
       if (command === 'svn_log' || command === 'svn_file_log' || command === 'svn_incoming_logs') return []
       throw new Error(`Documentation demo does not support ${command}`)
     },
@@ -104,7 +105,7 @@ export async function showUpdateDemo() {
   const original = window.__TAURI_INTERNALS__.invoke
   let completed = false
   window.__TAURI_INTERNALS__.invoke = async (command, args) => {
-    if (command === 'svn_incoming_state') return { revision: 130, logs: completed ? [] : [{
+    if (command === 'svn_incoming_state') return { revision: 130, total: completed ? 0 : 2, logs: completed ? [] : [{
       revision: 130, author: 'demo', date: '2026-10-22T06:00:00Z', message: 'Improve workspace navigation',
       changed_paths: [{ action: 'M', path: '/trunk/src/config.ts' }, { action: 'A', path: '/trunk/docs/update-guide.md' }],
     }, { revision: 129, author: 'demo', date: '2026-10-21T03:00:00Z', message: 'Remove legacy configuration',
@@ -120,6 +121,9 @@ export async function showUpdateDemo() {
     if (command === 'svn_local_revision') return completed ? 130 : 128
     return original(command, args)
   }
+  const incoming = (await import('/src/composables/useIncomingUpdates.ts')).useIncomingUpdates()
+  incoming.invalidate('/workspaces/stone-demo')
+  await incoming.check('/workspaces/stone-demo', true)
   await document.querySelector('#app').__vue_app__.config.globalProperties.$router.push({ name: 'update' })
   await (await import('/node_modules/.vite/deps/vue.js')).nextTick()
 }

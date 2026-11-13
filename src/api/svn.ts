@@ -76,8 +76,12 @@ export async function svnIncomingLogs(path: string, limit?: number): Promise<Svn
   return invokeWithConnectionPrompt<SvnLogEntry[]>('svn_incoming_logs', { path, limit })
 }
 
-export async function svnIncomingState(path: string, limit?: number): Promise<{ revision: number; logs: SvnLogEntry[] }> {
-  return invokeWithConnectionPrompt('svn_incoming_state', { path, limit })
+export interface IncomingState { revision: number; logs: SvnLogEntry[]; total: number }
+
+export async function svnIncomingState(path: string, limit?: number, interactive = true): Promise<IncomingState> {
+  return interactive
+    ? invokeWithConnectionPrompt<IncomingState>('svn_incoming_state', { path, limit })
+    : invoke<IncomingState>('svn_incoming_state', { path, limit })
 }
 
 export async function svnRemoteInfo(path: string): Promise<SvnInfo> {

@@ -325,6 +325,10 @@ export default {
     committable: '수정됨',
   },
   update: {
+    badgeHint: '업데이트할 리비전 {count}개',
+    badgeFailed: '확인 실패. 마지막 확인 시 업데이트할 리비전 {count}개',
+    showingIncoming: '업데이트할 리비전 {total}개 중 {shown}개 표시',
+
     running: '작업 사본 업데이트 중…',
     completed: '업데이트 완료',
     completedConflicts: '업데이트 완료 · 해결되지 않은 충돌이 있습니다',
