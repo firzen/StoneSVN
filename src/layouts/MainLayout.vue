@@ -221,6 +221,14 @@ const checkIncomingSilently = () => {
 }
 watch(() => [workspaceStore.currentPath, workspaceStore.isLoading, workspaceStore.operationBusy], checkIncomingSilently)
 let incomingTimer: number | undefined
+const handleRefreshShortcut = (event: KeyboardEvent) => {
+  const isF5 = event.key === 'F5' && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
+  const isCommandR = event.metaKey && event.key.toLowerCase() === 'r' && !event.ctrlKey && !event.altKey && !event.shiftKey
+  if (!isF5 && !isCommandR) return
+  event.preventDefault()
+  if (event.repeat || workspaceStore.isLoading || workspaceStore.operationBusy) return
+  void refreshCurrentView()
+}
 const cachedViews = ref(['WorkspaceView', 'LogView', 'UpdateView'])
 const statusRefreshIntervalMs = 60_000
 let statusRefreshTimer: number | undefined
@@ -326,6 +334,7 @@ const refreshStatusSilently = async () => {
 }
 
 onMounted(async () => {
+  window.addEventListener('keydown', handleRefreshShortcut, true)
   window.addEventListener('focus', checkIncomingSilently)
   document.addEventListener('visibilitychange', checkIncomingSilently)
   incomingTimer = window.setInterval(checkIncomingSilently, incomingCheckIntervalMs)
@@ -339,6 +348,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleRefreshShortcut, true)
   window.removeEventListener('focus', checkIncomingSilently)
   document.removeEventListener('visibilitychange', checkIncomingSilently)
   if (incomingTimer !== undefined) window.clearInterval(incomingTimer)

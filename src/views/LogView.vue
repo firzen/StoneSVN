@@ -89,7 +89,7 @@
           highlight-current-row
           class="log-table"
         >
-          <el-table-column prop="revision" :label="$t('log.revision')" width="90" sortable align="center">
+          <el-table-column prop="revision" :label="$t('log.revision')" width="120" sortable align="center" label-class-name="revision-header">
             <template #default="{ row }">
               <el-tag type="primary" size="small" effect="plain">r{{ row.revision }}</el-tag>
             </template>
@@ -773,6 +773,7 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
+.log-table :deep(.revision-header .cell),
 .log-table :deep(.changed-files-column .cell),
 .log-table :deep(.changed-files-header .cell) {
   white-space: nowrap;
