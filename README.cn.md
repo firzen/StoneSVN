@@ -45,7 +45,7 @@ StoneSVN 的「追溯」目前提供文件提交历史，不提供逐行 Blame�
 
 > StoneSVN 调用本机的 `svn` 命令行工具，不会自行实现 SVN 协议。
 
-Switch 和通用 Merge 目前需使用其他 SVN 客户端或命令行完成，再回到 StoneSVN 刷新。冲突项目可选择保留当前内容并标记解决，或使用本地／仓库版本；目录和树冲突需先手动整理文件。属性页支持受控项目的重命名、移动、安排删除和目录递归还原；重命名、移动和安排删除仍需提交。工作区仓库信息下可迁移同一仓库的地址。
+Switch 和通用 Merge 目前需使用其他 SVN 客户端或命令行完成，再回到 StoneSVN 刷新。冲突项目提供工作区只读预览与双栏对比，可逐段选择文本、编辑结果或确认属性值；文件的编辑／删除树冲突可选择保留或删除，其他树冲突及无法读取的内容需手动处理。属性页支持受控项目的重命名、移动、安排删除和目录递归还原；重命名、移动和安排删除仍需提交。工作区仓库信息下可迁移同一仓库的地址。
 
 ## 安装
 
@@ -133,7 +133,7 @@ npm run check
 
 详细环境配置和常见问题见 [SETUP.md](SETUP.zh-CN.md)，贡献约定见 [CONTRIBUTING.md](CONTRIBUTING.zh-CN.md)。
 
-当前正式版本为 **1.1.9**，更新内容见 [发布说明](docs/releases/v1.1.9.zh-CN.md)。正式发布步骤见 [发布流程](docs/releasing.zh-CN.md)，候选版本见 [预发布说明](docs/prerelease.zh-CN.md)，与 v0.6.2 的性能对照及测量边界见 [性能基准](docs/workspace-startup-benchmark.zh-CN.md)。
+当前正式版本为 **1.2.0**，更新内容见 [发布说明](docs/releases/v1.2.0.zh-CN.md)。正式发布步骤见 [发布流程](docs/releasing.zh-CN.md)，候选版本见 [预发布说明](docs/prerelease.zh-CN.md)，与 v0.6.2 的性能对照及测量边界见 [性能基准](docs/workspace-startup-benchmark.zh-CN.md)。
 
 ## 项目结构
 

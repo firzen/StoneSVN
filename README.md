@@ -14,7 +14,7 @@ Built with Tauri, Rust, and Vue 3, it uses the local SVN CLI and preserves SVN's
 
 Development UI from the current source, captured on 2026-10-18 with fictional projects, paths, and diffs. No real repository or personal data is shown. [Dark theme](docs/images/screenshots/en-workspace-dark.png).
 
-Current stable version: **1.1.9**. See the [release notes](docs/releases/v1.1.9.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
+Current stable version: **1.2.0**. See the [release notes](docs/releases/v1.2.0.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
 
 ## Highlights
 
@@ -47,7 +47,7 @@ StoneSVN's history view does not provide line-by-line Blame, and image previews 
 
 > StoneSVN uses the locally installed `svn` command-line tool; it does not implement the SVN protocol itself.
 
-Switch and general-purpose Merge still require another SVN client or the command line. Conflict actions now support keeping manually resolved content or choosing the local/repository version; directory and tree conflicts require manual file organization first. Properties supports rename/move with history, recursive revert with an affected-file preview, restoring clean files or directories to a revision, and adding or cancelling plain additions while retaining local files. Rename, move, property edits and restored content need a separate commit. Repository relocation supports address changes within the same repository.
+Switch and general-purpose Merge still require another SVN client or the command line. Conflicts have a read-only workspace preview and a side-by-side editor for reviewing text blocks and property values. File edit/delete tree conflicts offer keep/delete choices; other tree conflicts and unreadable content require manual handling. Properties supports rename/move with history, recursive revert with an affected-file preview, restoring clean files or directories to a revision, and adding or cancelling plain additions while retaining local files. Rename, move, property edits and restored content need a separate commit. Repository relocation supports address changes within the same repository.
 
 ## Installation
 

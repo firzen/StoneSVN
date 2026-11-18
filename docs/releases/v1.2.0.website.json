@@ -1,0 +1,47 @@
+{
+  "en": {
+    "title": "Side-by-side conflict review and resolution",
+    "items": [
+      "Compare incoming and local content side by side, navigate conflict blocks, and edit the reviewed result before marking conflicts resolved.",
+      "Preview conflicts read-only in the workspace; conflicted files appear first, support double-click navigation, and have a yellow count badge.",
+      "Review property values separately from file content and inspect tree-conflict causes; unsupported cases retain a manual-resolution path.",
+      "See incoming revision counts on Update, refresh with F5 or macOS Command-R, and read longer timeline revision numbers."
+    ]
+  },
+  "zh-CN": {
+    "title": "双栏审阅与处理冲突",
+    "items": [
+      "对照传入与本地内容，定位冲突段并编辑最终结果，确认后再标记解决。",
+      "工作区提供只读冲突预览，冲突文件置顶；支持双击进入对比，并显示黄色冲突数量微标。",
+      "属性值与文件正文分别审阅，树冲突显示双方操作；不支持的情况保留手动处理入口。",
+      "更新入口显示远端提交数量，支持 F5 和 macOS Command-R 刷新，并拓宽时间线版本列。"
+    ]
+  },
+  "zh-TW": {
+    "title": "雙欄檢視與處理衝突",
+    "items": [
+      "比較傳入與本機內容，定位衝突區段並編輯最終結果，確認後再標記解決。",
+      "工作區提供唯讀衝突預覽，衝突檔案置頂；支援按兩下進入比較，並顯示黃色衝突數量標記。",
+      "屬性值與檔案內容分別檢視，樹狀衝突顯示雙方操作；不支援的情況保留手動處理入口。",
+      "更新入口顯示遠端提交數量，支援 F5 和 macOS Command-R 重新整理，並加寬時間軸版本欄。"
+    ]
+  },
+  "ja": {
+    "title": "競合を左右に比較して解決",
+    "items": [
+      "受信内容とローカル内容を並べて比較し、競合箇所を移動して結果を編集した後、解決済みにできます。",
+      "ワークスペースに読み取り専用の競合プレビューを追加。競合ファイルを先頭に表示し、ダブルクリックで比較画面を開けます。黄色の件数バッジも表示します。",
+      "プロパティ値とファイル内容を分けて確認し、ツリー競合では双方の操作を表示します。未対応の場合は手動で解決できます。",
+      "更新ボタンに受信待ちリビジョン数を表示。F5 と macOS の Command-R で更新でき、タイムラインのリビジョン列も拡張しました。"
+    ]
+  },
+  "ko": {
+    "title": "충돌 내용을 나란히 비교하고 해결",
+    "items": [
+      "수신 내용과 로컬 내용을 나란히 비교하고 충돌 구간을 이동하며 최종 결과를 편집한 후 해결됨으로 표시합니다.",
+      "작업 공간에서 읽기 전용 충돌 미리보기를 제공합니다. 충돌 파일을 맨 위에 표시하고 두 번 클릭하여 비교 화면을 열며, 노란색 충돌 개수 배지를 표시합니다.",
+      "속성 값과 파일 내용을 따로 검토하고 트리 충돌의 양쪽 작업을 표시합니다. 지원하지 않는 경우 수동으로 처리할 수 있습니다.",
+      "업데이트 버튼에 수신할 리비전 수를 표시합니다. F5와 macOS Command-R로 새로 고칠 수 있으며 타임라인 리비전 열을 넓혔습니다."
+    ]
+  }
+}

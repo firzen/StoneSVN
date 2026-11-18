@@ -4,7 +4,7 @@ English | [简体中文](QUICKSTART.zh-CN.md)
 
 An illustrated guide from opening a project to completing a reviewed commit. See the [user guide](docs/user-guide.md) for the complete interface reference.
 
-Applies to version 1.1.3. Updated: 2026-10-19.
+Applies to version 1.2.0. Updated: 2026-11-18.
 
 This guide is for new StoneSVN users and anyone looking up everyday steps. Follow the environment setup, workspace, update, and commit sections in order to complete your first change. Use the conflict and stash sections when those situations arise.
 
@@ -153,16 +153,15 @@ A conflict means SVN cannot automatically reconcile local and remote changes. Th
 
 ### Choose a resolution
 
-| Choice | Use when | Check first |
-| --- | --- | --- |
-| Keep current content | You have manually completed the merge | Remove conflict markers, save, and inspect the final content. |
-| Use local version | You want the complete local-side version | It replaces the entire file and conflicted properties; check which remote changes will be discarded. |
-| Use repository version | You want the complete repository-side version | It replaces the entire file and conflicted properties; check which local changes will be discarded. |
+Conflicts appear first in the workspace, and the toolbar shows their count. Select a conflict for a read-only comparison. Double-click it, select the Resolve Conflicts icon, or choose Open Comparison to open the full editor.
 
-1. Select Resolve Conflicts from the workspace conflict list or Properties. Read the affected paths and prompt.
-2. For a manual merge, edit the conflicting sections, remove markers such as `<<<<<<<`, `=======`, and `>>>>>>>`, and retain the required content from both sides.
-3. Choose the appropriate resolution. Organize directory/tree conflicts manually before marking them resolved.
-4. Refresh, inspect the final diff, run the project's required checks, and commit the resolution separately.
+| Conflict | Review | Resolution |
+| --- | --- | --- |
+| Text | Compare incoming, local, and available base content | Choose individual blocks or edit the result, review it, then Apply and Mark Resolved. |
+| Properties | Compare each conflicting property value | Choose or edit its final value, or remove the property; file content and unrelated properties stay unchanged. |
+| Tree | Check the local and incoming file operations | File edit/delete conflicts offer keep/delete choices; organize other cases manually before marking resolved. |
+
+If values cannot be read reliably, use the original conflict information and an appropriate external editor or SVN tool. Reload and review again if the conflict changed since it was loaded. Refresh afterward, inspect the final diff, run the project's required checks, and commit the resolution separately.
 
 ### Revert and restore a revision are different
 

@@ -2,7 +2,7 @@
 
 English | [简体中文](user-guide.zh-CN.md)
 
-Applies to the current 1.1.5 source. Updated: 2026-10-22. Older releases may have a different interface.
+Applies to the current 1.2.0 source. Updated: 2026-11-18. Older releases may have a different interface.
 
 This guide covers checkout, reviewing changes, committing, updating, and browsing history for code, documents, and other SVN-managed files. No implementation knowledge is required.
 
@@ -103,7 +103,7 @@ Loading cost depends on file count, disk, antivirus, and filesystem state. Repos
 | Deleted | Scheduled deletion, not yet committed | Check the scope, then commit or revert. |
 | Replaced | An original entry has been replaced | Review the complete operation. |
 | Unversioned | Present locally but not versioned | Add before committing, or keep local. |
-| Conflicted | Automatic reconciliation failed | Use Resolve Conflicts in the list or Properties. |
+| Conflicted | Automatic reconciliation failed | Double-click the conflict or use Resolve Conflicts to open its comparison. |
 | Missing | A versioned item is absent from disk | Restore it or schedule versioned deletion. |
 | Obstructed | A filesystem item blocks SVN | Read the error and inspect path, item type, and working-copy state. |
 
@@ -175,6 +175,8 @@ The page shows local/remote revisions and tabs for incoming revisions and the la
 
 Incoming commits are selected from actual remote file and property changes using each node’s BASE revision. Commits already present locally are excluded even when the working-copy root has an older revision. A failed check leaves update availability unknown; retry before concluding that no updates are available. Remote checks reuse the saved security settings for the matching server.
 
+The Update toolbar badge shares incoming-check results with this page. If a check fails, its last known count may remain visible with a failure hint; it does not prove that no updates exist. Use F5 or macOS Command-R to refresh local state without reloading the application.
+
 The remote commit count refers to the currently listed records, not the entire history. Update may merge local edits or produce conflicts; it does not commit local work.
 
 ## Compare changes
@@ -190,6 +192,16 @@ Select a file for inline preview or use the diff page to choose a file inside th
 Added lines have `+`; removed lines have `-`. Context helps locate the edit. Search is case-sensitive with previous/next navigation; Copy copies the full diff. Distinguish no differences from a load failure.
 
 When reviewing several files from Commit, use Previous/Next and Return to Commit. Binary content may not provide a line-by-line text diff.
+
+### Resolve conflicts
+
+Conflicted files appear first in the workspace, including property-only conflicts. The Workspace toolbar icon shows a yellow count badge. Selecting a conflict displays a read-only comparison; double-click the file, select its Resolve Conflicts icon, or choose Open Comparison for the full editor.
+
+- **Text:** Compare incoming, local, and available base content. Use Previous/Next Conflict, choose local or incoming blocks, or edit the result. Review the result before selecting Apply and Mark Resolved.
+- **Properties:** Compare each conflicting property, choose or edit its final value, or remove it. File content and unrelated properties remain unchanged.
+- **Trees:** Inspect both operations. For a file edited locally and deleted by the incoming change, keep the file or confirm deletion. For other cases, organize files with an appropriate SVN tool before marking the conflict resolved.
+
+If content cannot be read safely, review the original conflict information and resolve it externally. If the conflict changes after it was loaded, reload and review again before applying. Check the resulting changes and commit separately.
 
 ### Adjust diff text size
 
@@ -285,7 +297,7 @@ Reports should include version, OS, steps, expected/actual results, and the full
 
 Properties supports versioned rename/move, scheduled deletion, and recursive revert. Move targets are complete workspace-relative paths whose parents are already versioned. Review and commit renames/moves separately. Revert Local Changes discards descendant content, properties, and scheduled changes; uncommitted work may be permanently lost.
 
-Resolve Conflicts is available from the workspace or Properties. Keep Current Content clears status after you manually edit and remove markers. Local/repository choices replace the complete file and conflicted properties. Organize directory/tree conflicts first, then mark resolved. Review and commit afterward.
+Resolve Conflicts opens the dedicated comparison from the workspace or Properties. Text and property conflicts are reviewed separately; supported file edit/delete tree conflicts offer keep/delete choices. Other tree conflicts and unreadable conflict values require manual handling. Applying a resolution does not commit it.
 
 Relocate Repository URL handles a full address change for the same repository. SVN validates repository identity. It neither switches branches nor relocates external working copies automatically. Switch and general-purpose Merge require another client or CLI.
 
