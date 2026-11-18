@@ -230,7 +230,64 @@ pub async fn incoming_state(path: &str, limit: u32) -> Result<IncomingState, Svn
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::process::Command;
+    use std::io::Write;
+    use std::path::Path;
+    use std::process::{Command, Stdio};
+    use std::time::{Duration, Instant};
+
+    fn fixture_directory() -> std::path::PathBuf {
+        static SEQUENCE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let directory = std::env::temp_dir().join(format!(
+            "stonesvn-incoming-{}-{}-{}",
+            std::process::id(),
+            SEQUENCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&directory).unwrap();
+        directory
+    }
+
+    fn run_fixture(root: &Path, cwd: &Path, program: &str, args: &[&str], input: Option<&Path>) {
+        // Files avoid a full stdout/stderr pipe blocking the child while the
+        // parent polls its deadline. Keep them outside the working copies.
+        let stdout = root.join("command.stdout");
+        let stderr = root.join("command.stderr");
+        let mut command = Command::new(program);
+        command.current_dir(cwd);
+        if program == "svn" {
+            command.arg("--non-interactive");
+        }
+        command.args(args);
+        command.stdin(match input {
+            Some(path) => Stdio::from(std::fs::File::open(path).unwrap()),
+            None => Stdio::null(),
+        });
+        command.stdout(std::fs::File::create(&stdout).unwrap());
+        command.stderr(std::fs::File::create(&stderr).unwrap());
+        let mut child = command.spawn().expect("SVN test tools are required");
+        let started = Instant::now();
+        let status = loop {
+            if let Some(status) = child.try_wait().unwrap() {
+                break Some(status);
+            }
+            if started.elapsed() > Duration::from_secs(60) {
+                let _ = child.kill();
+                let _ = child.wait();
+                break None;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        };
+        assert!(
+            status.is_some_and(|status| status.success()),
+            "{program} {args:?} in {}: {status:?}\n{}\n{}",
+            cwd.display(),
+            std::fs::read_to_string(&stdout).unwrap_or_default(),
+            std::fs::read_to_string(&stderr).unwrap_or_default()
+        );
+    }
 
     #[test]
     fn relative_history_targets_preserve_names_before_at() {
@@ -249,38 +306,19 @@ mod tests {
 
     #[test]
     fn incoming_logs_follow_each_nodes_base_revision() {
-        let directory = std::env::temp_dir().join(format!(
-            "stonesvn-incoming-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        std::fs::create_dir_all(&directory).unwrap();
+        let directory = fixture_directory();
         let repository = directory.join("repo");
         let wc = directory.join("wc");
         let other = directory.join("other");
-        let created = Command::new("svnadmin")
-            .arg("create")
-            .arg(&repository)
-            .output()
-            .expect("svnadmin is required");
-        assert!(created.status.success());
+        run_fixture(
+            &directory,
+            &directory,
+            "svnadmin",
+            &["create", repository.to_str().unwrap()],
+            None,
+        );
         let url = tauri::Url::from_file_path(&repository).unwrap().to_string();
-        let run = |cwd: &std::path::Path, args: &[&str]| {
-            let output = Command::new("svn")
-                .current_dir(cwd)
-                .args(args)
-                .output()
-                .expect("svn is required");
-            assert!(
-                output.status.success(),
-                "{:?}: {}",
-                args,
-                String::from_utf8_lossy(&output.stderr)
-            );
-        };
+        let run = |cwd: &Path, args: &[&str]| run_fixture(&directory, cwd, "svn", args, None);
         run(&directory, &["checkout", &url, "wc"]);
         for name in ["自己.txt", "远端@文件.txt", "remove.txt", "props.txt"] {
             std::fs::write(wc.join(name), "base\n").unwrap();
@@ -408,21 +446,64 @@ mod tests {
                 .await
                 .unwrap()
                 .is_empty());
+        });
+        std::fs::remove_dir_all(directory).unwrap();
+    }
 
-            // The badge counts beyond both the display limit and log page size.
-            // Each commit touches two paths but counts as one revision.
-            for index in 0..105 {
-                for name in ["远端@文件.txt", "props.txt"] {
-                    std::fs::write(other.join(name), format!("remote {index}\n")).unwrap();
-                }
-                run(&other, &["commit", "-m", "count incoming"]);
+    #[test]
+    fn incoming_count_exceeds_display_limit_and_history_page_size() {
+        let directory = fixture_directory();
+        let repository = directory.join("repo");
+        let wc = directory.join("wc");
+        run_fixture(
+            &directory,
+            &directory,
+            "svnadmin",
+            &["create", repository.to_str().unwrap()],
+            None,
+        );
+        // Load real history in one subprocess instead of 106 working-copy
+        // commits. Both paths change in each revision, testing deduplication
+        // as well as traversal beyond the 100-entry log page boundary.
+        let dump = directory.join("history.dump");
+        let mut file = std::fs::File::create(&dump).unwrap();
+        writeln!(file, "SVN-fs-dump-format-version: 2\n").unwrap();
+        for revision in 0..=106 {
+            writeln!(file, "Revision-number: {revision}\nProp-content-length: 10\nContent-length: 10\n\nPROPS-END\n").unwrap();
+            if revision == 0 {
+                continue;
             }
+            for name in ["远端@文件.txt", "props.txt"] {
+                let text = format!("remote {revision}\n");
+                let action = if revision == 1 { "add" } else { "change" };
+                write!(file, "Node-path: {name}\nNode-kind: file\nNode-action: {action}\nText-content-length: {}\nContent-length: {}\n\n{text}\n", text.len(), text.len()).unwrap();
+            }
+        }
+        drop(file);
+        run_fixture(
+            &directory,
+            &directory,
+            "svnadmin",
+            &["load", "--quiet", repository.to_str().unwrap()],
+            Some(&dump),
+        );
+        let url = tauri::Url::from_file_path(&repository).unwrap().to_string();
+        let run = |cwd: &Path, args: &[&str]| run_fixture(&directory, cwd, "svn", args, None);
+        run(&directory, &["checkout", "-r", "1", &url, "wc"]);
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
             let state = incoming_state(wc.to_str().unwrap(), 50).await.unwrap();
             assert_eq!(state.total, 105);
             assert_eq!(state.logs.len(), 50);
+            assert_eq!(state.logs.first().unwrap().revision, 106);
+            assert_eq!(state.logs.last().unwrap().revision, 57);
             let state = incoming_state(wc.to_str().unwrap(), 1).await.unwrap();
             assert_eq!(state.total, 105);
             assert_eq!(state.logs.len(), 1);
+            assert_eq!(state.logs[0].revision, 106);
             run(&wc, &["update"]);
             assert_eq!(
                 incoming_state(wc.to_str().unwrap(), 50)
