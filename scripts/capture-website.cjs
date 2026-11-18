@@ -57,6 +57,10 @@ async function main() {
             (await import('/src/composables/useSettings.ts')).useSettings().updateSettings({ theme })
           }, theme)
           await settle(page)
+          if (await page.locator('.conflict-badge').textContent() !== '3'
+            || await page.locator('.incoming-badge:not(.conflict-badge)').textContent() !== '2') {
+            throw new Error(`Missing documentation toolbar badges for ${lang}/${theme}`)
+          }
           const actual = await page.evaluate(async () => (await import('/src/i18n/index.ts')).default.global.locale.value)
           if (actual !== locale) throw new Error(`Wrong screenshot locale: ${actual}`)
           const otherFile = page.locator('.workspace-files .file-item').filter({ has: page.locator('.file-path[title="docs/user-guide.md"]') })
@@ -125,7 +129,7 @@ async function main() {
           await page.evaluate(async () => { await (await import('/docs/images/workspace-demo.js')).showUpdateDemo() })
           await page.waitForSelector('.update-view')
           await settle(page)
-          if (await page.locator('.incoming-badge').textContent() !== '2') throw new Error('Incoming badge does not match the demo revisions')
+          if (await page.locator('.incoming-badge:not(.conflict-badge)').textContent() !== '2') throw new Error('Incoming badge does not match the demo revisions')
           await page.screenshot({ path: path.join(screenshots, `${lang}-update-incoming.png`) })
           await page.locator('.update-view .header-actions .el-button--primary').click()
           await page.waitForSelector('.result-summary')

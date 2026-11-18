@@ -11,8 +11,14 @@ export default (async () => {
     ['docs/images/workspace.png', 'added'],
     ['src/legacy-config.ts', 'deleted'],
     ['notes/release-checklist.md', 'unversioned'],
-  ].map(([path, status_code]) => ({ path, status_code, status: status_code,
-    prop_status: 'none', locked: false, history: false, switched: false }))
+    ['src/shipping-policy.ts', 'conflicted'],
+    ['config/shipping-policy.json', 'property-conflicted'],
+    ['src/legacy-shipping.ts', 'tree-conflicted'],
+  ].map(([path, status_code]) => ({ path, status_code: status_code === 'property-conflicted' ? 'modified' : status_code === 'tree-conflicted' ? 'conflicted' : status_code,
+    status: status_code.includes('conflicted') ? 'conflicted' : status_code,
+    prop_status: status_code === 'property-conflicted' ? 'conflicted' : 'none',
+    text_conflicted: status_code === 'conflicted', tree_conflicted: status_code === 'tree-conflicted',
+    locked: false, history: false, switched: false }))
   const info = { path, url: 'https://svn.example.com/stone-demo/trunk',
     repository_root: 'https://svn.example.com/stone-demo', revision: 128,
     node_kind: 'dir', schedule: 'normal' }
@@ -61,7 +67,10 @@ export default (async () => {
       if (command === 'svn_status') return files
       if (command === 'svn_info' || command === 'svn_remote_info') return info
       if (command === 'svn_local_revision') return 128
-      if (command === 'svn_incoming_state') return { revision: 128, logs: [], total: 0 }
+      if (command === 'svn_incoming_state') return { revision: 130, total: 2, logs: [
+        { revision: 130, author: 'demo', date: '2026-11-18T06:00:00Z', message: 'Improve workspace navigation', changed_paths: [{ action: 'M', path: '/trunk/src/config.ts' }] },
+        { revision: 129, author: 'demo', date: '2026-11-17T03:00:00Z', message: 'Update shipping policy', changed_paths: [{ action: 'M', path: '/trunk/src/shipping-policy.ts' }] },
+      ] }
       if (command === 'svn_log' || command === 'svn_file_log' || command === 'svn_incoming_logs') return []
       throw new Error(`Documentation demo does not support ${command}`)
     },
@@ -80,10 +89,19 @@ export default (async () => {
   store.setLoading(false)
   store.setError(null)
   await (await import('/node_modules/.vite/deps/vue.js')).nextTick()
-  document.querySelector('.file-path').click()
+  const incoming = (await import('/src/composables/useIncomingUpdates.ts')).useIncomingUpdates()
+  incoming.invalidate(path)
+  await incoming.check(path, true)
+  await (await import('/node_modules/.vite/deps/vue.js')).nextTick()
+  if (document.querySelector('.conflict-badge')?.textContent !== '3'
+    || document.querySelector('.incoming-badge:not(.conflict-badge)')?.textContent !== '2') {
+    throw new Error('Documentation toolbar must show three conflicts and two incoming revisions')
+  }
+  document.querySelector('.file-path[title="src/config.ts"]').click()
   await new Promise(resolve => setTimeout(resolve, 500))
   await document.fonts.ready
-  return 'Documentation workspace ready (six example paths, r128)'
+  if ([...document.fonts].some(font => font.status === 'error')) throw new Error('Documentation icon font did not load')
+  return 'Documentation workspace ready (nine example paths, r128)'
 })()
 
 // Display the property browser without invoking native dialogs or write commands.
