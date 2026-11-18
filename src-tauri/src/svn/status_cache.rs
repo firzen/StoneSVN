@@ -260,6 +260,8 @@ mod tests {
             status: code.into(),
             status_code: code.into(),
             prop_status: "none".into(),
+            tree_conflicted: false,
+            text_conflicted: false,
             locked: false,
             history: false,
             switched: false,

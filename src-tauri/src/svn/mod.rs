@@ -1,3 +1,5 @@
+mod conflicts;
+pub use conflicts::{apply_conflict, conflict_details, ConflictDetails, ConflictResolution};
 mod executor;
 mod file_filter;
 mod incoming;

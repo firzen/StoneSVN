@@ -5,7 +5,7 @@
         <div class="card-header">
           <span class="view-title">
             <el-icon><Connection /></el-icon>
-            {{ $t('diff.title') }}
+            {{ $t(currentHasConflict ? 'conflicts.title' : 'diff.title') }}
           </span>
           <div class="header-actions">
             <template v-if="fileList.length > 0">
@@ -83,7 +83,7 @@
         </div>
 
         <div class="diff-main">
-          <div class="diff-options">
+          <div v-if="!currentHasConflict" class="diff-options">
             <el-radio-group size="small" v-model="diffType" class="mode-switch" @change="handleDiffTypeChange">
               <el-radio-button label="working">{{ $t('diff.workingCopy') }}</el-radio-button>
               <el-radio-button label="revision">{{ $t('diff.betweenRevisions') }}</el-radio-button>
@@ -111,7 +111,8 @@
             </div>
           </div>
 
-          <div v-if="!diffResult && !loading" class="empty-diff">
+          <ConflictInspector v-if="currentHasConflict" :workspace="workspaceStore.currentPath!" :file="currentPath" :diff="diffResult?.diff || ''" @mutated="loadDiff" />
+          <div v-else-if="!diffResult && !loading" class="empty-diff">
             <el-empty :description="$t('diff.selectFileAndCompare')">
               <template #image>
                 <el-icon class="empty-icon"><Connection /></el-icon>
@@ -167,6 +168,7 @@ import OpenWorkspaceFileButton from '@/components/OpenWorkspaceFileButton.vue'
 import { useWorkspaceStore } from '@/stores/workspace'
 import { useI18n } from 'vue-i18n'
 import { toWorkspaceRelativePath } from '@/utils/workspacePath'
+import ConflictInspector from '@/components/ConflictInspector.vue'
 import FilePreview from '@/components/FilePreview.vue'
 import FileTypeIcon from '@/components/FileTypeIcon.vue'
 import VirtualViewport from '@/components/VirtualViewport.vue'
@@ -200,6 +202,11 @@ const fileStatusMap = computed(() => {
     map.set(s.path, s)
   }
   return map
+})
+
+const currentHasConflict = computed(() => {
+  const file = fileStatusMap.value.get(currentPath.value)
+  return diffType.value === 'working' && !!file && (file.status_code === 'conflicted' || file.prop_status === 'conflicted')
 })
 
 watch([currentFileIndex, () => fileList.value.length], async () => {

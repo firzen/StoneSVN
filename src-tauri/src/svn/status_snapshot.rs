@@ -10,8 +10,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 static NEXT_TEMP_FILE: AtomicU64 = AtomicU64::new(0);
 
-// Invalidate older snapshots that did not retain status entry directory types.
-const VERSION: u32 = 7;
+// Invalidate older snapshots without directory and conflict-type metadata.
+const VERSION: u32 = 8;
 const MAX_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_FILES: usize = 500_000;
 
@@ -957,6 +957,8 @@ mod tests {
                         status: "modified".into(),
                         status_code: value.to_string(),
                         prop_status: "none".into(),
+                        tree_conflicted: false,
+                        text_conflicted: false,
                         locked: false,
                         history: false,
                         switched: false,

@@ -4,6 +4,8 @@ const fs = require('node:fs')
 const ts = require('typescript')
 const vm = require('node:vm')
 const vue = require('vue')
+const statusContext = { exports: {} }
+vm.runInNewContext(ts.transpileModule(fs.readFileSync('src/composables/useSvnStatus.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 } }).outputText, statusContext)
 
 function deferred() {
   let resolve, reject
@@ -29,7 +31,7 @@ function harness(status = 'modified', path = 'file.ts') {
     },
     'element-plus/es/components/message/index': {},
     'element-plus/es/components/message-box/index': { ElMessageBox: { confirm: (...args) => { dialogs.push(args); return confirmation.promise } } },
-    '@/composables/useSvnStatus': {},
+    '@/composables/useSvnStatus': statusContext.exports,
     '@/composables/useWorkspace': { useWorkspace: () => ({ refreshStatusAfterMutation: async () => { refreshes++; return true } }) },
     '@/components/VirtualViewport.vue': {},
     '@/components/DiffViewer.vue': {},
@@ -55,7 +57,7 @@ test('workspace list and counts exclude property-only entries without losing act
     { path: 'conflict', status_code: 'normal', prop_status: 'conflicted' },
   ]
   h.store.statusList = entries
-  assert.deepEqual(Array.from(h.filteredFiles.value, file => file.path), ['changed.txt', 'new-directory', 'conflict'])
+  assert.deepEqual(Array.from(h.filteredFiles.value, file => file.path), ['conflict', 'changed.txt', 'new-directory'])
   assert.equal(h.workspaceFiles.value.length, 3)
   assert.equal(h.changedFileCount.value, 1)
   h.setFilter('modified')

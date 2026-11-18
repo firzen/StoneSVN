@@ -260,7 +260,7 @@ fn validate_restore_directory(xml: &str, revision: u64) -> Result<(), SvnError> 
     }
 }
 
-fn parse_properties(xml: &str) -> Result<Vec<SvnProperty>, SvnError> {
+pub(super) fn parse_properties(xml: &str) -> Result<Vec<SvnProperty>, SvnError> {
     // XML line endings are normalized before entity decoding. Windows SVN
     // emits CRLF on stdout; explicit &#13; property characters remain intact.
     let normalized = xml.replace("\r\n", "\n").replace('\r', "\n");

@@ -105,6 +105,8 @@ pub async fn revert_preview(
                     status: "unversioned".into(),
                     status_code: "unversioned".into(),
                     prop_status: "none".into(),
+                    tree_conflicted: false,
+                    text_conflicted: false,
                     locked: false,
                     history: false,
                     switched: false,

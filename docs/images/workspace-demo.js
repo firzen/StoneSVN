@@ -127,3 +127,54 @@ export async function showUpdateDemo() {
   await document.querySelector('#app').__vue_app__.config.globalProperties.$router.push({ name: 'update' })
   await (await import('/node_modules/.vite/deps/vue.js')).nextTick()
 }
+
+// Fictional conflicts for comparison captures; no real working-copy mutation.
+export async function showConflictDemo(kind = 'text', lineCount = 320) {
+  const app = document.querySelector('#app').__vue_app__
+  const store = (await import('/src/stores/workspace.ts')).useWorkspaceStore(app.config.globalProperties.$pinia)
+  const path = kind === 'property' ? 'config/shipping-policy.json' : kind === 'tree' ? 'src/legacy-shipping.ts' : 'src/shipping-policy.ts'
+  const base = Array.from({ length: lineCount }, (_, i) => {
+    if (i % 8 === 0) return `export function shippingRule${i}(order: Order) {`
+    if (i % 8 === 1) return '  const destination = order.destination'
+    if (i % 8 === 2) return '  const amount = order.subtotal'
+    if (i % 8 === 3) return '  return calculateRate(destination, amount, "standard")'
+    if (i % 8 === 4) return '}'
+    if (i % 8 === 5) return ''
+    if (i % 8 === 6) return '// Validate the destination before calculating the shipping rate.'
+    return ''
+  })
+  const points = [19, Math.floor(lineCount / 2 / 8) * 8 + 3, lineCount - 13]
+  const local = [...base], incoming = [...base], working = [...base]
+  for (const [i, line] of points.entries()) {
+    local[line] = `  return calculateRate(destination, amount, "scheduled-${i + 1}")`
+    incoming[line] = `  return calculateRate(destination, amount, "express-${i + 1}")`
+    working[line] = `<<<<<<< .mine\n${local[line]}\n||||||| .r128\n${base[line]}\n=======\n${incoming[line]}\n>>>>>>> .r129`
+  }
+  const text = lines => lines.join('\n') + '\n'
+  const details = {
+    text: kind === 'text', property: kind === 'property', tree: kind === 'tree',
+    operation: 'update', reason: kind === 'tree' ? 'edit' : '', action: kind === 'tree' ? 'delete' : '', directory: false,
+    working: text(working), local: text(local), incoming: text(incoming), base: text(base),
+    properties: kind === 'property' ? [{ name: 'demo:shipping-policy', local: '{\n  "delivery": "scheduled",\n  "retryLimit": 3\n}', base: '{\n  "delivery": "standard"\n}', incoming: '{\n  "delivery": "express",\n  "retryLimit": 5\n}', incoming_known: true }] : [],
+    rejection: null, unavailable: [], token: `documentation-${kind}`,
+  }
+  const originalInvoke = window.__TAURI_INTERNALS__.invoke
+  let resolved = false
+  const statuses = [
+    { path, status: 'conflicted', status_code: kind === 'property' ? 'modified' : 'conflicted', prop_status: kind === 'property' ? 'conflicted' : 'none', tree_conflicted: kind === 'tree', text_conflicted: kind === 'text', locked: false, history: false, switched: false },
+    { path: 'src/config.ts', status: 'modified', status_code: 'modified', prop_status: 'none', locked: false, history: false, switched: false },
+  ]
+  window.__TAURI_INTERNALS__.invoke = async (command, args) => {
+    if (command === 'svn_conflict_details') return details
+    if (command === 'svn_apply_conflict') {
+      window.__documentationConflictResolution = args
+      resolved = true
+      return ''
+    }
+    if (command === 'svn_status') return resolved ? statuses.map(s => ({ ...s, status_code: 'modified', prop_status: 'none', tree_conflicted: false, text_conflicted: false })) : statuses
+    return originalInvoke(command, args)
+  }
+  store.setStatusList(statuses)
+  await app.config.globalProperties.$router.push({ name: 'diff', query: { path } })
+  await (await import('/node_modules/.vite/deps/vue.js')).nextTick()
+}

@@ -234,3 +234,10 @@ export async function workspaceChildren(path: string, directory: string): Promis
 export async function workspaceSearch(path: string, query: string): Promise<import('@/types').WorkspaceChild[]> {
   return invoke('workspace_search', { path, query })
 }
+
+export async function svnConflictDetails(workspacePath: string, file: string) {
+  return invoke<import('@/types').ConflictDetails>('svn_conflict_details', { workspacePath, file })
+}
+export async function svnApplyConflict(workspacePath: string, file: string, resolution: import('@/types').ConflictResolution) {
+  return invoke<string>('svn_apply_conflict', { workspacePath, file, resolution })
+}

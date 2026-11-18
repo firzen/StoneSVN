@@ -73,7 +73,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   })
 
   const conflictedCount = computed(() => {
-    return statusList.value.filter(s => s.status_code === 'conflicted' || s.prop_status === 'conflicted').length
+    return new Set(statusList.value.filter(s => s.status_code === 'conflicted' || s.prop_status === 'conflicted').map(s => s.path)).size
   })
 
   const missingCount = computed(() => {

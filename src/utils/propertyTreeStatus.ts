@@ -27,6 +27,7 @@ export function propertyTreeStatuses(own: string, descendants: string[]): string
 export function propertyTreeStatus(path: string, entries: Map<string, SvnStatus>): string {
   const entry = entries.get(path)
   if (entry) {
+    if (entry.status_code === 'conflicted' || entry.prop_status === 'conflicted') return 'conflicted'
     if (entry.prop_status === 'modified' && ['normal', 'none', ''].includes(entry.status_code)) return 'modified'
     return statusSymbol(entry.status_code) ? entry.status_code : ''
   }

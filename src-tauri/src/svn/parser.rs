@@ -65,6 +65,7 @@ pub fn parse_status_xml(xml: &str) -> Result<Vec<SvnStatus>, SvnError> {
             },
             Ok(Event::End(ref e)) => {
                 if e.name().as_ref() == b"entry" && in_entry {
+                    let text_conflicted = status_code == "conflicted";
                     if tree_conflicted {
                         status_code = "conflicted".into();
                     }
@@ -78,6 +79,8 @@ pub fn parse_status_xml(xml: &str) -> Result<Vec<SvnStatus>, SvnError> {
                         } else {
                             prop_status.clone()
                         },
+                        tree_conflicted,
+                        text_conflicted,
                         locked,
                         switched,
                         history,

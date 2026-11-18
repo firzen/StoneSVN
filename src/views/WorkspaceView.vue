@@ -137,10 +137,11 @@
                 :style="{ height: `${fileRowHeight}px` }"
                 :class="{ selected: selectedFile === file.path }"
                 @click="selectFile(file)"
+                @dblclick="openConflictComparison($event, file)"
                 @contextmenu.prevent.stop="openFileContextMenu($event, file)"
               >
-                <span class="file-status" :class="getStatusClass(file.status_code)">
-                  {{ getStatusLabel(file.status_code) }}
+                <span class="file-status" :class="getStatusClass(conflictLabel(file) ? 'conflicted' : file.status_code)">
+                  {{ conflictLabel(file) || getStatusLabel(file.status_code) }}
                 </span>
                 <button
                   type="button"
@@ -154,12 +155,12 @@
                   @keydown.home.prevent="focusFile(0)"
                   @keydown.end.prevent="focusFile(filteredFiles.length - 1)"
                 >{{ file.path }}</button>
-                <div class="file-actions">
+                <div class="file-actions" :class="{ 'has-conflict': isConflicted(file) }">
                   <OpenWorkspaceFileButton v-if="!['deleted', 'missing'].includes(file.status_code)"
                     :workspace-path="workspaceStore.currentPath || ''" :file="file.path" :directory="file.directory" />
-                  <span @click.stop><SvnConflictActions :workspace="workspaceStore.currentPath!" :file="file.path" :status="file"
+                  <span @click.stop><SvnConflictActions icon-only :workspace="workspaceStore.currentPath!" :file="file.path" :status="file"
                     :disabled="pendingFileAction !== null" @mutated="refreshStatusAfterMutation" /></span>
-                  <el-tooltip :content="$t('common.diff')" placement="top" :show-after="150">
+                  <el-tooltip v-if="!isConflicted(file)" :content="$t('common.diff')" placement="top" :show-after="150">
                     <span class="file-action-trigger" :title="$t('common.diff')" @click.stop>
                       <el-button text size="small" :aria-label="$t('common.diff')" @click="viewDiff(file.path)">
                         <el-icon><Connection /></el-icon>
@@ -210,15 +211,16 @@
         <div class="panel-header">
           <span class="panel-title">
             <el-icon><Connection /></el-icon>
-            {{ $t('diff.title') }}
+            {{ $t(selectedHasConflict ? 'status.conflicted' : 'diff.title') }}
           </span>
         </div>
-        <div class="panel-content" :aria-busy="isLoadingDiff">
-          <GlassLoading v-if="showDiffLoading" :active="true" :label="$t('common.loading')" />
+        <div class="panel-content" :aria-busy="isLoadingDiff && !selectedHasConflict">
+          <GlassLoading v-if="showDiffLoading && !selectedHasConflict" :active="true" :label="$t('common.loading')" />
           <div v-if="!selectedFile" class="empty-diff">
             <el-icon><Document /></el-icon>
             <span>{{ $t('diff.selectFile') }}</span>
           </div>
+          <ConflictPreview v-else-if="selectedHasConflict && selectedFile" :workspace="workspaceStore.currentPath!" :file="selectedFile" :disabled="workspaceStore.operationBusy" @compare="viewDiff(selectedFile)" />
           <div v-else-if="isLoadingDiff" class="loading-diff">
             <el-skeleton v-if="showDiffLoading" :rows="10" />
           </div>
@@ -248,6 +250,7 @@
 </template>
 
 <script setup lang="ts">
+import ConflictPreview from '@/components/ConflictPreview.vue'
 import RevertImpactTree from '@/components/RevertImpactTree.vue'
 import SvnConflictActions from '@/components/SvnConflictActions.vue'
 import SvnRelocateAction from '@/components/SvnRelocateAction.vue'
@@ -258,7 +261,7 @@ import { deleteUnversioned, revealWorkspaceFile, svnCleanup, svnRevert, svnRever
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
-import { getStatusClass, getStatusLabelKey } from '@/composables/useSvnStatus'
+import { getStatusClass, getStatusLabelKey, isConflicted, prioritizeConflicts } from '@/composables/useSvnStatus'
 import { useWorkspace } from '@/composables/useWorkspace'
 import VirtualViewport from '@/components/VirtualViewport.vue'
 import FilePreview from '@/components/FilePreview.vue'
@@ -285,6 +288,15 @@ watch(isLoadingDiff, (loading) => {
   showDiffLoading.value = false
   if (loading) diffLoadingTimer = setTimeout(() => { showDiffLoading.value = true }, 120)
 }, { flush: 'sync' })
+const selectedStatus = computed(() => workspaceStore.statusList.find(file => file.path === selectedFile.value))
+const selectedHasConflict = computed(() => !!selectedStatus.value && (selectedStatus.value.status_code === 'conflicted' || selectedStatus.value.prop_status === 'conflicted'))
+function conflictLabel(file: SvnStatus) {
+  const types = []
+  if (file.text_conflicted || file.status_code === 'conflicted' && !file.tree_conflicted) types.push(t('conflicts.text'))
+  if (file.prop_status === 'conflicted') types.push(t('conflicts.property'))
+  if (file.tree_conflicted) types.push(t('conflicts.tree'))
+  return types.join(' / ')
+}
 const diffResult = ref<FilePreviewResult | null>(null)
 let diffRequestGeneration = 0
 let pendingDiff: { workspacePath: string; path: string; generation: number } | null = null
@@ -308,8 +320,8 @@ const diffStats = ref({ added: 0, removed: 0 })
 
 // The workspace lists content changes. Keep property-only changes in the
 // shared SVN snapshot for commit/revert, but do not show them as empty files.
-const workspaceFiles = computed(() => workspaceStore.statusList.filter(file =>
-  !['normal', 'none', ''].includes(file.status_code) || file.prop_status === 'conflicted'))
+const workspaceFiles = computed(() => prioritizeConflicts(workspaceStore.statusList.filter(file =>
+  !['normal', 'none', ''].includes(file.status_code) || file.prop_status === 'conflicted')))
 const changedFileCount = computed(() => workspaceFiles.value.filter(file =>
   ['modified', 'added', 'deleted', 'replaced'].includes(file.status_code)).length)
 
@@ -341,6 +353,13 @@ const selectFile = async (file: SvnStatus) => {
   hideFileContextMenu()
   if (selectedFile.value === file.path && isLoadingDiff.value) return
   selectedFile.value = file.path
+  if (file.status_code === 'conflicted' || file.prop_status === 'conflicted') {
+    diffRequestGeneration += 1
+    pendingDiff = null
+    diffResult.value = null
+    isLoadingDiff.value = false
+    return
+  }
   await loadDiff(file.path)
 }
 
@@ -403,6 +422,11 @@ const doCleanup = async () => {
   } catch (err) {
     workspaceStore.setError(String(err))
   }
+}
+
+const openConflictComparison = (event: MouseEvent, file: SvnStatus) => {
+  if (!isConflicted(file) || (event.target instanceof Element && event.target.closest('.file-actions'))) return
+  viewDiff(file.path)
 }
 
 const viewDiff = (path: string) => {
@@ -940,6 +964,27 @@ const handleFileAction = async (file: SvnStatus) => {
   color: var(--md-sys-color-on-error);
   border-color: var(--md-sys-color-error);
   background: var(--md-sys-color-error);
+}
+
+.file-actions.has-conflict { opacity: 1; }
+
+.file-actions :deep(.conflict-resolve-button) {
+  box-sizing: border-box;
+  width: 28px;
+  min-width: 28px;
+  height: 26px;
+  min-height: 26px;
+  background: var(--el-color-warning-light-9);
+  border-color: var(--el-color-warning-light-5);
+  color: var(--el-color-warning-dark-2);
+}
+
+.file-actions :deep(.conflict-resolve-button .el-icon) { font-size: 16px; }
+
+.file-actions :deep(.conflict-resolve-button:hover),
+.file-actions :deep(.conflict-resolve-button:focus-visible) {
+  background: var(--el-color-warning-light-8);
+  border-color: var(--el-color-warning);
 }
 
 .file-action-trigger {

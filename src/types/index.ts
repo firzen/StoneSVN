@@ -23,6 +23,8 @@ export interface SvnStatus {
   directory?: boolean
   status: string
   status_code: string
+  tree_conflicted?: boolean
+  text_conflicted?: boolean
   prop_status: string
   locked: boolean
   history: boolean
@@ -127,4 +129,37 @@ export interface WorkspaceChild {
   name: string
   directory: boolean
   expandable?: boolean
+}
+
+export interface ConflictProperty {
+  name: string
+  local: string | null
+  base: string | null
+  incoming: string | null
+  incoming_known: boolean
+}
+export interface ConflictDetails {
+  text: boolean
+  property: boolean
+  tree: boolean
+  directory: boolean
+  operation: string
+  reason: string
+  action: string
+  base: string | null
+  local: string | null
+  incoming: string | null
+  working: string | null
+  properties: ConflictProperty[]
+  rejection: string | null
+  unavailable: string[]
+  token: string
+}
+export interface ConflictResolution {
+  token: string
+  text: string | null
+  properties: { name: string; value: string | null }[]
+  manual_text: boolean
+  manual_properties: boolean
+  tree: string
 }

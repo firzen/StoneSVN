@@ -137,6 +137,31 @@ async function main() {
           }
 
         }
+        if (process.env.SCREENSHOT_INCLUDE_CONFLICTS === '1') {
+          for (const kind of ['text', 'property', 'tree']) {
+            await page.evaluate(async kind => (await import('/docs/images/workspace-demo.js')).showConflictDemo(kind), kind)
+            if (kind !== 'tree') await page.waitForSelector('.conflict-code-compare .monaco-diff-editor')
+            else await page.waitForSelector('.tree-details')
+            for (const theme of ['light', 'dark']) {
+              await page.evaluate(async theme => (await import('/src/composables/useSettings.ts')).useSettings().updateSettings({ theme }), theme)
+              await settle(page)
+              await page.screenshot({ path: path.join(screenshots, `${lang}-conflict-${kind}-${theme}.png`) })
+            }
+          }
+          await page.evaluate(async () => {
+            await (await import('/docs/images/workspace-demo.js')).showConflictDemo('text')
+            await document.querySelector('#app').__vue_app__.config.globalProperties.$router.push({ name: 'workspace' })
+          })
+          await page.locator('.file-path[title="src/shipping-policy.ts"]').click()
+          await page.waitForSelector('.right-panel .conflict-preview .monaco-diff-editor')
+          for (const theme of ['light', 'dark']) {
+            await page.evaluate(async theme => (await import('/src/composables/useSettings.ts')).useSettings().updateSettings({ theme }), theme)
+            await settle(page)
+            await page.screenshot({ path: path.join(screenshots, `${lang}-conflict-preview-${theme}.png`) })
+          }
+          await page.locator('.conflict-preview .el-button--primary').click()
+          await page.waitForSelector('.diff-view .conflict-inspector')
+        }
         if (errors.length) throw new Error(`Screenshot UI errors: ${errors.join('; ')}`)
         console.log(`${lang}: workspace light/dark + properties${includeDetails ? ' light/dark' : ''} captured`)
       } finally {

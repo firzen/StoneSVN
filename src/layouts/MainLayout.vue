@@ -10,8 +10,9 @@
         </button>
       </div>
       <nav class="toolbar-actions" :aria-label="$t('workspace.application')">
-        <button class="tool-button" :class="{ active: routeName === 'workspace' }" :aria-current="routeName === 'workspace' ? 'page' : undefined" :title="$t('menu.workspace')" :disabled="workspaceStore.operationBusy" @click="navigateTo('workspace')">
+        <button class="tool-button" :class="{ active: routeName === 'workspace' }" :aria-current="routeName === 'workspace' ? 'page' : undefined" :title="workspaceTitle" :aria-label="workspaceTitle" :disabled="workspaceStore.operationBusy" @click="navigateTo('workspace')">
           <el-icon><FolderOpened /></el-icon><span>{{ $t('menu.workspace') }}</span>
+          <span v-if="workspaceStore.conflictedCount > 0" class="incoming-badge conflict-badge" aria-hidden="true">{{ workspaceStore.conflictedCount > 99 ? '99+' : workspaceStore.conflictedCount }}</span>
         </button>
         <button class="tool-button" :class="{ active: routeName === 'log' }" :aria-current="routeName === 'log' ? 'page' : undefined" :title="$t('menu.log')" :disabled="workspaceStore.operationBusy" @click="navigateTo('log')">
           <el-icon><GitBranch /></el-icon><span>{{ $t('menu.log') }}</span>
@@ -199,6 +200,8 @@ const {
 } = useUpdateCheck()
 const routeView = ref<{ refresh?: () => void | Promise<void> } | null>(null)
 const incoming = useIncomingUpdates()
+const workspaceTitle = computed(() => workspaceStore.conflictedCount > 0
+  ? t('conflicts.badgeHint', { count: workspaceStore.conflictedCount }) : t('menu.workspace'))
 const incomingTotal = computed(() => incoming.state.value?.total || 0)
 const incomingTitle = computed(() => {
   const state = incoming.state.value
@@ -480,6 +483,8 @@ onUnmounted(() => {
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
+
+.conflict-badge { background: #f4c145; color: #3d2b00; }
 
 .tool-button {
   position: relative;

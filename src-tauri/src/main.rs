@@ -529,6 +529,10 @@ pub struct SvnStatus {
     pub status: String,
     pub status_code: String,
     pub prop_status: String,
+    #[serde(default)]
+    pub tree_conflicted: bool,
+    #[serde(default)]
+    pub text_conflicted: bool,
     pub locked: bool,
     pub history: bool,
     pub switched: bool,
@@ -744,6 +748,27 @@ async fn svn_incoming_state(
 #[tauri::command]
 async fn svn_remote_info(path: String) -> Result<SvnInfo, String> {
     svn::remote_info(&path).await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn svn_conflict_details(
+    workspace_path: String,
+    file: String,
+) -> Result<svn::ConflictDetails, String> {
+    svn::conflict_details(&workspace_path, &file)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn svn_apply_conflict(
+    workspace_path: String,
+    file: String,
+    resolution: svn::ConflictResolution,
+) -> Result<String, String> {
+    svn::apply_conflict(&workspace_path, &file, resolution)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1332,6 +1357,8 @@ fn main() {
             svn_incoming_state,
             svn_diff,
             svn_file_preview,
+            svn_conflict_details,
+            svn_apply_conflict,
             svn_apply_patch,
             svn_blame,
             svn_export,

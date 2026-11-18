@@ -26,6 +26,7 @@ function harness(component, api = {}) {
       svnInfo: api.info || (async () => detail().info),
       svnRelocate: async (...args) => { calls.push(['relocate', ...args]); if (api.relocate) return api.relocate(...args); return { success: true } },
     },
+    'vue-router': { useRouter: () => ({ push: route => { calls.push(['navigate', route]) } }) },
     '@/stores/workspace': { useWorkspaceStore: () => store },
     '@/composables/useWorkspace': { useWorkspace: () => ({ refreshStatusAfterMutation: async () => { refreshes++; return api.refresh !== false } }) },
     '@/composables/usePropertyTree': { propertyTree: { project: () => treeState, select: (...args) => calls.push(['select', ...args]) } },
@@ -35,7 +36,7 @@ function harness(component, api = {}) {
   }
   const names = {
     SvnTargetOperations: 'canMove, canRevert, hasDraft, moveTarget, revertTarget, validDestination',
-    SvnConflictActions: 'canResolve, openDialog, resolveTarget, visible, strategy, busy',
+    SvnConflictActions: 'canResolve, openDialog',
     SvnRelocateAction: 'relocateTarget, validUrl',
   }
   const source = fs.readFileSync(`src/components/${component}.vue`, 'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
@@ -98,27 +99,23 @@ test('directory revert includes descendants and root but ignores untracked-only 
   h.stop()
 })
 
-test('conflict dialog applies the chosen strategy and prevents duplicate submissions', async () => {
-  let finish
-  const h = harness('SvnConflictActions', { resolve: () => new Promise(resolve => { finish = resolve }) })
+test('conflict action opens the dedicated inspector without mutating the selected file', () => {
+  const h = harness('SvnConflictActions')
   h.props.status.status_code = 'conflicted'
-  h.openDialog(); h.strategy.value = 'theirs-full'
-  const pending = h.resolveTarget()
-  await h.resolveTarget()
-  assert.equal(h.calls.length, 1)
-  assert.deepEqual(JSON.parse(JSON.stringify(h.calls[0])), ['resolve', '/wc', ['dir/file.txt'], 'theirs-full'])
-  finish({ success: true }); await pending
-  assert.equal(h.refreshes(), 1); assert.equal(h.visible.value, false); assert.equal(h.store.operationBusy, false)
+  h.openDialog()
+  assert.deepEqual(JSON.parse(JSON.stringify(h.calls)), [['navigate', { name: 'diff', query: { path: 'dir/file.txt' } }]])
+  assert.equal(h.refreshes(), 0)
   h.stop()
 })
 
-test('conflict cancellation, changed targets and failed commands cannot falsely report resolution', async () => {
-  const h = harness('SvnConflictActions', { resolve: async () => { throw Error('tree conflict') } })
+test('conflict action respects property conflicts, busy state, stale status and project identity', () => {
+  const h = harness('SvnConflictActions')
   h.props.status.prop_status = 'conflicted'
-  h.openDialog(); h.visible.value = false; await h.resolveTarget(); assert.equal(h.calls.length, 0)
-  h.openDialog(); h.props.file = 'other'; await flush(); await h.resolveTarget(); assert.equal(h.calls.length, 0)
-  h.openDialog(); await h.resolveTarget()
-  assert.equal(h.refreshes(), 1); assert.equal(h.store.operationBusy, false); assert.equal(h.messages[0][0], 'error')
+  assert.equal(h.canResolve.value, true)
+  h.store.operationBusy = true; h.openDialog(); assert.equal(h.calls.length, 0)
+  h.store.operationBusy = false; h.store.statusIsStale = true; h.openDialog(); assert.equal(h.calls.length, 0)
+  h.store.statusIsStale = false; h.store.currentPath = '/other'; h.openDialog(); assert.equal(h.calls.length, 0)
+  h.store.currentPath = '/wc'; h.props.disabled = true; h.openDialog(); assert.equal(h.calls.length, 0)
   h.stop()
 })
 

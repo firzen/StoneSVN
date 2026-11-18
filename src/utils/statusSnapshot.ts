@@ -9,6 +9,7 @@ export function sameStatusSnapshot(previous: SvnStatus[], next: SvnStatus[]): bo
     const other = next[index]
     return entry.path === other.path && entry.status === other.status
       && entry.status_code === other.status_code && entry.prop_status === other.prop_status
+      && !!entry.tree_conflicted === !!other.tree_conflicted && !!entry.text_conflicted === !!other.text_conflicted
       && entry.locked === other.locked && entry.history === other.history && entry.switched === other.switched
   })
 }

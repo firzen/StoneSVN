@@ -19,7 +19,7 @@ const file = { path: 'src/file.php', status: 'M', status_code: 'modified', prop_
 test('status equality includes all SVN flags, paths and ordering', () => {
   assert.equal(snapshots.sameStatusSnapshot([file], [{ ...file }]), true)
   assert.equal(snapshots.sameStatusSnapshot([], [file]), false)
-  for (const [field, value] of Object.entries({ path: 'other.php', status: 'A', status_code: 'added', prop_status: 'modified', locked: true, history: true, switched: true })) {
+  for (const [field, value] of Object.entries({ path: 'other.php', status: 'A', status_code: 'added', prop_status: 'modified', locked: true, history: true, switched: true, tree_conflicted: true, text_conflicted: true })) {
     assert.equal(snapshots.sameStatusSnapshot([file], [{ ...file, [field]: value }]), false, field)
   }
   const second = { ...file, path: 'src/second.php' }
@@ -49,5 +49,26 @@ test('unchanged IPC snapshots do not invalidate cached views, actual changes sti
   assert.equal(renders, 3)
   assert.equal(store.statusList.length, 0)
   stop()
+  store.$dispose()
+})
+
+test('workspace conflict count counts each path once across text, property and tree conflicts', () => {
+  pinia.setActivePinia(pinia.createPinia())
+  const { useWorkspaceStore } = compile('src/stores/workspace.ts', {
+    vue, pinia,
+    '@/utils/workspaceSnapshot': { invalidateWorkspaceSnapshot() {} },
+    '@/utils/statusSnapshot': snapshots,
+  }, { localStorage: { getItem: () => null, setItem() {}, removeItem() {} } })
+  const store = useWorkspaceStore()
+  store.setStatusList([
+    { ...file, path: 'both.txt', status_code: 'conflicted', prop_status: 'conflicted' },
+    { ...file, path: 'property.txt', prop_status: 'conflicted' },
+    { ...file, path: 'tree.txt', status_code: 'conflicted', tree_conflicted: true },
+    { ...file, path: 'both.txt', status_code: 'conflicted' },
+    file,
+  ])
+  assert.equal(store.conflictedCount, 3)
+  store.clearWorkspace()
+  assert.equal(store.conflictedCount, 0)
   store.$dispose()
 })
