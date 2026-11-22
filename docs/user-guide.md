@@ -2,7 +2,7 @@
 
 English | [简体中文](user-guide.zh-CN.md)
 
-Applies to the current 1.2.0 source. Updated: 2026-11-18. Older releases may have a different interface.
+Applies to the current 1.2.1 source. Updated: 2026-11-22. Older releases may have a different interface.
 
 This guide covers checkout, reviewing changes, committing, updating, and browsing history for code, documents, and other SVN-managed files. No implementation knowledge is required.
 
@@ -250,7 +250,7 @@ Choose or enter a file in Trace and load its revisions, authors, dates, and mess
 
 | Setting | Meaning |
 | --- | --- |
-| Language | Simplified/Traditional Chinese, English, Japanese, Korean; also accessible from the toolbar. |
+| Language | Simplified/Traditional Chinese, English, Japanese, Korean. The toolbar also offers a language shortcut at window widths of 1024 pixels and above. |
 | Theme | Light, Dark, or System. |
 | SVN executable | Empty for system `svn`, or an actual executable path. |
 | Remembered servers | Inspect/remove saved TLS or certificate exceptions. |

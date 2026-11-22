@@ -84,7 +84,7 @@
         <button class="tool-button" :class="{ active: routeName === 'settings' }" :title="$t('menu.settings')" :disabled="workspaceStore.operationBusy" @click="navigateTo('settings')">
           <el-icon><Setting /></el-icon><span>{{ $t('menu.settings') }}</span>
         </button>
-        <LanguageSwitcher />
+        <LanguageSwitcher class="toolbar-language" />
       </div>
     </header>
 
@@ -888,11 +888,18 @@ onUnmounted(() => {
 }
 
 @media (max-width: 1180px) {
-  .fork-shell { grid-template-rows: auto minmax(0, 1fr) var(--app-size-statusbar); }
-  .fork-toolbar { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding-block: 8px; row-gap: 8px; }
-  .toolbar-brand { grid-column: 1; grid-row: 1; }
-  .toolbar-group-right { grid-column: 2; grid-row: 1; }
-  .toolbar-actions { grid-column: 1 / -1; grid-row: 2; justify-self: stretch; max-width: 100%; flex-wrap: nowrap; justify-content: safe center; }
+  .fork-toolbar { gap: 8px; min-height: 64px; padding: 4px 12px; }
+  .toolbar-actions, .toolbar-group-right { gap: 4px; }
+  .toolbar-divider { margin-inline: 2px; }
+  .tool-button, .open-in-trigger { padding-inline: 8px; }
+}
+@media (width < 1024px) {
+  .toolbar-group-right .toolbar-language { display: none; }
+}
+@media (width < 940px) {
+  .brand-button { min-width: 0; padding: 0; }
+  .brand-name { display: none; }
+  .tool-button, .open-in-trigger { padding-inline: 5px; }
 }
 @media (max-width: 650px) {
   .fork-content { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
@@ -903,10 +910,6 @@ onUnmounted(() => {
   .project-item { min-height: 44px; }
   .project-copy small, .sidebar-resizer { display: none; }
   .project-add { min-height: 32px; padding: 4px 8px; }
-  .toolbar-actions { gap: 4px; }
-  .toolbar-divider { margin-inline: 2px; }
-  .tool-button, .open-in-trigger { padding-inline: 8px; }
-  .fork-toolbar { padding-inline: 12px; }
   .route-header { padding-inline: 12px; gap: 8px; }
   .route-title { font-size: var(--app-font-size-body); gap: 6px; }
   .route-repository { max-width: 36%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

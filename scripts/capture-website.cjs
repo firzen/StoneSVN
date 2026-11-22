@@ -52,6 +52,17 @@ async function main() {
           (await import('/src/i18n/index.ts')).default.global.locale.value = locale
           ;(await import('/src/composables/useSettings.ts')).useSettings().updateSettings({ language: locale, theme: 'light' })
         }, locale)
+        await page.setViewportSize({ width: 800, height: 900 })
+        await page.evaluate(() => document.fonts.ready)
+        const compactToolbarFits = await page.locator('.fork-toolbar').evaluate(toolbar => {
+          const actions = toolbar.querySelector('.toolbar-actions')
+          const language = toolbar.querySelector('.toolbar-language')
+          return actions.scrollWidth === actions.clientWidth
+            && getComputedStyle(language).display === 'none'
+            && toolbar.clientHeight < actions.clientHeight * 2
+        })
+        if (!compactToolbarFits) throw new Error(`Compact toolbar does not fit for ${lang}`)
+        await page.setViewportSize({ width: 1440, height: 900 })
         for (const theme of ['light', 'dark']) {
           await page.evaluate(async theme => {
             (await import('/src/composables/useSettings.ts')).useSettings().updateSettings({ theme })

@@ -1,0 +1,42 @@
+{
+  "en": {
+    "title": "Single-row toolbar in narrow windows",
+    "items": [
+      "Keep workspace actions and Settings on one row, leaving more vertical space for the workspace.",
+      "Below 1024 pixels, change the language in Settings → Appearance.",
+      "Workspace screenshots show example conflict and incoming revision counts."
+    ]
+  },
+  "zh-CN": {
+    "title": "窄窗口使用单行顶栏",
+    "items": [
+      "工作区操作和设置保持在同一行，给工作区留出更多垂直空间。",
+      "窗口宽度低于 1024 像素时，通过「设置 → 外观 → 语言」切换语言。",
+      "工作区截图展示示例冲突数和远端待更新版本数。"
+    ]
+  },
+  "zh-TW": {
+    "title": "窄視窗採用單列工具列",
+    "items": [
+      "工作區操作和設定維持在同一列，為工作區保留更多垂直空間。",
+      "視窗寬度低於 1024 像素時，可在「設定 → 外觀 → 語言」切換語言。",
+      "工作區截圖顯示範例衝突數及遠端待更新版本數。"
+    ]
+  },
+  "ja": {
+    "title": "狭いウィンドウでもツールバーを 1 行に表示",
+    "items": [
+      "ワークスペースの操作と設定を 1 行に収め、作業領域を縦に広く使えます。",
+      "ウィンドウ幅が 1024 ピクセル未満の場合は、設定の外観から言語を切り替えられます。",
+      "ワークスペースのスクリーンショットに、競合件数と受信待ちリビジョン数の例を表示します。"
+    ]
+  },
+  "ko": {
+    "title": "좁은 창에서도 도구 모음을 한 줄로 표시",
+    "items": [
+      "작업 공간 기능과 설정을 한 줄에 배치해 작업 공간의 세로 영역을 넓혔습니다.",
+      "창 너비가 1024픽셀 미만이면 설정의 모양 항목에서 언어를 변경할 수 있습니다.",
+      "작업 공간 스크린샷에 충돌 수와 수신 대기 중인 리비전 수의 예시를 표시합니다."
+    ]
+  }
+}
