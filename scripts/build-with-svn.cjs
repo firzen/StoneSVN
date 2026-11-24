@@ -20,8 +20,8 @@ const probe = spawnSync(executable, ['--version', '--quiet'], {
   windowsHide: true,
 })
 if (probe.error) throw probe.error
-if (probe.status !== 0 || !/^1\.14\.\d+(?:-SlikSvn)?$/.test(probe.stdout.trim())) {
-  throw new Error(`Expected a runnable Subversion 1.14 client: ${probe.stderr || probe.stdout}`)
+if (probe.status !== 0 || !/^1\.(?:14|15)\.\d+(?:-SlikSvn)?$/.test(probe.stdout.trim())) {
+  throw new Error(`Expected a runnable Subversion 1.14 or 1.15 client: ${probe.stderr || probe.stdout}`)
 }
 
 const config = JSON.stringify({ bundle: { resources: { [runtime]: 'svn-runtime/' } } })

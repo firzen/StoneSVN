@@ -35,7 +35,7 @@ function svn(args, cwd = root) {
 }
 
 try {
-  assert.match(svn(['--version', '--quiet']), /^1\.14\.\d+(?:-SlikSvn)?\s*$/)
+  assert.match(svn(['--version', '--quiet']), /^1\.(?:14|15)\.\d+(?:-SlikSvn)?\s*$/)
   execFileSync(path.resolve(adminPath), ['create', repo], { timeout: 30000 })
   svn(['checkout', pathToFileURL(repo).href, work])
   svn(['checkout', pathToFileURL(repo).href, secondWork])

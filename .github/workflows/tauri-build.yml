@@ -117,7 +117,7 @@ jobs:
             apt_options+=(-o "Acquire::https::Proxy=${HTTPS_PROXY:-$https_proxy}")
           fi
           sudo apt-get "${apt_options[@]}" -o APT::Update::Error-Mode=any update
-          sudo apt-get "${apt_options[@]}" install -y pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf subversion rpm2cpio cpio
+          sudo apt-get "${apt_options[@]}" install -y pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf subversion rpm2cpio cpio squashfs-tools
       - name: Install SVN on Windows
         if: matrix.platform == 'windows-latest'
         shell: pwsh
@@ -264,13 +264,28 @@ jobs:
         shell: bash
         run: |
           bundle="$(realpath src-tauri/target/release/bundle)"
-          mkdir -p "$RUNNER_TEMP/StoneSVN-"{deb,rpm,appimage}
-          dpkg-deb -x "$bundle"/deb/*.deb "$RUNNER_TEMP/StoneSVN-deb"
-          (cd "$RUNNER_TEMP/StoneSVN-rpm" && rpm2cpio "$bundle"/rpm/*.rpm | cpio -id --quiet)
-          (cd "$RUNNER_TEMP/StoneSVN-appimage" && "$bundle"/appimage/*.AppImage --appimage-extract >/dev/null)
           for format in deb rpm appimage; do
-            client="$(find "$RUNNER_TEMP/StoneSVN-$format" -path '*/svn-runtime/svn' -type f)"
-            test -n "$client"
+            echo "Checking bundled SVN in $format"
+            destination="$RUNNER_TEMP/StoneSVN-$format"
+            case "$format" in
+              deb) dpkg-deb -x "$bundle"/deb/*.deb "$destination" ;;
+              rpm)
+                mkdir -p "$destination"
+                (cd "$destination" && rpm2cpio "$bundle"/rpm/*.rpm | cpio -id --quiet)
+                ;;
+              appimage)
+                images=("$bundle"/appimage/*.AppImage)
+                test "${#images[@]}" = 1
+                image="${images[0]}"
+                offset="$("$image" --appimage-offset)"
+                unsquashfs -no-progress -o "$offset" -d "$destination" "$image"
+                ;;
+            esac
+            client="$(find "$destination" -path '*/svn-runtime/svn' -print)"
+            if [[ ! -x "$client" ]]; then
+              echo "::error::No executable bundled SVN found in $format"
+              exit 1
+            fi
             node scripts/check-bundled-svn.cjs "$client" "$(command -v svnadmin)"
           done
 
