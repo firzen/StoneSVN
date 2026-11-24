@@ -20,7 +20,7 @@ const probe = spawnSync(executable, ['--version', '--quiet'], {
   windowsHide: true,
 })
 if (probe.error) throw probe.error
-if (probe.status !== 0 || !/^1\.14\.\d+$/.test(probe.stdout.trim())) {
+if (probe.status !== 0 || !/^1\.14\.\d+(?:-SlikSvn)?$/.test(probe.stdout.trim())) {
   throw new Error(`Expected a runnable Subversion 1.14 client: ${probe.stderr || probe.stdout}`)
 }
 

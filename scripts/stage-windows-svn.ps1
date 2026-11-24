@@ -71,7 +71,7 @@ try {
     'StoneSVN modifies the manifest of svn.exe to select the UTF-8 code page.' |
         Set-Content -LiteralPath (Join-Path $licenses 'StoneSVN-modifications.txt') -Encoding utf8
     $version = & $svn --version --quiet
-    if ($LASTEXITCODE -ne 0 -or $version -ne '1.14.5') {
+    if ($LASTEXITCODE -ne 0 -or $version -notmatch '^1\.14\.5(?:-SlikSvn)?$') {
         throw "Unexpected SVN version: $version"
     }
     Write-Output $version
