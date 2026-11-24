@@ -17,6 +17,14 @@ gh workflow run tauri-build.yml --repo firzen/StoneSVN --ref main
 
 不需要创建标签、上传安装包或手动更新官网。
 
+### 临时使用本机 Apple Silicon runner
+
+GitHub 托管的 Apple Silicon runner 持续不可用时，可为可信的 macOS ARM64 本机注册带有专用 `stonesvn-release-temp` 标签和 `--ephemeral` 参数的临时 runner，不安装常驻服务。启动前准备好 SVN 和 svnadmin；本机模式直接使用现有工具，不升级 Homebrew。对当前 `main` 手动运行并传入 `-f local_macos_arm=true`。仅 Apple Silicon 任务更换 runner，四个平台的检查、打包、签名、产物验证和发布门禁全部保留。工作流有改动时，必须在新提交上重新运行。单次任务完成后确认 runner 已注销、进程已退出，并清除其凭据和临时检出目录。不要让此 runner 执行不可信的拉取请求代码。
+
+```bash
+gh workflow run tauri-build.yml --repo firzen/StoneSVN --ref main -f local_macos_arm=true
+```
+
 ## Codex 下次发版与完成验收
 
 [AGENTS.md](../AGENTS.md) 是代码代理的长期入口。下次发版先读取它，不依赖历史聊天或临时目录。仅要求维护文档、完善流程时，不自动增加版本或发布新版本。

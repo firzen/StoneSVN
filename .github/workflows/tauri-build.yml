@@ -8,6 +8,10 @@ on:
         description: Check and build all platforms without creating a tag or release
         type: boolean
         default: false
+      local_macos_arm:
+        description: Use a temporary self-hosted macOS ARM64 runner for the Apple Silicon job
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths:
@@ -71,7 +75,8 @@ jobs:
     name: Test and build (${{ matrix.platform }})
     needs: plan
     if: needs.plan.outputs.proceed == 'true'
-    runs-on: ${{ matrix.platform }}
+    # Manual opt-in only; the temporary runner must carry this dedicated label.
+    runs-on: ${{ matrix.platform == 'macos-15' && inputs.local_macos_arm && fromJSON('["self-hosted", "macOS", "ARM64", "stonesvn-release-temp"]') || matrix.platform }}
     timeout-minutes: 45
     permissions:
       contents: read
@@ -170,7 +175,15 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Install SVN on macOS
         if: startsWith(matrix.platform, 'macos-')
-        run: brew install subversion
+        shell: bash
+        run: |
+          if [[ "${{ matrix.platform == 'macos-15' && inputs.local_macos_arm }}" == true ]]; then
+            # Reuse the explicitly provisioned local toolchain without upgrading Homebrew.
+            command -v svn
+            command -v svnadmin
+          else
+            brew install subversion
+          fi
       - name: Verify macOS runner architecture
         if: startsWith(matrix.platform, 'macos-')
         run: |

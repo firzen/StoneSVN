@@ -17,6 +17,14 @@ gh workflow run tauri-build.yml --repo firzen/StoneSVN --ref main
 
 You do not need to create a tag, upload installers, or update the website manually.
 
+### Temporary local Apple Silicon runner
+
+If the GitHub-hosted Apple Silicon runner remains unavailable, register a trusted macOS ARM64 runner with the dedicated `stonesvn-release-temp` label and `--ephemeral`. Do not install it as a persistent service. Provision SVN and svnadmin before starting it; this opt-in mode reuses those tools without upgrading Homebrew. Dispatch the current `main` with `-f local_macos_arm=true`. Only the Apple Silicon job changes runner; all four platform checks, packaging, signatures, asset validation and publication gates remain required. Workflow changes need a fresh run at their new commit. After its single job, verify the runner is deregistered, stop its process, and remove its credentials and temporary checkout. Never use an untrusted pull-request checkout on this runner.
+
+```bash
+gh workflow run tauri-build.yml --repo firzen/StoneSVN --ref main -f local_macos_arm=true
+```
+
 ## Codex handoff and release completion
 
 [AGENTS.md](../AGENTS.md) is the durable entry point for coding agents. Read it before a future release; do not depend on chat history or temporary checkout paths. Documentation/workflow maintenance alone does not request a new release.
