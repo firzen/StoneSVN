@@ -7,6 +7,62 @@ use thiserror::Error;
 use tokio::process::Command;
 use tokio::time::timeout;
 
+#[derive(Clone)]
+struct Credentials {
+    server: String,
+    username: String,
+    password: String,
+}
+static CREDENTIALS: OnceLock<RwLock<Vec<Credentials>>> = OnceLock::new();
+
+pub fn configure_credentials(
+    server: &str,
+    username: String,
+    password: String,
+) -> Result<(), SvnError> {
+    let url = tauri::Url::parse(server)
+        .map_err(|_| SvnError::InvalidArguments("Invalid server URL".into()))?;
+    if !matches!(url.scheme(), "https" | "http")
+        || url.host_str().is_none()
+        || username.trim().is_empty()
+        || password.is_empty()
+        || username.contains(['\r', '\n'])
+        || password.contains(['\r', '\n'])
+    {
+        return Err(SvnError::InvalidArguments("Invalid SVN credentials".into()));
+    }
+    let server = url.origin().ascii_serialization();
+    let mut entries = CREDENTIALS
+        .get_or_init(Default::default)
+        .write()
+        .map_err(|_| SvnError::CommandFailed("Credential lock unavailable".into()))?;
+    entries.retain(|entry| entry.server != server || entry.username != username);
+    entries.push(Credentials {
+        server,
+        username,
+        password,
+    });
+    Ok(())
+}
+
+fn credentials_for(entries: &[Credentials], urls: &[String]) -> Option<Credentials> {
+    if urls.is_empty() {
+        return None;
+    }
+    entries
+        .iter()
+        .rev()
+        .find(|entry| {
+            urls.iter().all(|value| {
+                tauri::Url::parse(value).is_ok_and(|url| {
+                    url.origin().ascii_serialization() == entry.server
+                        && (url.username().is_empty() || url.username() == entry.username)
+                })
+            })
+        })
+        .cloned()
+}
+
 pub const SVN_TIMEOUT: Duration = Duration::from_secs(120);
 static SVN_EXECUTABLE: OnceLock<RwLock<PathBuf>> = OnceLock::new();
 
@@ -26,11 +82,17 @@ pub enum SvnError {
 
 pub async fn execute_svn(args: &[&str], path: Option<&str>) -> Result<String, SvnError> {
     let executable = current_svn_executable()?;
+    let credentials = CREDENTIALS
+        .get_or_init(Default::default)
+        .read()
+        .map_err(|_| SvnError::CommandFailed("Credential lock unavailable".into()))?
+        .clone();
     execute_svn_with_configurations(
         executable,
         args,
         path,
         ssl_compat::current_configurations()?,
+        credentials,
     )
     .await
 }
@@ -42,15 +104,22 @@ async fn execute_svn_with_configuration(
     path: Option<&str>,
     compatibility: Option<SslCompatibility>,
 ) -> Result<String, SvnError> {
-    execute_svn_with_configurations(executable, args, path, compatibility.into_iter().collect())
-        .await
+    execute_svn_with_configurations(
+        executable,
+        args,
+        path,
+        compatibility.into_iter().collect(),
+        Vec::new(),
+    )
+    .await
 }
 
 async fn execute_svn_with_configurations(
     executable: PathBuf,
     args: &[&str],
     path: Option<&str>,
-    mut configurations: Vec<SslCompatibility>,
+    configurations: Vec<SslCompatibility>,
+    credentials: Vec<Credentials>,
 ) -> Result<String, SvnError> {
     // Remote status (-u) connects to the server and needs the same scoped TLS
     // settings as info/log. Only purely local scans skip the metadata query.
@@ -68,42 +137,44 @@ async fn execute_svn_with_configurations(
         && ssl_compat::explicit_urls(args).is_empty();
     let local_status = args.first() == Some(&"status") && !remote_status;
     let local_working_diff = matches!(args, ["diff", "--", target] if !target.contains("://"));
-    if local_working_diff
+    let local_only = local_working_diff
         || local_status
         || local_info
         || matches!(
             args.first(),
             Some(&"add" | &"revert" | &"resolve" | &"cleanup" | &"auth")
-        )
-    {
-        configurations.clear();
-    }
-    let compatibility = if configurations.is_empty() {
-        None
-    } else {
-        let urls = ssl_compat::explicit_urls(args);
-        if !urls.is_empty() {
-            configurations
-                .into_iter()
-                .find(|config| urls.iter().all(|url| config.matches(url)))
-        } else if let Some(path) = path {
-            // This metadata query is local, so even an old HTTPS server can be
-            // identified before performing its first network request.
-            let url = execute_svn_inner(
+        );
+    let mut urls: Vec<String> = ssl_compat::explicit_urls(args)
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+    if !local_only && urls.is_empty() && (!configurations.is_empty() || !credentials.is_empty()) {
+        if let Some(path) = path {
+            // Local WC metadata identifies the server before a network request.
+            if let Ok(url) = execute_svn_inner(
                 executable.clone(),
-                &["info", "--show-item", "repos-root-url", "--", "."],
+                &["info", "--show-item", "url", "--", "."],
                 Some(path),
             )
             .await
-            .ok();
-            configurations
-                .into_iter()
-                .find(|config| url.as_ref().is_some_and(|url| config.matches(url.trim())))
-        } else {
-            None
+            {
+                urls.push(url.trim().to_string());
+            }
         }
+    }
+    let compatibility = if local_only || urls.is_empty() {
+        None
+    } else {
+        configurations
+            .into_iter()
+            .find(|config| urls.iter().all(|url| config.matches(url)))
     };
-    execute_svn_with_compatibility(executable, args, path, compatibility.as_ref()).await
+    let credentials = if local_only {
+        None
+    } else {
+        credentials_for(&credentials, &urls)
+    };
+    execute_svn_with_credentials(executable, args, path, compatibility.as_ref(), credentials).await
 }
 
 #[derive(serde::Serialize)]
@@ -299,10 +370,29 @@ async fn execute_svn_with_compatibility(
     path: Option<&str>,
     compatibility: Option<&SslCompatibility>,
 ) -> Result<String, SvnError> {
+    execute_svn_with_credentials(executable, args, path, compatibility, None).await
+}
+
+async fn execute_svn_with_credentials(
+    executable: PathBuf,
+    args: &[&str],
+    path: Option<&str>,
+    compatibility: Option<&SslCompatibility>,
+    credentials: Option<Credentials>,
+) -> Result<String, SvnError> {
     let args_vec: Vec<String> = args.iter().map(|s| s.to_string()).collect();
     let mut cmd = Command::new(&executable);
     if let Some(config) = compatibility {
         config.apply(&mut cmd);
+    }
+    if let Some(credentials) = &credentials {
+        cmd.args([
+            "--username",
+            &credentials.username,
+            "--password-from-stdin",
+            "--no-auth-cache",
+        ]);
+        cmd.stdin(Stdio::piped());
     }
     cmd.args(build_command_args(&args_vec));
     // SVN converts paths and messages using the process locale. Desktop launches
@@ -334,20 +424,48 @@ async fn execute_svn_with_compatibility(
         cmd.creation_flags(CREATE_NO_WINDOW);
     }
 
-    collect_command_output(&mut cmd, SVN_TIMEOUT).await
+    collect_command_output_with_password(
+        &mut cmd,
+        SVN_TIMEOUT,
+        credentials.as_ref().map(|value| value.password.as_str()),
+    )
+    .await
 }
 
+#[cfg(test)]
 async fn collect_command_output(cmd: &mut Command, deadline: Duration) -> Result<String, SvnError> {
-    let output = timeout(deadline, cmd.output())
-        .await
-        .map_err(|_| SvnError::Timeout)?
-        .map_err(|error| {
-            if error.kind() == std::io::ErrorKind::NotFound {
-                SvnError::SvnNotFound
-            } else {
-                SvnError::CommandFailed(error.to_string())
+    collect_command_output_with_password(cmd, deadline, None).await
+}
+
+async fn collect_command_output_with_password(
+    cmd: &mut Command,
+    deadline: Duration,
+    password: Option<&str>,
+) -> Result<String, SvnError> {
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+    if password.is_none() {
+        cmd.stdin(Stdio::null());
+    }
+    let output = timeout(deadline, async {
+        use tokio::io::AsyncWriteExt;
+        let mut child = cmd.spawn()?;
+        if let Some(password) = password {
+            if let Some(mut stdin) = child.stdin.take() {
+                stdin.write_all(password.as_bytes()).await?;
+                stdin.write_all(b"\n").await?;
             }
-        })?;
+        }
+        child.wait_with_output().await
+    })
+    .await
+    .map_err(|_| SvnError::Timeout)?
+    .map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            SvnError::SvnNotFound
+        } else {
+            SvnError::CommandFailed(error.to_string())
+        }
+    })?;
     let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
     if output.status.success() {
         Ok(stdout)
@@ -366,6 +484,143 @@ async fn collect_command_output(cmd: &mut Command, deadline: Duration) -> Result
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn session_credentials_do_not_cross_servers_ports_or_explicit_accounts() {
+        let entries = vec![super::Credentials {
+            server: "https://auth-test.invalid:8443".into(),
+            username: "qi".into(),
+            password: "secret".into(),
+        }];
+        assert!(super::credentials_for(
+            &entries,
+            &["https://auth-test.invalid:8443/svn/repo".into()]
+        )
+        .is_some());
+        for url in [
+            "https://other.invalid:8443/svn/repo",
+            "https://auth-test.invalid/svn/repo",
+            "http://auth-test.invalid:8443/svn/repo",
+            "https://other@auth-test.invalid:8443/svn/repo",
+        ] {
+            assert!(super::credentials_for(&entries, &[url.into()]).is_none());
+        }
+        assert!(super::credentials_for(&entries, &[]).is_none());
+        assert!(super::configure_credentials(
+            "svn://auth-test.invalid",
+            "qi".into(),
+            "secret".into()
+        )
+        .is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn authentication_retry_uses_stdin_and_keeps_tls_and_server_scope() {
+        use std::os::unix::fs::PermissionsExt;
+        let root = std::env::temp_dir().join(format!(
+            "stonesvn-auth-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&root).unwrap();
+        let executable = root.join("svn");
+        std::fs::write(
+            &executable,
+            r#"#!/bin/sh
+for arg in "$@"; do
+  if [ "$arg" = --show-item ]; then echo https://auth.example:8443/svn/repo; exit 0; fi
+done
+printf '%s\n' "${OPENSSL_CONF-unset}" "$@"
+for arg in "$@"; do
+  if [ "$arg" = --password-from-stdin ]; then
+    IFS= read -r password
+    [ "$password" = 'test secret' ] || exit 1
+    echo authenticated
+    exit 0
+  fi
+done
+"#,
+        )
+        .unwrap();
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let credentials = vec![Credentials {
+            server: "https://auth.example:8443".into(),
+            username: "demo".into(),
+            password: "test secret".into(),
+        }];
+        let config = SslCompatibility::new("auth.example:8443", true, &root).unwrap();
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let output = execute_svn_with_configurations(
+                    executable.clone(),
+                    &["update", "--", "."],
+                    root.to_str(),
+                    vec![config.clone()],
+                    credentials.clone(),
+                )
+                .await
+                .unwrap();
+                assert!(output.contains("authenticated"));
+                assert!(output.contains("--no-auth-cache"));
+                assert!(output.contains("--trust-server-cert-failures"));
+                assert!(output.contains("legacy-tls.cnf"));
+                assert!(!output.contains("test secret"));
+                for args in [
+                    vec!["status", "--", "."],
+                    vec!["info", "--", "."],
+                    vec!["info", "-r", "HEAD", "--", "https://other.example/repo"],
+                ] {
+                    let output = execute_svn_with_configurations(
+                        executable.clone(),
+                        &args,
+                        root.to_str(),
+                        vec![config.clone()],
+                        credentials.clone(),
+                    )
+                    .await
+                    .unwrap();
+                    assert!(!output.contains("--password-from-stdin"));
+                }
+            });
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn passwords_are_sent_over_stdin() {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(async {
+                let mut cmd = tokio::process::Command::new("/bin/sh");
+                cmd.args([
+                    "-c",
+                    "read -r password; [ \"$password\" = 'test secret' ] && printf authenticated",
+                ]);
+                cmd.stdin(std::process::Stdio::piped())
+                    .stdout(std::process::Stdio::piped())
+                    .stderr(std::process::Stdio::piped())
+                    .kill_on_drop(true);
+                assert_eq!(
+                    super::collect_command_output_with_password(
+                        &mut cmd,
+                        std::time::Duration::from_secs(5),
+                        Some("test secret")
+                    )
+                    .await
+                    .unwrap(),
+                    "authenticated"
+                );
+            });
+    }
+
     use super::*;
     use std::path::Path;
 

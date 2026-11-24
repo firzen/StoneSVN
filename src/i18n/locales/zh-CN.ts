@@ -235,6 +235,7 @@ export default {
     forget: "移除例外",
     forgotten: "已移除服务器例外，下次连接将重新验证",
   },
+  svnAuth: {"title": "SVN 身份认证", "username": "账号", "password": "密码", "retry": "登录并重试", "sessionHint": "凭据仅保留在本次运行内存中，退出后需重新输入。"},
   svnSetup: {
     title: '配置 SVN 路径',
     description: '未找到可用的 SVN 命令行工具。请安装 SVN，并填写或选择 svn 可执行文件，验证通过后才能正常使用。',

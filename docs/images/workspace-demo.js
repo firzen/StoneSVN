@@ -196,3 +196,27 @@ export async function showConflictDemo(kind = 'text', lineCount = 320) {
   await app.config.globalProperties.$router.push({ name: 'diff', query: { path } })
   await (await import('/node_modules/.vite/deps/vue.js')).nextTick()
 }
+
+// Exercise the real authentication dialog with fictional data and no SVN access.
+export async function showAuthenticationDemo() {
+  const originalInvoke = window.__TAURI_INTERNALS__.invoke
+  let authenticated = false
+  window.__documentationAuth = { configured: false, complete: false }
+  window.__TAURI_INTERNALS__.invoke = async (command, args) => {
+    if (command === 'configure_svn_credentials') {
+      if (args.server !== 'https://svn.example.com:8443' || args.username !== 'demo' || args.password !== 'documentation-password') throw new Error('Unexpected documentation credentials')
+      authenticated = true
+      window.__documentationAuth.configured = true
+      return
+    }
+    if (command === 'svn_authentication_demo') {
+      if (!authenticated) throw "svn: E170013: Unable to connect to a repository at URL 'https://demo@svn.example.com:8443/demo'\nsvn: E215004: Authentication failed"
+      return 'ok'
+    }
+    return originalInvoke(command, args)
+  }
+  const { invokeWithConnectionPrompt } = await import('/src/api/connection.ts')
+  invokeWithConnectionPrompt('svn_authentication_demo', {}).then(() => {
+    window.__documentationAuth.complete = true
+  }).finally(() => { window.__TAURI_INTERNALS__.invoke = originalInvoke })
+}

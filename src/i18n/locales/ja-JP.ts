@@ -235,6 +235,7 @@ export default {
     forget: "例外を削除",
     forgotten: "サーバーの例外を削除しました。次回の接続時に再検証します",
   },
+  svnAuth: {"title": "SVN 認証", "username": "ユーザー名", "password": "パスワード", "retry": "ログインして再試行", "sessionHint": "認証情報はこのセッションのメモリ内にのみ保持されます。"},
   svnSetup: {
     title: 'SVN パスの設定',
     description: '利用可能な SVN コマンドラインツールが見つかりません。SVN をインストールし、実行ファイルを指定してください。検証に成功すると利用できます。',

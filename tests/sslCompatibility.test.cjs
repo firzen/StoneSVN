@@ -26,7 +26,7 @@ function harness({ run = async () => 'ok', confirm = async () => {}, configureEr
   const mocks = {
     '@tauri-apps/api/core': { invoke },
     'element-plus/es/components/message-box/index': { ElMessageBox: { confirm: async (...args) => { dialogs.push(args); return confirm(...args) } } },
-    vue: { h: (tag, children) => ({ tag, children }) },
+    vue: { h: (tag, props, children) => ({ tag, props: children === undefined ? {} : props, children: children === undefined ? props : children }) },
     '@/i18n': { default: { global: { t: key => key } } },
     '@/composables/useSettings': { useSettings: () => ({ settings, updateSettings: partial => Object.assign(settings, partial) }) },
   }
@@ -73,8 +73,8 @@ test('cancel and close preserve the original error and do not change settings or
   }
 })
 
-test('authentication and unidentifiable errors never request TLS or certificate exceptions', async () => {
-  for (const error of [failure('E215004'), 'svn: E120171: no URL', failure('E230001', 'http://legacy.example/repo')]) {
+test('unidentifiable errors never request TLS or certificate exceptions', async () => {
+  for (const error of ['svn: E120171: no URL', failure('E230001', 'http://legacy.example/repo')]) {
     const h = harness({ run: async () => { throw error } })
     await assert.rejects(h.invokeWithConnectionPrompt('svn_log', {}))
     assert.equal(h.dialogs.length, 0)
@@ -141,4 +141,95 @@ test('old manual settings migrate into host-and-port grants without retaining ma
   assert.equal(settings.svnServerSecurity['https://legacy.example:8443'].trustInvalidCertificates, true)
   assert.equal(settings.svnPath, '/opt/homebrew/bin/svn')
   assert.equal('svnLegacyTlsEnabled' in settings, false)
+})
+
+
+test('authentication uses a password field and retries once without persisting credentials in settings', async () => {
+  let attempts = 0
+  const h = harness({
+    run: async (command) => {
+      if (command === 'configure_svn_credentials') return
+      if (!attempts++) throw failure('E215004')
+      return 'authenticated'
+    },
+    confirm: async (message) => {
+      message.children[1].children[1].children[0].children[0].children.onInput({ target: { value: 'qi' } })
+      const input = message.children[2].children[1].children[0].children[0].children
+      assert.equal(input.type, 'password')
+      input.onInput({ target: { value: 'test-secret' } })
+    },
+  })
+  assert.equal(await h.invokeWithConnectionPrompt('svn_log', {}), 'authenticated')
+  assert.equal(h.dialogs.length, 1)
+  assert.equal(h.configurations.length, 0)
+  assert.equal(h.calls[1].command, 'configure_svn_credentials')
+  assert.equal(h.calls[1].args.server, 'https://legacy.example:8443')
+  assert.equal(h.calls[1].args.password, 'test-secret')
+  assert.ok(!JSON.stringify(h.settings).includes('test-secret'))
+})
+
+test('authentication cancellation preserves error; escaped URL extracts username', async () => {
+  const error = failure('E215004')
+  const h = harness({ run: async () => { throw error }, confirm: async () => { throw 'cancel' } })
+  await assert.rejects(h.invokeWithConnectionPrompt('svn_update', {}), value => value === error)
+  assert.equal(h.calls.length, 1)
+  assert.equal(h.configurations.length, 0)
+  assert.equal(h.parseAuthFailure(error.replace('https:', 'https\\:')).username, 'qi')
+})
+
+test('rejected credentials do not cause repeated prompts or retry a commit mutation', async () => {
+  let confirmations = 0
+  const error = failure('E215004')
+  const h = harness({
+    run: async command => { if (command !== 'configure_svn_credentials') throw error },
+    confirm: async message => {
+      confirmations++
+      message.children[2].children[1].children[0].children[0].children.onInput({ target: { value: 'wrong-password' } })
+    },
+  })
+  await assert.rejects(h.api.svnCommit('/wc', 'message'), value => value === error)
+  assert.equal(confirmations, 1)
+  assert.equal(h.calls.filter(call => call.command === 'svn_connection_info').length, 2)
+  assert.ok(!h.calls.some(call => call.command === 'svn_commit'))
+})
+
+test('authentication then TLS and certificate approvals all fit the retry budget', async () => {
+  let attempt = 0
+  const h = harness({
+    run: async command => {
+      if (command === 'configure_svn_credentials') return
+      const codes = ['E215004', 'E120171', 'E230001']
+      if (attempt < codes.length) throw failure(codes[attempt++])
+      return 'connected'
+    },
+    confirm: async message => {
+      if (message.tag === 'form') message.children[2].children[1].children[0].children[0].children.onInput({ target: { value: 'test-password' } })
+    },
+  })
+  assert.equal(await h.invokeWithConnectionPrompt('svn_update', { path: '/wc' }), 'connected')
+  assert.equal(h.dialogs.length, 3)
+  assert.equal(h.configurations.length, 2)
+})
+
+test('concurrent authentication failures share one account prompt', async () => {
+  let accept
+  const confirmation = new Promise(resolve => { accept = resolve })
+  const attempts = new Set()
+  const h = harness({
+    run: async (command, args) => {
+      if (command === 'configure_svn_credentials') return
+      if (!attempts.has(args.id)) { attempts.add(args.id); throw failure('E215004') }
+      return args.id
+    },
+    confirm: async message => {
+      message.children[2].children[1].children[0].children[0].children.onInput({ target: { value: 'test-password' } })
+      await confirmation
+    },
+  })
+  const requests = [h.invokeWithConnectionPrompt('svn_log', { id: 'a' }), h.invokeWithConnectionPrompt('svn_log', { id: 'b' })]
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(h.dialogs.length, 1)
+  accept()
+  assert.deepEqual(await Promise.all(requests), ['a', 'b'])
+  assert.equal(h.calls.filter(call => call.command === 'configure_svn_credentials').length, 1)
 })

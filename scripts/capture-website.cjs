@@ -177,8 +177,21 @@ async function main() {
           await page.locator('.conflict-preview .el-button--primary').click()
           await page.waitForSelector('.diff-view .conflict-inspector')
         }
+        await page.evaluate(async () => {
+          (await import('/src/composables/useSettings.ts')).useSettings().updateSettings({ theme: 'light' })
+          await (await import('/docs/images/workspace-demo.js')).showAuthenticationDemo()
+        })
+        const authDialog = page.locator('.el-message-box')
+        await authDialog.waitFor()
+        if (await authDialog.locator('input[autocomplete="username"]').inputValue() !== 'demo') throw new Error('Authentication username was not prefilled')
+        await authDialog.locator('input[type="password"]').fill('documentation-password')
+        await settle(page)
+        if (includeDetails) await page.screenshot({ path: path.join(screenshots, `${lang}-authentication.png`) })
+        await authDialog.locator('.el-button--primary').click()
+        await page.waitForFunction(() => window.__documentationAuth?.complete)
+        if (await page.evaluate(() => localStorage.getItem('orcasvn-settings')?.includes('documentation-password'))) throw new Error('Authentication password was persisted')
         if (errors.length) throw new Error(`Screenshot UI errors: ${errors.join('; ')}`)
-        console.log(`${lang}: workspace light/dark + properties${includeDetails ? ' light/dark' : ''} captured`)
+        console.log(`${lang}: workspace light/dark + properties${includeDetails ? ' light/dark' : ''} captured; authentication retry verified`)
       } finally {
         await context.close()
       }

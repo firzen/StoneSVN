@@ -235,6 +235,7 @@ export default {
     forget: "移除例外",
     forgotten: "已移除伺服器例外，下次連線將重新驗證",
   },
+  svnAuth: {"title": "SVN 身分驗證", "username": "帳號", "password": "密碼", "retry": "登入並重試", "sessionHint": "認證資料僅保留於本次執行記憶體，結束後需重新輸入。"},
   svnSetup: {
     title: '設定 SVN 路徑',
     description: '找不到可用的 SVN 命令列工具。請安裝 SVN，並填寫或選擇 svn 可執行檔，驗證通過後才能正常使用。',

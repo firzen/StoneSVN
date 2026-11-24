@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
-import { h } from 'vue'
+import { h, type VNode } from 'vue'
 import i18n from '@/i18n'
 import { useSettings, type ServerSecurity } from '@/composables/useSettings'
 
@@ -12,14 +12,67 @@ export function parseSslFailure(error: unknown): SslFailure | null {
   if (!kind) return null
   // SVN's English diagnostics quote the URL that actually failed. URL.origin
   // retains the exact port while stripping account names and repository paths.
-  const match = /(?:URL|for)\s+'(https:\/\/[^']+)'/i.exec(message)
+  const match = /(?:URL|for)\s+'(https?\\?:\/\/[^']+)'/i.exec(message)
   if (!match) return null
   try {
-    const url = new URL(match[1])
+    const url = new URL(match[1].replace(/\\:/g, ':'))
     return url.protocol === 'https:' ? { server: url.origin, kind } : null
   } catch {
     return null
   }
+}
+
+export function parseAuthFailure(error: unknown): { server: string; username: string } | null {
+  const message = String(error)
+  if (!/\bE(?:215004|170001)\b/.test(message)) return null
+  const match = /(?:URL|for)\s+'(https?\\?:[^']+)'/i.exec(message)
+  if (!match) return null
+  try {
+    const url = new URL(match[1].replace(/\\:/g, ':'))
+    if (!['https:', 'http:'].includes(url.protocol)) return null
+    return { server: url.origin, username: decodeURIComponent(url.username) }
+  } catch { return null }
+}
+
+const pendingAuth = new Map<string, Promise<boolean>>()
+async function requestCredentials(failure: { server: string; username: string }): Promise<boolean> {
+  const key = `${failure.server}:${failure.username}`
+  const existing = pendingAuth.get(key)
+  if (existing) return existing
+  const operation = dialogQueue.then(async () => {
+    const t = i18n.global.t
+    let username = failure.username
+    let password = ''
+    let form: HTMLFormElement | null = null
+    try {
+      await ElMessageBox.confirm(h('form', { onSubmit: (event: Event) => event.preventDefault(), onVnodeMounted: (vnode: VNode) => { form = vnode.el as HTMLFormElement | null } }, [
+        h('p', failure.server),
+        h('label', { style: { display: 'block', margin: '12px 0' } }, [t('svnAuth.username'), h('span', { class: 'el-input' }, [h('span', { class: 'el-input__wrapper' }, [h('input', {
+          value: username, required: true, class: 'el-input__inner', autocomplete: 'username', 'aria-label': t('svnAuth.username'), readonly: !!failure.username,
+          onInput: (event: Event) => { username = (event.target as HTMLInputElement).value },
+        })])])]),
+        h('label', { style: { display: 'block', margin: '12px 0' } }, [t('svnAuth.password'), h('span', { class: 'el-input' }, [h('span', { class: 'el-input__wrapper' }, [h('input', {
+          type: 'password', required: true, class: 'el-input__inner', autocomplete: 'current-password', 'aria-label': t('svnAuth.password'),
+          onInput: (event: Event) => { password = (event.target as HTMLInputElement).value },
+        })])])]),
+        h('p', t('svnAuth.sessionHint')),
+      ]), t('svnAuth.title'), {
+        confirmButtonText: t('svnAuth.retry'), cancelButtonText: t('common.cancel'),
+        closeOnClickModal: false, distinguishCancelAndClose: true,
+        beforeClose: (action, _instance, done) => {
+          if (action !== 'confirm' || ((form?.reportValidity() ?? true) && username.trim() && password)) done()
+        },
+      })
+      await invoke('configure_svn_credentials', { server: failure.server, username: username.trim(), password })
+      return true
+    } catch (action) {
+      if (action === 'cancel' || action === 'close') return false
+      throw action
+    } finally { password = '' }
+  })
+  dialogQueue = operation.catch(() => undefined)
+  pendingAuth.set(key, operation)
+  try { return await operation } finally { pendingAuth.delete(key) }
 }
 
 const pending = new Map<string, Promise<boolean>>()
@@ -73,12 +126,21 @@ async function requestException(failure: SslFailure): Promise<boolean> {
 // Use only for reads and repeatable update operations. Mutations that could
 // publish changes use a read-only connection check before their single attempt.
 export async function invokeWithConnectionPrompt<T>(command: string, args: Record<string, unknown>): Promise<T> {
-  for (let attempt = 0; ; attempt += 1) {
+  let authenticated = false
+  let securityAttempts = 0
+  for (;;) {
     try {
       return await invoke<T>(command, args)
     } catch (error) {
+      const authentication = parseAuthFailure(error)
+      if (authentication) {
+        if (authenticated || !await requestCredentials(authentication)) throw error
+        authenticated = true
+        continue
+      }
       const failure = parseSslFailure(error)
-      if (attempt >= 2 || !failure || !await requestException(failure)) throw error
+      if (securityAttempts >= 2 || !failure || !await requestException(failure)) throw error
+      securityAttempts += 1
     }
   }
 }

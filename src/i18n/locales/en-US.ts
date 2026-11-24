@@ -235,6 +235,7 @@ export default {
     forget: "Remove exception",
     forgotten: "Server exception removed; future connections will be verified again",
   },
+  svnAuth: {"title": "SVN authentication", "username": "Username", "password": "Password", "retry": "Sign in and retry", "sessionHint": "Credentials stay in memory for this session only."},
   svnSetup: {
     title: 'Configure SVN path',
     description: 'No usable SVN command-line tool was found. Install SVN and enter or select its executable. Validation must succeed before continuing.',

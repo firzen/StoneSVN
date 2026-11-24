@@ -80,6 +80,15 @@ async fn configure_svn_server_security(
 }
 
 #[tauri::command]
+fn configure_svn_credentials(
+    server: String,
+    username: String,
+    password: String,
+) -> Result<(), String> {
+    svn::configure_credentials(&server, username, password).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn svn_connection_info(target: String) -> Result<SvnInfo, String> {
     svn::connection_info(&target)
         .await
@@ -1347,6 +1356,7 @@ fn main() {
             system_icons::file_type_icon,
             configure_svn_executable,
             configure_svn_server_security,
+            configure_svn_credentials,
             svn_connection_info,
             launch_workspace_path,
             svn_checkout,

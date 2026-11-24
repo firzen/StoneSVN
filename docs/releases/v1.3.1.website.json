@@ -1,0 +1,42 @@
+{
+  "en": {
+    "title": "Sign in inside StoneSVN",
+    "items": [
+      "Enter a username and password when bundled SVN cannot use cached credentials.",
+      "Credentials remain in memory for this session; passwords are not stored in settings or command arguments.",
+      "Authentication retries preserve server-specific TLS and certificate exceptions."
+    ]
+  },
+  "zh-CN": {
+    "title": "在 StoneSVN 中完成身份认证",
+    "items": [
+      "内置 SVN 无法使用缓存凭据时，可在应用中输入账号和密码。",
+      "凭据仅保留在本次运行内存中，密码不写入设置或命令参数。",
+      "认证重试沿用该服务器的 TLS 兼容和证书例外。"
+    ]
+  },
+  "zh-TW": {
+    "title": "在 StoneSVN 中完成身分驗證",
+    "items": [
+      "內建 SVN 無法使用快取認證資料時，可在應用程式中輸入帳號和密碼。",
+      "認證資料僅保留於本次執行記憶體，密碼不寫入設定或命令參數。",
+      "驗證重試沿用該伺服器的 TLS 相容設定和憑證例外。"
+    ]
+  },
+  "ja": {
+    "title": "StoneSVN 内でログイン",
+    "items": [
+      "同梱 SVN が保存済みの認証情報を使用できない場合、アプリ内でユーザー名とパスワードを入力できます。",
+      "認証情報は現在のセッションのメモリにのみ保持され、パスワードは設定やコマンド引数に保存されません。",
+      "認証の再試行時もサーバーごとの TLS 互換設定と証明書の例外を維持します。"
+    ]
+  },
+  "ko": {
+    "title": "StoneSVN에서 로그인",
+    "items": [
+      "내장 SVN이 캐시된 인증 정보를 사용할 수 없으면 앱에서 사용자 이름과 비밀번호를 입력할 수 있습니다.",
+      "인증 정보는 현재 세션의 메모리에만 유지되며 비밀번호는 설정이나 명령 인수에 저장되지 않습니다.",
+      "인증 재시도 시 서버별 TLS 호환 설정과 인증서 예외가 유지됩니다."
+    ]
+  }
+}

@@ -235,6 +235,7 @@ export default {
     forget: "예외 삭제",
     forgotten: "서버 예외가 삭제되었습니다. 다음 연결 시 다시 검증합니다",
   },
+  svnAuth: {"title": "SVN 인증", "username": "사용자 이름", "password": "비밀번호", "retry": "로그인 후 다시 시도", "sessionHint": "인증 정보는 현재 세션의 메모리에만 보관됩니다."},
   svnSetup: {
     title: 'SVN 경로 설정',
     description: '사용 가능한 SVN 명령줄 도구를 찾지 못했습니다. SVN을 설치한 뒤 실행 파일을 입력하거나 선택하세요. 검증에 성공해야 계속 사용할 수 있습니다.',

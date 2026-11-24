@@ -261,6 +261,8 @@ Filtering reads Settings rules, not `.gitignore` content. The initial rule hides
 
 Add and Commit recheck rules. A recursive add containing filtered items is blocked before adding and identifies the path. Directory deletion, replacement, copy, or move is blocked when its required scope cannot be safely split. Other SVN clients do not read these rules.
 
+HTTP(S) authentication failures open a username/password dialog. When the repository URL contains a username, that account is prefilled and fixed. Entered credentials stay in memory for the current session only; restart requires signing in again. Passwords are passed to SVN through standard input and are not saved in settings or the SVN credential cache. Existing server-specific TLS and certificate exceptions still apply. Cancelling stops the operation; if credentials are rejected, correct them on the next manual attempt. Background update checks do not open authentication dialogs.
+
 There is no need to preconfigure server compatibility. A TLS handshake failure can prompt for legacy TLS compatibility for the displayed host and port. Certificate validation failure prompts separately for trusting an invalid certificate. Confirmation retries the connection; cancelling retains the error. Authentication failure does not trigger either prompt.
 
 Legacy TLS and expired, self-signed, or mismatched certificate exceptions reduce connection security. Confirm only for trusted servers. Decisions are saved per host/port and restored after restart; remove them from Remembered Servers to revalidate. Previous manual settings migrate automatically.
