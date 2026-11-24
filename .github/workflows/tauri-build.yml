@@ -117,7 +117,7 @@ jobs:
             apt_options+=(-o "Acquire::https::Proxy=${HTTPS_PROXY:-$https_proxy}")
           fi
           sudo apt-get "${apt_options[@]}" -o APT::Update::Error-Mode=any update
-          sudo apt-get "${apt_options[@]}" install -y pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf subversion rpm2cpio cpio squashfs-tools
+          sudo apt-get "${apt_options[@]}" install -y pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf subversion libarchive-tools squashfs-tools
       - name: Install SVN on Windows
         if: matrix.platform == 'windows-latest'
         shell: pwsh
@@ -271,7 +271,7 @@ jobs:
               deb) dpkg-deb -x "$bundle"/deb/*.deb "$destination" ;;
               rpm)
                 mkdir -p "$destination"
-                (cd "$destination" && rpm2cpio "$bundle"/rpm/*.rpm | cpio -id --quiet)
+                bsdtar -xf "$bundle"/rpm/*.rpm -C "$destination"
                 ;;
               appimage)
                 images=("$bundle"/appimage/*.AppImage)
