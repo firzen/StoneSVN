@@ -70,6 +70,13 @@
             </el-input>
           </el-form-item>
 
+          <el-form-item v-if="runtime.ready && runtime.active" :label="$t('settings.svnRuntime')" class="form-item">
+            <div>
+              {{ $t(`settings.svnRuntimeSource.${runtime.active.source}`) }} · SVN {{ runtime.active.version }}
+              <div><code>{{ runtime.active.path }}</code></div>
+            </div>
+          </el-form-item>
+
           <el-form-item v-if="Object.keys(settings.svnServerSecurity).length" :label="$t('connectionSecurity.savedServers')" class="form-item">
             <div class="ssl-settings">
               <div v-for="(policy, server) in settings.svnServerSecurity" :key="server" class="saved-server">

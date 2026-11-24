@@ -2,8 +2,14 @@ import { invoke } from '@tauri-apps/api/core'
 import { invokeWithConnectionPrompt } from './connection'
 import type { UpdateResult, CommandResult, SvnStatus, SvnLogEntry, SvnInfo, SvnAuthUser, DiffResult, FilePreviewResult, BlameLine, StashUnversionedEntry } from '@/types'
 
-export async function configureSvnExecutable(executable?: string): Promise<string> {
-  return invoke<string>('configure_svn_executable', {
+export interface SvnRuntimeInfo {
+  version: string
+  path: string
+  source: 'custom' | 'bundled' | 'system'
+}
+
+export async function configureSvnExecutable(executable?: string): Promise<SvnRuntimeInfo> {
+  return invoke<SvnRuntimeInfo>('configure_svn_executable', {
     executable: executable?.trim() || null,
   })
 }

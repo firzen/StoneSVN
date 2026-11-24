@@ -52,8 +52,17 @@ fn launch_workspace_arg(args: impl Iterator<Item = PathBuf>, cwd: &Path) -> Opti
 }
 
 #[tauri::command]
-async fn configure_svn_executable(executable: Option<String>) -> Result<String, String> {
-    svn::configure_svn_executable(executable.as_deref())
+async fn configure_svn_executable(
+    app: tauri::AppHandle,
+    executable: Option<String>,
+) -> Result<svn::SvnRuntimeInfo, String> {
+    let filename = if cfg!(windows) { "svn.exe" } else { "svn" };
+    let bundled = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|root| root.join("svn-runtime").join(filename));
+    svn::configure_svn_executable(executable.as_deref(), bundled)
         .await
         .map_err(|e| e.to_string())
 }

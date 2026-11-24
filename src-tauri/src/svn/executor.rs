@@ -106,10 +106,24 @@ async fn execute_svn_with_configurations(
     execute_svn_with_compatibility(executable, args, path, compatibility.as_ref()).await
 }
 
-pub async fn configure_svn_executable(executable: Option<&str>) -> Result<String, SvnError> {
-    let candidates = svn_executable_candidates(executable, std::env::consts::OS, |key| {
+#[derive(serde::Serialize)]
+pub struct SvnRuntimeInfo {
+    version: String,
+    path: PathBuf,
+    source: &'static str,
+}
+
+pub async fn configure_svn_executable(
+    executable: Option<&str>,
+    bundled: Option<PathBuf>,
+) -> Result<SvnRuntimeInfo, SvnError> {
+    let explicit = executable.is_some_and(|value| !value.trim().is_empty());
+    let mut candidates = svn_executable_candidates(executable, std::env::consts::OS, |key| {
         std::env::var_os(key)
     });
+    if let Some(path) = bundled.as_ref().filter(|_| !explicit) {
+        candidates.insert(0, path.clone());
+    }
     let mut failure = SvnError::SvnNotFound;
     for candidate in candidates {
         // Missing fixed paths need no subprocess. Bound each probe so a broken
@@ -128,8 +142,19 @@ pub async fn configure_svn_executable(executable: Option<&str>) -> Result<String
                 let mut configured = svn_executable_lock().write().map_err(|_| {
                     SvnError::CommandFailed("SVN 可执行文件配置锁已损坏".to_string())
                 })?;
-                *configured = candidate;
-                return Ok(version.trim().to_string());
+                let source = if explicit {
+                    "custom"
+                } else if bundled.as_ref() == Some(&candidate) {
+                    "bundled"
+                } else {
+                    "system"
+                };
+                *configured = candidate.clone();
+                return Ok(SvnRuntimeInfo {
+                    version: version.trim().to_string(),
+                    path: candidate,
+                    source,
+                });
             }
             Ok(_) => failure = SvnError::CommandFailed("SVN 版本输出无效".to_string()),
             Err(error) => failure = error,
@@ -156,7 +181,20 @@ fn svn_executable_candidates(
     if explicit.is_some() {
         return vec![normalize_svn_executable(explicit)];
     }
-    let mut candidates = vec![PathBuf::from("svn")];
+    let filename = if platform == "windows" {
+        "svn.exe"
+    } else {
+        "svn"
+    };
+    let mut candidates = Vec::new();
+    if let Some(path) = env_value("PATH") {
+        candidates.extend(
+            std::env::split_paths(&path)
+                .filter(|directory| directory.is_absolute())
+                .map(|directory| directory.join(filename)),
+        );
+    }
+    candidates.push(PathBuf::from("svn"));
     match platform {
         "macos" => candidates.extend(
             [
@@ -707,7 +745,11 @@ mod tests {
             .build()
             .unwrap()
             .block_on(async {
-                assert!(!configure_svn_executable(None).await.unwrap().is_empty());
+                assert!(!configure_svn_executable(None, None)
+                    .await
+                    .unwrap()
+                    .version
+                    .is_empty());
                 let executable = current_svn_executable().unwrap();
                 let repository = root.join("repo");
                 let working_copy = root.join("wc");
@@ -737,8 +779,25 @@ mod tests {
                     .await
                     .unwrap();
                 assert!(info.contains("<info>"));
+                if executable.is_absolute() {
+                    let active = configure_svn_executable(None, Some(executable.clone()))
+                        .await
+                        .unwrap();
+                    assert_eq!(active.source, "bundled");
+                    assert_eq!(active.path, executable);
+                    let active =
+                        configure_svn_executable(executable.to_str(), Some(executable.clone()))
+                            .await
+                            .unwrap();
+                    assert_eq!(active.source, "custom");
+                }
+                let missing = root.join("missing-svn");
+                let active = configure_svn_executable(None, Some(missing.clone()))
+                    .await
+                    .unwrap();
+                assert_eq!(active.source, "system");
                 assert!(
-                    configure_svn_executable(Some("/nonexistent/stonesvn-explicit-svn"))
+                    configure_svn_executable(missing.to_str(), Some(executable.clone()))
                         .await
                         .is_err()
                 );

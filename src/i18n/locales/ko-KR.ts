@@ -246,6 +246,8 @@ export default {
   settings: {
     appearance: '모양',
     svnSettings: 'SVN 설정',
+    svnRuntime: '사용 중인 SVN',
+    svnRuntimeSource: { custom: '사용자 지정 경로', bundled: '내장', system: '시스템' },
     svnPath: 'SVN 실행 파일',
     svnPathPlaceholder: 'svn 실행 파일 경로',
     svnPathApplied: 'SVN {version}이(가) 활성화되었습니다',

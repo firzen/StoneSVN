@@ -246,6 +246,8 @@ export default {
   settings: {
     appearance: '外観',
     svnSettings: 'SVN 設定',
+    svnRuntime: '使用中の SVN',
+    svnRuntimeSource: { custom: 'カスタムパス', bundled: '同梱', system: 'システム' },
     svnPath: 'SVN 実行ファイル',
     svnPathPlaceholder: 'svn 実行ファイルのパス',
     svnPathApplied: 'SVN {version} を有効にしました',

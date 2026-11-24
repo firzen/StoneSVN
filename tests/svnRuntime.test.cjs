@@ -32,7 +32,7 @@ test('failed startup discovery blocks workspaces and does not persist an invalid
   assert.equal(h.saved.length, 0)
 
   const fixed = h.configure(' /custom/bin/svn ')
-  h.requests[1].resolve('1.14.5')
+  h.requests[1].resolve({ version: '1.14.5', path: '/custom/bin/svn', source: 'custom' })
   assert.equal(await fixed, true)
   assert.equal(h.runtime.ready, true)
   assert.equal(h.runtime.initialized, true)
@@ -46,7 +46,7 @@ test('duplicate validation coalesces; an invalid replacement preserves saved set
   const first = h.configure('/valid/svn')
   assert.equal(first, h.configure('/other/svn'))
   assert.equal(h.requests.length, 1)
-  h.requests[0].resolve('1.14.5')
+  h.requests[0].resolve({ version: '1.14.5', path: '/valid/svn', source: 'custom' })
   await first
   const failed = h.configure('/invalid/svn')
   h.requests[1].reject(new Error('invalid executable'))
@@ -58,8 +58,10 @@ test('duplicate validation coalesces; an invalid replacement preserves saved set
   assert.equal(h.runtime.path, '/invalid/svn')
 
   const retry = h.configure('')
-  h.requests[2].resolve('1.14.5')
+  h.requests[2].resolve({ version: '1.14.5', path: '/app/svn-runtime/svn', source: 'bundled' })
   assert.equal(await retry, true)
   assert.equal(h.runtime.ready, true)
+  assert.equal(h.runtime.active.source, 'bundled')
+  assert.equal(h.runtime.active.path, '/app/svn-runtime/svn')
   assert.equal(h.saved[1].svnPath, '')
 })

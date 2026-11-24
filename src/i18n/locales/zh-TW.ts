@@ -246,6 +246,8 @@ export default {
   settings: {
     appearance: '外觀',
     svnSettings: 'SVN 設定',
+    svnRuntime: '目前的 SVN',
+    svnRuntimeSource: { custom: '自訂路徑', bundled: '內建', system: '系統' },
     svnPath: 'SVN 可執行檔',
     svnPathPlaceholder: 'svn 可執行檔路徑',
     svnPathApplied: '已啟用 SVN {version}',

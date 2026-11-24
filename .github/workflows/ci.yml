@@ -10,6 +10,12 @@ on:
         options:
           - ubuntu-22.04
           - windows-latest
+          - macos-26
+          - macos-15-intel
+      bundled_svn:
+        description: Build and verify an installer with a private SVN runtime
+        type: boolean
+        default: false
   pull_request:
   push:
     branches:
@@ -19,7 +25,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}-${{ inputs.platform || 'ubuntu-22.04' }}
   cancel-in-progress: true
 
 jobs:
@@ -51,7 +57,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev subversion
+          sudo apt-get install -y pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf subversion
 
       - name: Install SVN on Windows
         if: runner.os == 'Windows'
@@ -103,8 +109,58 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & $svn --version --quiet
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install SVN on macOS
+        if: runner.os == 'macOS'
+        run: brew install subversion
+
       - name: Install frontend dependencies
         run: npm ci
 
       - name: Run checks
         run: npm run check
+
+      - name: Build and verify Windows installer with SVN
+        if: inputs.bundled_svn && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $runtime = Join-Path $env:RUNNER_TEMP 'svn-runtime'
+          $null = & ./scripts/stage-windows-svn.ps1 -Destination $runtime
+          npm run build:with-svn -- $runtime --config src-tauri/tauri.ci.conf.json --bundles nsis
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $installer = @(Get-ChildItem src-tauri/target/release/bundle/nsis/*-setup.exe)
+          if ($installer.Count -ne 1) { throw 'Expected one Windows installer' }
+          $destination = Join-Path $env:RUNNER_TEMP 'StoneSVN'
+          $process = Start-Process $installer[0].FullName -ArgumentList "/S /D=$destination" -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Installer exited with $($process.ExitCode)" }
+          node scripts/check-bundled-svn.cjs "$destination/svn-runtime/svn.exe" (Get-Command svnadmin.exe).Source
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Build and verify macOS app with SVN
+        if: inputs.bundled_svn && runner.os == 'macOS'
+        run: |
+          python3 scripts/stage-macos-svn.py "$RUNNER_TEMP/svn-runtime"
+          npm run build:with-svn -- "$RUNNER_TEMP/svn-runtime" --config src-tauri/tauri.ci.conf.json --bundles app
+          app=src-tauri/target/release/bundle/macos/StoneSVN.app
+          codesign --verify --strict --deep "$app"
+          node scripts/check-bundled-svn.cjs "$app/Contents/Resources/svn-runtime/svn" "$(command -v svnadmin)"
+          ditto -c -k --keepParent "$app" "$RUNNER_TEMP/StoneSVN.app.zip"
+
+      - name: Build and verify Linux package with SVN
+        if: inputs.bundled_svn && runner.os == 'Linux'
+        run: |
+          python3 scripts/stage-linux-svn.py "$RUNNER_TEMP/svn-runtime"
+          npm run build:with-svn -- "$RUNNER_TEMP/svn-runtime" --config src-tauri/tauri.ci.conf.json --bundles deb
+          dpkg-deb -x src-tauri/target/release/bundle/deb/*.deb "$RUNNER_TEMP/StoneSVN"
+          client="$(find "$RUNNER_TEMP/StoneSVN/usr/lib" -path '*/svn-runtime/svn' -type f)"
+          node scripts/check-bundled-svn.cjs "$client" "$(command -v svnadmin)"
+
+      - name: Upload verified SVN bundle
+        if: inputs.bundled_svn
+        uses: actions/upload-artifact@v4
+        with:
+          name: StoneSVN-with-SVN-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: error
+          path: |
+            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/deb/*.deb
+            ${{ runner.temp }}/StoneSVN.app.zip

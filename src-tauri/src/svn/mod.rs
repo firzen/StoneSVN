@@ -16,7 +16,7 @@ mod working_copy;
 pub use update_result::{update_with_result, UpdateResult};
 pub use working_copy::{move_target, relocate, revert_preview, revert_reviewed};
 
-pub use executor::configure_svn_executable;
+pub use executor::{configure_svn_executable, SvnRuntimeInfo};
 pub use file_filter::FileFilter;
 pub use incoming::{incoming_logs, incoming_state, IncomingState};
 pub use operations::*;

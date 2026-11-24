@@ -246,6 +246,8 @@ export default {
   settings: {
     appearance: 'Appearance',
     svnSettings: 'SVN Configuration',
+    svnRuntime: 'Active SVN',
+    svnRuntimeSource: { custom: 'Custom path', bundled: 'Bundled', system: 'System' },
     svnPath: 'SVN Executable',
     svnPathPlaceholder: 'svn executable path',
     svnPathApplied: 'SVN {version} is now active',
