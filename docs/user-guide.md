@@ -26,13 +26,7 @@ This guide covers checkout, reviewing changes, committing, updating, and browsin
 
 ### Prepare StoneSVN and SVN
 
-StoneSVN requires a local SVN CLI. It does not replace an SVN server or create remote repositories.
-
-1. Download the appropriate installer from [Releases](https://github.com/firzen/StoneSVN/releases).
-2. Install the SVN CLI and verify that `svn --version --quiet` prints a version.
-3. Start StoneSVN. If SVN is not found, set SVN Executable in Settings to the actual program, such as `C:\Tools\Subversion\bin\svn.exe`.
-
-Specify an executable file rather than its installation directory. An empty setting uses system `svn`. Prepare the repository URL and required permissions before connecting. Use the SVN error to diagnose authentication or contact your repository administrator. There is no separate account-management page.
+Download the appropriate [StoneSVN installer](https://github.com/firzen/StoneSVN/releases) and start the application. Official installers include SVN. Keep SVN Executable blank to use bundled SVN with system fallback, or enter the path to a specific executable. Prepare the repository URL and required access permissions before connecting.
 
 ### Open an existing local project
 
@@ -252,7 +246,7 @@ Choose or enter a file in Trace and load its revisions, authors, dates, and mess
 | --- | --- |
 | Language | Simplified/Traditional Chinese, English, Japanese, Korean. The toolbar also offers a language shortcut at window widths of 1024 pixels and above. |
 | Theme | Light, Dark, or System. |
-| SVN executable | Empty for system `svn`, or an actual executable path. |
+| SVN executable | Empty for bundled SVN with system fallback, or a custom executable path. |
 | Remembered servers | Inspect/remove saved TLS or certificate exceptions. |
 | Default encoding | UTF-8, GBK, or GB2312 for decoding; does not rewrite file encodings. |
 | File filtering | Global rules, one per line, disabled by default; initial rule is `.gitignore`. |
@@ -279,7 +273,7 @@ Reduced-motion system preferences reduce animation while preserving loading text
 
 | Problem | Action |
 | --- | --- |
-| SVN not found | Verify it in the terminal, check the executable path, and restart after environment changes. |
+| SVN not found | Clear the custom path to retry automatic detection, or browse to the SVN executable. |
 | Not a working copy | Choose the `.svn` working-copy root or check out first. |
 | Commit/Stash/Revert unavailable | Check cached validation, in-progress operations, and applicable selection. |
 | New file absent from Changes | Look in Unversioned and add it before committing. |

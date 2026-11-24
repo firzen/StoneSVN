@@ -45,7 +45,7 @@ Installers and binaries are written under `src-tauri/target/release/`. See the [
 
 ### SVN cannot be found
 
-At startup, StoneSVN validates an explicitly configured path first. Otherwise, it searches PATH and common locations:
+At startup, StoneSVN validates an explicitly configured path first. Otherwise, it tries the bundled SVN before checking PATH and common locations:
 
 - Windows: standard SlikSVN, TortoiseSVN, VisualSVN, and CollabNet directories, plus Chocolatey, Scoop, and user installation directories.
 - macOS: Homebrew (`/opt/homebrew/bin/svn`, `/usr/local/bin/svn`), MacPorts (`/opt/local/bin/svn`), and system directories.

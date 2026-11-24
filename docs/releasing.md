@@ -90,7 +90,7 @@ gh workflow run tauri-build.yml --repo firzen/StoneSVN --ref main -f validate_on
 
 This checks and packages all four platforms, retains build artifacts for seven days, and creates no tag/release or website changes. Use it to validate pipeline changes.
 
-Windows uses SlikSVN 1.14.5 and enables UTF-8 only for temporary CI SVN processes, retaining multilingual-path regressions. SVN is not bundled with installers. macOS is ad-hoc signed and not notarized. CI checks, packaging, and screenshots do not replace manual installation, startup, and real-repository acceptance on each platform.
+Installers include a private SVN runtime. Windows uses SlikSVN 1.14.5 with a UTF-8 manifest on the private executable. macOS relocates the Homebrew Subversion libraries, and Linux stages SVN from Ubuntu packages. Packaging checks exercise the bundled executable from the built artifacts. macOS is ad-hoc signed and not notarized. CI checks, packaging, and screenshots do not replace manual installation, startup, and real-repository acceptance on each platform.
 
 ## Build caching and timing
 

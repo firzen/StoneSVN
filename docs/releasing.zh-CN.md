@@ -90,7 +90,7 @@ gh workflow run tauri-build.yml --repo firzen/StoneSVN --ref main -f validate_on
 
 这会完整执行四个平台的检查和打包，保留 7 天构建产物，不创建标签、不发版、不修改官网。适合检查流水线改动。
 
-Windows 固定使用 SlikSVN 1.14.5，并仅为临时 CI SVN 进程启用 UTF-8，保留多语言路径回归。SVN 不随安装包分发。macOS 使用 Ad-hoc 签名，未经过 Apple 公证。CI 的检查、打包及截图不能替代各平台安装启动与真实仓库操作的人工验收。
+安装包内置 SVN。Windows 使用含 UTF-8 清单的 SlikSVN 1.14.5。macOS 从 Homebrew 获取 SVN 及依赖库，Linux 从 Ubuntu 软件包获取 SVN。打包检查使用构建产物中的 SVN 运行回归测试。macOS 使用 Ad-hoc 签名，未经过 Apple 公证。CI 的检查、打包及截图不能替代各平台安装启动与真实仓库操作的人工验收。
 
 ## 构建缓存与耗时
 

@@ -30,15 +30,7 @@ Screenshots show the 1.1.2 development interface with fictional workspace data. 
 
 ### Check the SVN executable
 
-StoneSVN uses the locally installed SVN CLI. It does not replace an SVN server or create a remote repository when you open a normal folder. Prepare the repository URL, access permissions, and a local destination supplied or approved by your team.
-
-Run:
-
-```bash
-svn --version --quiet
-```
-
-A working installation prints a version number. If StoneSVN cannot find SVN, set SVN Executable in Settings to the executable file, not its installation directory. Leave it empty to use `svn` from the system environment.
+The official StoneSVN installer includes SVN. In Settings, leave SVN Executable blank to use the bundled client with system fallback. To select a different client, enter its executable path. Settings shows the active SVN version and path. Prepare the repository URL, access permissions, and a local destination before connecting.
 
 ### Open an existing working copy
 

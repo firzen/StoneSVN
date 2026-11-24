@@ -43,8 +43,6 @@ StoneSVN 适合以工作副本审阅、选择提交和临时保存修改为主�
 
 StoneSVN 的「追溯」目前提供文件提交历史，不提供逐行 Blame；图片预览不等同于图片差异比较。本地贮藏基于应用保存的补丁与未跟踪文件内容，不与 SVN 原生 Shelf 互通，也不提供 Cornerstone 式的多版本 Checkpoint 管理。
 
-> StoneSVN 调用本机的 `svn` 命令行工具，不会自行实现 SVN 协议。
-
 Switch 和通用 Merge 目前需使用其他 SVN 客户端或命令行完成，再回到 StoneSVN 刷新。冲突项目提供工作区只读预览与双栏对比，可逐段选择文本、编辑结果或确认属性值；文件的编辑／删除树冲突可选择保留或删除，其他树冲突及无法读取的内容需手动处理。属性页支持受控项目的重命名、移动、安排删除和目录递归还原；重命名、移动和安排删除仍需提交。工作区仓库信息下可迁移同一仓库的地址。
 
 ## 安装
@@ -55,15 +53,7 @@ macOS 安装包按芯片类型区分：Intel Mac 选择文件名含 `x64` 的 DM
 
 macOS 版本采用免费的 Ad-hoc 签名，未经过苹果公证。将 StoneSVN 拖入「应用程序」后，首次打开若被阻止，请进入「系统设置 → 隐私与安全性 → 仍要打开」，再确认「打开」。公司管理的 Mac 可能需要 IT 放行。详见 [macOS 构建与分发说明](docs/macos-distribution.zh-CN.md)。
 
-应用使用外部 SVN CLI。Windows 上的中文路径与属性值处理取决于所用 SVN 的 Unicode／代码页支持；若出现字符替换，需使用支持相应字符的 SVN 命令行环境。
-
-Windows、macOS、Linux 上自动探测 PATH 与常见 SVN 安装位置。探测失败时显示配置窗口，填写或选择可执行文件并通过验证后才能使用；无效路径不会保存。也可在「设置」中手动指定 SVN 完整路径。
-
-安装后请确认 SVN CLI 可用：
-
-```bash
-svn --version --quiet
-```
+正式安装包内置 SVN。设置了自定义路径时使用该路径。留空时优先使用内置 SVN，启动失败后尝试系统 SVN。「设置」显示当前来源、路径和版本。
 
 ## 快速开始
 
@@ -133,7 +123,7 @@ npm run check
 
 详细环境配置和常见问题见 [SETUP.md](SETUP.zh-CN.md)，贡献约定见 [CONTRIBUTING.md](CONTRIBUTING.zh-CN.md)。
 
-当前正式版本为 **1.2.1**，更新内容见 [发布说明](docs/releases/v1.2.1.zh-CN.md)。正式发布步骤见 [发布流程](docs/releasing.zh-CN.md)，候选版本见 [预发布说明](docs/prerelease.zh-CN.md)，与 v0.6.2 的性能对照及测量边界见 [性能基准](docs/workspace-startup-benchmark.zh-CN.md)。
+当前正式版本为 **1.3.0**，更新内容见 [发布说明](docs/releases/v1.3.0.zh-CN.md)。正式发布步骤见 [发布流程](docs/releasing.zh-CN.md)，候选版本见 [预发布说明](docs/prerelease.zh-CN.md)，与 v0.6.2 的性能对照及测量边界见 [性能基准](docs/workspace-startup-benchmark.zh-CN.md)。
 
 ## 项目结构
 

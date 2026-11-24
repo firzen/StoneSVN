@@ -1,0 +1,42 @@
+{
+  "en": {
+    "title": "Bundled SVN command line",
+    "items": [
+      "Official Windows, macOS, and Linux installers include SVN.",
+      "Automatic mode prefers bundled SVN and falls back to system SVN. A configured executable path takes priority.",
+      "Settings shows the active SVN source, path, and version."
+    ]
+  },
+  "zh-CN": {
+    "title": "安装包内置 SVN 命令行",
+    "items": [
+      "Windows、macOS 和 Linux 正式安装包内置 SVN。",
+      "自动模式优先使用内置 SVN，启动失败后尝试系统 SVN。自定义路径优先。",
+      "「设置」显示当前 SVN 的来源、路径和版本。"
+    ]
+  },
+  "zh-TW": {
+    "title": "安裝程式內建 SVN 命令列",
+    "items": [
+      "Windows、macOS 和 Linux 正式安裝程式內建 SVN。",
+      "自動模式優先使用內建 SVN，啟動失敗後改用系統 SVN。自訂路徑優先。",
+      "「設定」顯示目前 SVN 的來源、路徑與版本。"
+    ]
+  },
+  "ja": {
+    "title": "SVN コマンドラインを同梱",
+    "items": [
+      "Windows、macOS、Linux の公式インストーラーに SVN を同梱しました。",
+      "自動モードでは同梱の SVN を優先し、起動できなければシステムの SVN を試します。指定した実行ファイルのパスが優先されます。",
+      "設定で使用中の SVN の種類、パス、バージョンを確認できます。"
+    ]
+  },
+  "ko": {
+    "title": "SVN 명령줄 도구 내장",
+    "items": [
+      "Windows, macOS, Linux 공식 설치 파일에 SVN이 포함됩니다.",
+      "자동 모드는 내장 SVN을 먼저 실행하고 실패 시 시스템 SVN을 시도합니다. 사용자 지정 경로가 우선합니다.",
+      "설정에서 사용 중인 SVN의 출처, 경로, 버전을 확인할 수 있습니다."
+    ]
+  }
+}

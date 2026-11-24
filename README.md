@@ -14,7 +14,7 @@ Built with Tauri, Rust, and Vue 3, it uses the local SVN CLI and preserves SVN's
 
 Development UI from the current source, captured on 2026-10-18 with fictional projects, paths, and diffs. No real repository or personal data is shown. [Dark theme](docs/images/screenshots/en-workspace-dark.png).
 
-Current stable version: **1.2.1**. See the [release notes](docs/releases/v1.2.1.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
+Current stable version: **1.3.0**. See the [release notes](docs/releases/v1.3.0.md), [release workflow](docs/releasing.md), and [performance comparison with v0.6.2](docs/workspace-startup-benchmark.md).
 
 ## Highlights
 
@@ -45,8 +45,6 @@ Sources: [Cornerstone features](https://cornerstone.assembla.com/) and its [Shel
 
 StoneSVN's history view does not provide line-by-line Blame, and image previews do not compare image revisions. Local stashes store patches and unversioned file content in the application; they do not interoperate with native SVN shelves or provide Cornerstone-style versioned checkpoints.
 
-> StoneSVN uses the locally installed `svn` command-line tool; it does not implement the SVN protocol itself.
-
 Switch and general-purpose Merge still require another SVN client or the command line. Conflicts have a read-only workspace preview and a side-by-side editor for reviewing text blocks and property values. File edit/delete tree conflicts offer keep/delete choices; other tree conflicts and unreadable content require manual handling. Properties supports rename/move with history, recursive revert with an affected-file preview, restoring clean files or directories to a revision, and adding or cancelling plain additions while retaining local files. Rename, move, property edits and restored content need a separate commit. Repository relocation supports address changes within the same repository.
 
 ## Installation
@@ -57,15 +55,7 @@ For macOS, choose the `x64` DMG for an Intel Mac or `aarch64` for an Apple Silic
 
 macOS builds use free ad-hoc signing and are not notarized by Apple. Drag StoneSVN into Applications. If the first launch is blocked, go to System Settings → Privacy & Security → Open Anyway, then confirm Open. Managed Macs may require IT approval. See the [macOS build and distribution guide](docs/macos-distribution.md).
 
-The app uses an external SVN CLI. On Windows, multilingual paths and property values depend on that CLI’s Unicode and code-page support.
-
-StoneSVN detects SVN in PATH and common installation locations on Windows, macOS, and Linux. If detection fails, select or enter the executable path and validate it before opening a workspace. Invalid paths are not saved. You can also set the full path in Settings.
-
-After installation, make sure the SVN CLI is available:
-
-```bash
-svn --version --quiet
-```
+Official installers include SVN. StoneSVN uses a custom executable when configured. With the setting blank, it tries the bundled SVN first and falls back to system SVN. Settings shows the active source, path, and version.
 
 ## Quick Start
 

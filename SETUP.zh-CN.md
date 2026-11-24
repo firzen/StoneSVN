@@ -45,7 +45,7 @@ npm run tauri build
 
 ### 找不到 SVN
 
-启动时先验证自定义路径；未指定时，自动探测 PATH 与系统常见位置：
+启动时优先验证手动指定的 SVN 路径。留空时优先使用内置 SVN，启动失败后探测 PATH 和以下常见位置：
 
 - Windows：SlikSVN、TortoiseSVN、VisualSVN、CollabNet 的标准安装目录，以及 Chocolatey、Scoop 和用户安装目录。
 - macOS：Homebrew（`/opt/homebrew/bin/svn`、`/usr/local/bin/svn`）、MacPorts（`/opt/local/bin/svn`）及系统目录。

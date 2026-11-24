@@ -117,7 +117,7 @@ jobs:
             apt_options+=(-o "Acquire::https::Proxy=${HTTPS_PROXY:-$https_proxy}")
           fi
           sudo apt-get "${apt_options[@]}" -o APT::Update::Error-Mode=any update
-          sudo apt-get "${apt_options[@]}" install -y pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf subversion
+          sudo apt-get "${apt_options[@]}" install -y pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf subversion rpm2cpio cpio
       - name: Install SVN on Windows
         if: matrix.platform == 'windows-latest'
         shell: pwsh
@@ -186,6 +186,31 @@ jobs:
           svnadmin --version --quiet
       - name: Build and run regression checks
         run: npm run check
+      - name: Stage Windows SVN runtime
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/stage-windows-svn.ps1 -Destination (Join-Path $env:RUNNER_TEMP 'svn-runtime')
+      - name: Stage Unix SVN runtime
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            python3 scripts/stage-macos-svn.py "$RUNNER_TEMP/svn-runtime"
+          else
+            python3 scripts/stage-linux-svn.py "$RUNNER_TEMP/svn-runtime"
+          fi
+      - name: Configure Tauri to include the private SVN runtime
+        shell: bash
+        run: |
+          node - <<'JS'
+          const fs = require('node:fs')
+          const path = require('node:path')
+          const runtime = path.join(process.env.RUNNER_TEMP, 'svn-runtime')
+          fs.mkdirSync('src-tauri/target', { recursive: true })
+          const config = JSON.parse(fs.readFileSync('src-tauri/tauri.ci.conf.json', 'utf8'))
+          config.bundle = { resources: { [runtime]: 'svn-runtime/' } }
+          fs.writeFileSync('src-tauri/target/svn-bundle.conf.json', JSON.stringify(config))
+          JS
       - name: Build installers before creating a tag
         # Build only: without releaseId/tagName this action cannot publish.
         # Keep its supported macOS DMG environment and retry transient bundling failures.
@@ -195,7 +220,7 @@ jobs:
         with:
           retryAttempts: 2
           # npm run check already built and type-checked dist in this checkout.
-          args: --config src-tauri/tauri.ci.conf.json ${{ matrix.platform == 'macos-15-intel' && '--target x86_64-apple-darwin --verbose' || matrix.platform == 'macos-26' && '--target aarch64-apple-darwin --verbose' || '--verbose' }}
+          args: --config src-tauri/target/svn-bundle.conf.json ${{ matrix.platform == 'macos-15-intel' && '--target x86_64-apple-darwin --verbose' || matrix.platform == 'macos-26' && '--target aarch64-apple-darwin --verbose' || '--verbose' }}
 
       - name: Verify macOS ad-hoc signature
         if: startsWith(matrix.platform, 'macos-')
@@ -208,6 +233,46 @@ jobs:
           signature_info=$(codesign -dv --verbose=4 "$app_bundle" 2>&1)
           echo "$signature_info"
           [[ "$signature_info" == *"Signature=adhoc"* ]]
+
+          node scripts/check-bundled-svn.cjs "$app_bundle/Contents/Resources/svn-runtime/svn" "$(command -v svnadmin)"
+
+      - name: Verify bundled SVN in the Windows installers
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $admin = (Get-Command svnadmin.exe).Source
+          $bundle = 'src-tauri/target/release/bundle'
+          $exe = @(Get-ChildItem "$bundle/nsis/*-setup.exe")
+          $msi = @(Get-ChildItem "$bundle/msi/*.msi")
+          if ($exe.Count -ne 1 -or $msi.Count -ne 1) { throw 'Expected one NSIS installer and one MSI' }
+          $nsisDir = Join-Path $env:RUNNER_TEMP 'StoneSVN-NSIS'
+          $result = Start-Process $exe[0].FullName -ArgumentList "/S /D=$nsisDir" -Wait -PassThru
+          if ($result.ExitCode -ne 0) { throw "NSIS install failed: $($result.ExitCode)" }
+          node scripts/check-bundled-svn.cjs "$nsisDir/svn-runtime/svn.exe" $admin
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $msiDir = Join-Path $env:RUNNER_TEMP 'StoneSVN-MSI'
+          $result = Start-Process msiexec.exe -ArgumentList "/a `"$($msi[0].FullName)`" /qn TARGETDIR=`"$msiDir`"" -Wait -PassThru
+          if ($result.ExitCode -ne 0) { throw "MSI extraction failed: $($result.ExitCode)" }
+          $client = @(Get-ChildItem -LiteralPath $msiDir -Recurse -File -Filter svn.exe)
+          if ($client.Count -ne 1) { throw 'Expected one bundled SVN client in the MSI' }
+          node scripts/check-bundled-svn.cjs $client[0].FullName $admin
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify bundled SVN in the Linux installers
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          bundle="$(realpath src-tauri/target/release/bundle)"
+          mkdir -p "$RUNNER_TEMP/StoneSVN-"{deb,rpm,appimage}
+          dpkg-deb -x "$bundle"/deb/*.deb "$RUNNER_TEMP/StoneSVN-deb"
+          (cd "$RUNNER_TEMP/StoneSVN-rpm" && rpm2cpio "$bundle"/rpm/*.rpm | cpio -id --quiet)
+          (cd "$RUNNER_TEMP/StoneSVN-appimage" && "$bundle"/appimage/*.AppImage --appimage-extract >/dev/null)
+          for format in deb rpm appimage; do
+            client="$(find "$RUNNER_TEMP/StoneSVN-$format" -path '*/svn-runtime/svn' -type f)"
+            test -n "$client"
+            node scripts/check-bundled-svn.cjs "$client" "$(command -v svnadmin)"
+          done
 
       - name: Collect and validate platform assets
         env:
