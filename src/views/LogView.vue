@@ -156,6 +156,9 @@
         width="min(960px, calc(100vw - 32px))"
         class="log-dialog"
         destroy-on-close
+        :show-close="!exporting"
+        :close-on-click-modal="!exporting"
+        :close-on-press-escape="!exporting"
         @close="onDialogClose"
       >
         <div v-if="selectedLog" class="log-detail">
@@ -216,9 +219,14 @@
         </div>
         
         <template #footer>
-          <el-button @click="dialogVisible = false">
-            {{ $t('common.close') }}
-          </el-button>
+          <div class="log-detail-actions">
+            <el-button :loading="exporting" :disabled="!canExportRevision" @click="exportRevision">
+              {{ $t('log.exportRevision') }}
+            </el-button>
+            <el-button :disabled="exporting" @click="dialogVisible = false">
+              {{ $t('common.close') }}
+            </el-button>
+          </div>
         </template>
       </el-dialog>
     </el-card>
@@ -228,11 +236,13 @@
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onUnmounted, reactive, ref, watch } from 'vue'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { svnCurrentUser, svnLog } from '@/api/svn'
+import { svnCurrentUser, svnExportRevision, svnLog } from '@/api/svn'
 import type { SvnLogEntry, SvnLogPath } from '@/types'
 import { useI18n } from 'vue-i18n'
 import { useWorkspace } from '@/composables/useWorkspace'
 import { useRouter } from 'vue-router'
+import { save as selectExportPath } from '@tauri-apps/plugin-dialog'
+import { ElMessage } from 'element-plus'
 
 const { t, locale } = useI18n()
 const router = useRouter()
@@ -251,6 +261,10 @@ const FILTER_RELOAD_DELAY_MS = 250
 let filterReloadTimer: number | undefined
 const dialogVisible = ref(false)
 const selectedLog = ref<SvnLogEntry | null>(null)
+const exporting = ref(false)
+const canExportRevision = computed(() => Boolean(workspaceStore.currentPath
+  && !workspaceStore.operationBusy
+  && selectedLog.value?.changed_paths?.some(path => path.action !== 'D')))
 const LOG_CACHE_TTL_MS = 5 * 60 * 1000
 const LOG_CACHE_KEY_VERSION = 'v4'
 const DEFAULT_LOG_PAGE_SIZE = 20
@@ -502,8 +516,31 @@ const handleRowClick = (row: SvnLogEntry) => {
 
 let preserveLogSelection = false
 
+async function exportRevision() {
+  const log = selectedLog.value
+  const workspace = workspaceStore.currentPath
+  if (!log || !workspace || exporting.value || !canExportRevision.value) return
+  const name = workspace.split(/[\\/]/).filter(Boolean).pop() || 'export'
+  exporting.value = true
+  workspaceStore.setOperationBusy(true)
+  try {
+    const destination = await selectExportPath({
+      title: t('properties.exportDirectory'),
+      defaultPath: `${name}-r${log.revision}`,
+    })
+    if (!destination || workspaceStore.currentPath !== workspace) return
+    await svnExportRevision(workspace, log.revision, destination)
+    ElMessage.success(t('properties.exported', { path: destination }))
+  } catch (error) {
+    ElMessage.error(String(error))
+  } finally {
+    exporting.value = false
+    workspaceStore.setOperationBusy(false)
+  }
+}
+
 const openChangedPathDiff = (row: SvnLogPath) => {
-  if (!selectedLog.value || !workspaceStore.svnInfo) return
+  if (exporting.value || !selectedLog.value || !workspaceStore.svnInfo) return
 
   preserveLogSelection = true
   sessionStorage.setItem('orca_log_selection', String(selectedLog.value.revision))
@@ -853,6 +890,11 @@ onUnmounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.log-detail-actions {
+  display: flex;
+  justify-content: space-between;
 }
 
 .log-dialog {

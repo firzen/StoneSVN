@@ -128,6 +128,10 @@ export async function svnBlame(workspacePath: string, file: string): Promise<Bla
   return invokeWithConnectionPrompt<BlameLine[]>('svn_blame', { workspacePath, file })
 }
 
+export async function svnExportRevision(path: string, revision: number, destination: string): Promise<void> {
+  return invokeWithConnectionPrompt<void>('svn_export_revision', { path, revision, destination })
+}
+
 export async function svnExport(path: string, file: string, destination: string): Promise<CommandResult> {
   return invokeWithConnectionPrompt<CommandResult>('svn_export', { path, file, destination })
 }

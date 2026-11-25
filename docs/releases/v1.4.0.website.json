@@ -1,0 +1,47 @@
+{
+  "en": {
+    "title": "Export a revision's changes from the timeline",
+    "items": [
+      "Open a commit in Timeline and export only the paths changed in that revision, with repository-relative folders and file contents from the selected version.",
+      "Added or replaced nodes are exported in full; modified files and property-only directories keep that revision's state, while deletions, externals, and .svn metadata are skipped.",
+      "Choose a new destination in the existing save dialog. Existing folders are not overwritten and exports inside the working copy are rejected.",
+      "Large exports get a longer timeout and reuse in-app authentication and TLS prompts; failed exports remove incomplete directories without changing the working copy."
+    ]
+  },
+  "zh-CN": {
+    "title": "从时间线导出指定版本的变更",
+    "items": [
+      "在时间线打开提交记录，仅导出该版本涉及的路径；保留仓库相对目录结构，文件内容取自所选版本。",
+      "新增或替换的节点会完整导出，修改的文件与仅修改属性的目录保留该版本状态；已删除路径、外部引用和 .svn 元数据不会导出。",
+      "沿用现有保存对话框选择新目录；不会覆盖已有目录，也不允许导出到当前工作区内。",
+      "大仓库导出使用更长超时，并复用应用内的账号认证与 TLS 提示；失败时清理不完整目录，不改动工作副本。"
+    ]
+  },
+  "zh-TW": {
+    "title": "從時間軸匯出指定版本的變更",
+    "items": [
+      "在時間軸開啟提交記錄，僅匯出該版本涉及的路徑；保留儲存庫相對目錄結構，檔案內容取自所選版本。",
+      "新增或替換的節點會完整匯出，修改的檔案與僅修改屬性的目錄保留該版本狀態；已刪除路徑、外部參考與 .svn 中繼資料不會匯出。",
+      "沿用現存儲存對話方塊選擇新目錄；不會覆蓋已有目錄，也不允許匯出到目前工作區內。",
+      "大型儲存庫匯出使用更長逾時，並沿用應用程式內的帳號驗證與 TLS 提示；失敗時清除不完整目錄，不變動工作副本。"
+    ]
+  },
+  "ja": {
+    "title": "タイムラインから指定リビジョンの変更を書き出し",
+    "items": [
+      "タイムラインでコミットを開くと、そのリビジョンで変更されたパスのみを書き出せます。リポジトリ内の相対ディレクトリ構造を保持し、内容は選択したリビジョンのものを使用します。",
+      "追加・置換されたファイルやディレクトリは再帰的に書き出されます。変更ファイルとプロパティのみ変更されたディレクトリはそのリビジョンの状態で書き出され、削除済みパス、externals、.svn メタデータは対象外です。",
+      "既存の保存ダイアログで新しい宛先を選択します。既存ディレクトリは上書きされず、作業コピー内の宛先は拒否されます。",
+      "大規模な書き出しではタイムアウトを延長し、アプリ内の認証と TLS のプロンプトを再利用します。失敗時は不完全なディレクトリを削除し、作業コピーは変更しません。"
+    ]
+  },
+  "ko": {
+    "title": "타임라인에서 지정한 리비전의 변경 내용 내보내기",
+    "items": [
+      "타임라인에서 커밋을 열면 해당 리비전에서 변경된 경로만 내보낼 수 있습니다. 저장소 상대 디렉터리 구조를 유지하며 파일 내용은 선택한 리비전에서 가져옵니다.",
+      "추가되거나 대체된 노드는 전체를 내보냅니다. 수정된 파일과 속성만 변경된 디렉터리는 해당 리비전 상태로 내보내고, 삭제된 경로·externals·.svn 메타데이터는 제외합니다.",
+      "기존 저장 대화상자에서 새 대상을 선택합니다. 기존 디렉터리는 덮어쓰지 않으며 작업 사본 내부로의 내보내기는 거부됩니다.",
+      "큰 저장소에서는 제한 시간을 늘리고 앱 내 인증 및 TLS 프롬프트를 재사용합니다. 실패 시 불완전한 디렉터리를 정리하며 작업 사본은 변경하지 않습니다."
+    ]
+  }
+}

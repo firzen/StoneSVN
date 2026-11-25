@@ -359,6 +359,7 @@ export default {
     author: '작성자',
     date: '날짜',
     commitMessage: '커밋 메시지',
+    exportRevision: '이 리비전의 변경 사항 내보내기',
     commitDetails: '커밋 상세',
     changedFiles: '변경 파일',
     searchAuthor: '작성자 검색',

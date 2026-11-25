@@ -359,6 +359,7 @@ export default {
     author: 'Author',
     date: 'Date',
     commitMessage: 'Commit Message',
+    exportRevision: 'Export Revision Changes',
     commitDetails: 'Commit Details',
     changedFiles: 'Changed Files',
     searchAuthor: 'Search author',

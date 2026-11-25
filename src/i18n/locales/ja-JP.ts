@@ -359,6 +359,7 @@ export default {
     author: '作者',
     date: '日付',
     commitMessage: 'コミットメッセージ',
+    exportRevision: 'このリビジョンの変更をエクスポート',
     commitDetails: 'コミット詳細',
     changedFiles: '変更ファイル',
     searchAuthor: '作者を検索',

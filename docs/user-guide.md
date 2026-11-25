@@ -207,6 +207,8 @@ Timeline shows 20 commits per page. Use Previous/Next, combine author/keyword/da
 
 Records show revision, author, date, and message. Hover over truncated fields for full text. Open a record for its full message and changed paths, then choose a file for the commit diff.
 
+To export a revision, choose **Export this revision's changes** in the details and select a new destination folder. The export keeps repository-relative folders and reads file contents from that revision, not from local edits. Added and replaced nodes are exported in full; modified files and property-only directories keep the revision's state. Deleted paths, unchanged descendants, externals, and `.svn` metadata are skipped. Existing folders are not overwritten, the working copy is not modified, and an export inside the working copy is rejected.
+
 If no records match, check filters or reset. Uncommitted edits appear in the workspace rather than the timeline.
 
 ## Stash unfinished changes

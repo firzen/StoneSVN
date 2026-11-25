@@ -1,21 +1,8 @@
 use super::executor::{execute_svn, SvnError};
-use super::operations::info;
+use super::operations::{info, url_for_path};
 use super::parser::{parse_incoming_status_xml, parse_log_xml};
 use crate::SvnLogEntry;
 use std::collections::HashSet;
-
-fn url_for_path(base: &str, relative: &str) -> Result<String, SvnError> {
-    let mut url = tauri::Url::parse(base).map_err(|e| SvnError::ParseError(e.to_string()))?;
-    let mut segments = url
-        .path_segments_mut()
-        .map_err(|_| SvnError::ParseError("Invalid SVN URL".into()))?;
-    segments.pop_if_empty();
-    for segment in relative.split('/').filter(|s| !s.is_empty() && *s != ".") {
-        segments.push(segment);
-    }
-    drop(segments);
-    Ok(url.to_string())
-}
 
 fn affects_pending(changed: &str, action: &str, pending: &str, subtree: bool) -> bool {
     changed == pending

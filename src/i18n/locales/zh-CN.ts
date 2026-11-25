@@ -359,6 +359,7 @@ export default {
     author: '作者',
     date: '日期',
     commitMessage: '提交信息',
+    exportRevision: '导出此版本的变更',
     commitDetails: '提交详情',
     changedFiles: '变更文件',
     searchAuthor: '按作者搜索',

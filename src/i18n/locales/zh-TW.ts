@@ -359,6 +359,7 @@ export default {
     author: '作者',
     date: '日期',
     commitMessage: '提交資訊',
+    exportRevision: '匯出此版本的變更',
     commitDetails: '提交詳情',
     changedFiles: '變更檔案',
     searchAuthor: '按作者搜尋',

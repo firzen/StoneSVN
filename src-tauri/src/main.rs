@@ -853,6 +853,17 @@ async fn svn_export(
 }
 
 #[tauri::command]
+async fn svn_export_revision(
+    path: String,
+    revision: u64,
+    destination: String,
+) -> Result<(), String> {
+    svn::export_revision(&path, revision, &destination)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn svn_add(
     path: String,
     files: Vec<String>,
@@ -1381,6 +1392,7 @@ fn main() {
             svn_apply_patch,
             svn_blame,
             svn_export,
+            svn_export_revision,
             svn_add,
             svn_delete,
             svn_revert,

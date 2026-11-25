@@ -7,6 +7,8 @@ mod operations;
 mod parser;
 mod preview;
 mod properties;
+mod revision_export;
+pub use revision_export::export_revision;
 mod ssl_compat;
 mod status_cache;
 mod status_snapshot;

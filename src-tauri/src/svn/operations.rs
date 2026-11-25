@@ -8,6 +8,19 @@ use std::path::{Path, PathBuf};
 use super::executor::{execute_svn, SvnError};
 use super::parser::{parse_blame_text, parse_info_xml, parse_log_xml, parse_status_xml};
 
+pub(super) fn url_for_path(base: &str, relative: &str) -> Result<String, SvnError> {
+    let mut url = tauri::Url::parse(base).map_err(|e| SvnError::ParseError(e.to_string()))?;
+    let mut segments = url
+        .path_segments_mut()
+        .map_err(|_| SvnError::ParseError("Invalid SVN URL".into()))?;
+    segments.pop_if_empty();
+    for segment in relative.split('/').filter(|s| !s.is_empty() && *s != ".") {
+        segments.push(segment);
+    }
+    drop(segments);
+    Ok(url.to_string())
+}
+
 fn append_targets(args: &mut Vec<String>, targets: &[String]) {
     if targets.is_empty() {
         return;

@@ -81,6 +81,14 @@ pub enum SvnError {
 }
 
 pub async fn execute_svn(args: &[&str], path: Option<&str>) -> Result<String, SvnError> {
+    execute_svn_with_timeout(args, path, SVN_TIMEOUT).await
+}
+
+pub(super) async fn execute_svn_with_timeout(
+    args: &[&str],
+    path: Option<&str>,
+    deadline: Duration,
+) -> Result<String, SvnError> {
     let executable = current_svn_executable()?;
     let credentials = CREDENTIALS
         .get_or_init(Default::default)
@@ -93,6 +101,7 @@ pub async fn execute_svn(args: &[&str], path: Option<&str>) -> Result<String, Sv
         path,
         ssl_compat::current_configurations()?,
         credentials,
+        deadline,
     )
     .await
 }
@@ -110,6 +119,7 @@ async fn execute_svn_with_configuration(
         path,
         compatibility.into_iter().collect(),
         Vec::new(),
+        SVN_TIMEOUT,
     )
     .await
 }
@@ -120,6 +130,7 @@ async fn execute_svn_with_configurations(
     path: Option<&str>,
     configurations: Vec<SslCompatibility>,
     credentials: Vec<Credentials>,
+    deadline: Duration,
 ) -> Result<String, SvnError> {
     // Remote status (-u) connects to the server and needs the same scoped TLS
     // settings as info/log. Only purely local scans skip the metadata query.
@@ -174,7 +185,15 @@ async fn execute_svn_with_configurations(
     } else {
         credentials_for(&credentials, &urls)
     };
-    execute_svn_with_credentials(executable, args, path, compatibility.as_ref(), credentials).await
+    execute_svn_with_credentials(
+        executable,
+        args,
+        path,
+        compatibility.as_ref(),
+        credentials,
+        deadline,
+    )
+    .await
 }
 
 #[derive(serde::Serialize)]
@@ -370,7 +389,7 @@ async fn execute_svn_with_compatibility(
     path: Option<&str>,
     compatibility: Option<&SslCompatibility>,
 ) -> Result<String, SvnError> {
-    execute_svn_with_credentials(executable, args, path, compatibility, None).await
+    execute_svn_with_credentials(executable, args, path, compatibility, None, SVN_TIMEOUT).await
 }
 
 async fn execute_svn_with_credentials(
@@ -379,6 +398,7 @@ async fn execute_svn_with_credentials(
     path: Option<&str>,
     compatibility: Option<&SslCompatibility>,
     credentials: Option<Credentials>,
+    deadline: Duration,
 ) -> Result<String, SvnError> {
     let args_vec: Vec<String> = args.iter().map(|s| s.to_string()).collect();
     let mut cmd = Command::new(&executable);
@@ -426,7 +446,7 @@ async fn execute_svn_with_credentials(
 
     collect_command_output_with_password(
         &mut cmd,
-        SVN_TIMEOUT,
+        deadline,
         credentials.as_ref().map(|value| value.password.as_str()),
     )
     .await
@@ -563,6 +583,7 @@ done
                     root.to_str(),
                     vec![config.clone()],
                     credentials.clone(),
+                    SVN_TIMEOUT,
                 )
                 .await
                 .unwrap();
@@ -582,6 +603,7 @@ done
                         root.to_str(),
                         vec![config.clone()],
                         credentials.clone(),
+                        SVN_TIMEOUT,
                     )
                     .await
                     .unwrap();
