@@ -35,59 +35,8 @@
 
     <!-- 工作区主界面 -->
     <div v-else class="workspace-layout">
-      <!-- 左侧面板：工作区信息 -->
-      <aside class="left-panel">
-        <div class="repository-name">
-          <strong>{{ workspaceName }}</strong>
-          <button :aria-label="$t('workspace.closeWorkspace')" :title="$t('workspace.closeWorkspace')" :disabled="workspaceStore.operationBusy" @click="closeWorkspace"><el-icon><Close /></el-icon></button>
-        </div>
-        <div class="sidebar-section">
-          <div class="sidebar-heading">{{ $t('workspace.workingCopy') }}</div>
-          <button class="sidebar-row active" @click="setFilter('all')">
-            <el-icon><Document /></el-icon>
-            <span>{{ $t('workspace.fileStatus') }}</span>
-            <b>{{ workspaceFiles.length }}</b>
-          </button>
-          <button class="sidebar-row" @click="doCommit">
-            <el-icon><Upload /></el-icon>
-            <span>{{ $t('common.commit') }}</span>
-          </button>
-        </div>
-        <div class="sidebar-section">
-          <div class="sidebar-heading">{{ $t('workspace.repository') }}</div>
-          <button class="sidebar-row" @click="router.push({ name: 'log' })">
-            <el-icon><GitBranch /></el-icon>
-            <span>{{ $t('menu.log') }}</span>
-          </button>
-          <button class="sidebar-row" @click="router.push({ name: 'blame' })">
-            <el-icon><Edit /></el-icon>
-            <span>{{ $t('menu.blame') }}</span>
-          </button>
-        </div>
-        <div v-if="workspaceStore.svnInfo" class="repository-meta">
-          <div><span>URL</span><strong>{{ workspaceStore.svnInfo.url }}</strong></div>
-          <div><span>{{ $t('workspace.revision') }}</span><strong>r{{ workspaceStore.svnInfo.revision }}</strong></div>
-        </div>
-        <div class="sidebar-actions">
-          <SvnRelocateAction />
-          <button @click="doCleanup"><el-icon><Brush /></el-icon>{{ $t('common.cleanup') }}</button>
-        </div>
-      </aside>
-
-      <!-- 中间面板：文件列表 -->
+      <!-- 文件列表 -->
       <main class="center-panel">
-        <div class="panel-header">
-          <span class="panel-title">
-            <el-icon><List /></el-icon>
-            {{ $t('workspace.fileStatus') }}
-          </span>
-          <div class="header-actions">
-            <el-button text size="small" :aria-label="$t('menu.refresh')" :title="$t('menu.refresh')" @click="refreshStatus" :loading="workspaceStore.isLoading">
-              <el-icon><Refresh /></el-icon>
-            </el-button>
-          </div>
-        </div>
-
         <!-- 文件状态统计 -->
         <div class="status-summary">
           <button type="button" class="status-badge modified" :class="{ active: filter === 'modified' }" :aria-pressed="filter === 'modified'" @click="setFilter('modified')">
@@ -253,11 +202,10 @@
 import ConflictPreview from '@/components/ConflictPreview.vue'
 import RevertImpactTree from '@/components/RevertImpactTree.vue'
 import SvnConflictActions from '@/components/SvnConflictActions.vue'
-import SvnRelocateAction from '@/components/SvnRelocateAction.vue'
 import { h, getCurrentInstance, ref, computed, nextTick, onBeforeUnmount, onMounted, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { deleteUnversioned, revealWorkspaceFile, svnCleanup, svnRevert, svnRevertPreview, svnFilePreview } from '@/api/svn'
+import { deleteUnversioned, revealWorkspaceFile, svnRevert, svnRevertPreview, svnFilePreview } from '@/api/svn'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { ElMessageBox } from 'element-plus/es/components/message-box/index'
@@ -267,7 +215,6 @@ import VirtualViewport from '@/components/VirtualViewport.vue'
 import FilePreview from '@/components/FilePreview.vue'
 import OpenWorkspaceFileButton from '@/components/OpenWorkspaceFileButton.vue'
 import GlassLoading from '@/components/GlassLoading.vue'
-import { GitBranch } from '@/components/icons/materialIcons'
 import { writeClipboardText } from '@/utils/clipboard'
 import type { SvnStatus, FilePreviewResult } from '@/types'
 
@@ -275,7 +222,7 @@ const { t } = useI18n()
 const messageContext = getCurrentInstance()?.appContext
 const router = useRouter()
 const workspaceStore = useWorkspaceStore()
-const { openWorkspace: openWorkspaceDialog, refreshStatus, refreshStatusAfterMutation } = useWorkspace()
+const { openWorkspace: openWorkspaceDialog, refreshStatusAfterMutation } = useWorkspace()
 
 const projectViewStates = new Map<string, { filter: 'all' | 'modified' | 'added' | 'conflicted' | 'missing'; selected: string | null; scroll: number }>()
 const filter = ref<'all' | 'modified' | 'added' | 'conflicted' | 'missing'>('all')
@@ -309,11 +256,6 @@ const fileContextMenu = reactive({
   y: 0,
   file: null as SvnStatus | null,
 })
-const workspaceName = computed(() => {
-  const path = workspaceStore.currentPath || ''
-  return path.split(/[\\/]/).filter(Boolean).pop() || path
-})
-
 const fileViewport = ref<InstanceType<typeof VirtualViewport> | null>(null)
 const fileRowHeight = 48
 const diffStats = ref({ added: 0, removed: 0 })
@@ -401,28 +343,7 @@ const getStatusLabel = (code: string) => {
 
 const openWorkspace = () => openWorkspaceDialog(t('dialog.selectSVNWorkspaceDirectory'))
 
-const closeWorkspace = () => {
-  if (workspaceStore.operationBusy) return
-  diffRequestGeneration += 1
-  workspaceStore.clearWorkspace()
-  selectedFile.value = null
-  diffResult.value = null
-  isLoadingDiff.value = false
-}
-
 const doCheckout = () => router.push({ name: 'checkout' })
-
-const doCommit = () => router.push({ name: 'commit' })
-
-const doCleanup = async () => {
-  if (!workspaceStore.currentPath || workspaceStore.operationBusy) return
-  try {
-    await svnCleanup(workspaceStore.currentPath)
-    await refreshStatusAfterMutation()
-  } catch (err) {
-    workspaceStore.setError(String(err))
-  }
-}
 
 const openConflictComparison = (event: MouseEvent, file: SvnStatus) => {
   if (!isConflicted(file) || (event.target instanceof Element && event.target.closest('.file-actions'))) return
@@ -658,7 +579,7 @@ const handleFileAction = async (file: SvnStatus) => {
   gap: 12px;
 }
 
-/* 三栏布局 */
+/* 工作区布局 */
 .workspace-layout {
   display: flex;
   height: 100%;
@@ -666,18 +587,11 @@ const handleFileAction = async (file: SvnStatus) => {
 }
 
 /* 面板通用样式 */
-.left-panel,
 .center-panel,
 .right-panel {
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--md-sys-color-outline-variant);
-}
-
-.left-panel {
-  width: 280px;
-  flex-shrink: 0;
-  background: var(--md-sys-color-surface);
 }
 
 .center-panel {
@@ -1108,15 +1022,6 @@ const handleFileAction = async (file: SvnStatus) => {
   }
 }
 
-@media (max-width: 860px) {
-  .left-panel {
-    display: none;
-  }
-  
-  .right-panel {
-    display: flex;
-  }
-}
 </style>
 
 <style scoped>
@@ -1130,8 +1035,7 @@ const handleFileAction = async (file: SvnStatus) => {
   background: var(--md-sys-color-surface-container-lowest);
 }
 
-.welcome-sidebar,
-.left-panel {
+.welcome-sidebar {
   width: 210px;
   background: var(--md-sys-color-surface-container-low);
   border-right: 1px solid var(--md-sys-color-outline-variant);
@@ -1199,33 +1103,6 @@ const handleFileAction = async (file: SvnStatus) => {
   background: var(--md-sys-color-surface-container-lowest);
 }
 
-.left-panel {
-  flex-shrink: 0;
-}
-
-.repository-name {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 37px;
-  padding: 0 9px 0 12px;
-  border-bottom: 1px solid var(--md-sys-color-outline-variant);
-  color: var(--md-sys-color-on-surface);
-  font-size: var(--app-font-size-sm);
-}
-
-.repository-name button {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border: 0;
-  border-radius: var(--app-radius-sm);
-  background: transparent;
-  color: var(--md-sys-color-on-surface-variant);
-}
-
-.repository-name button:hover,
 .sidebar-row:hover {
   background: var(--md-sys-state-hover);
 }
@@ -1260,66 +1137,6 @@ const handleFileAction = async (file: SvnStatus) => {
 .sidebar-row.active {
   color: var(--md-sys-color-on-primary-container);
   background: var(--md-sys-color-primary-container);
-}
-
-.sidebar-row span {
-  flex: 1;
-}
-
-.sidebar-row b {
-  font-size: var(--app-font-size-2xs);
-}
-
-.repository-meta {
-  margin: 10px 12px;
-  padding-top: 8px;
-  border-top: 1px solid var(--md-sys-color-outline-variant);
-}
-
-.repository-meta div {
-  margin-bottom: 9px;
-}
-
-.repository-meta span,
-.repository-meta strong {
-  display: block;
-}
-
-.repository-meta span {
-  color: var(--md-sys-color-on-surface-variant);
-  font-size: 9px;
-  text-transform: uppercase;
-}
-
-.repository-meta strong {
-  overflow: hidden;
-  margin-top: 2px;
-  color: var(--md-sys-color-on-surface-variant);
-  font-size: var(--app-font-size-2xs);
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sidebar-actions {
-  display: grid;
-  gap: 4px;
-  margin-top: auto;
-  padding: 9px;
-  border-top: 1px solid var(--md-sys-color-outline-variant);
-}
-
-.sidebar-actions button {
-  display: flex;
-  align-items: center;
-  height: 27px;
-  gap: 6px;
-  padding: 0 8px;
-  border: 1px solid var(--md-sys-color-outline);
-  border-radius: var(--app-radius-sm);
-  background: var(--md-sys-color-surface-container-low);
-  color: var(--md-sys-color-on-surface-variant);
-  font-size: var(--app-font-size-label);
 }
 
 .center-panel,

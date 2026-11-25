@@ -759,7 +759,6 @@ onUnmounted(() => {
   background: var(--md-sys-color-surface-container-lowest);
 }
 
-.route-content :deep(.left-panel),
 .route-content :deep(.welcome-sidebar) {
   display: none;
 }
