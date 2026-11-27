@@ -622,12 +622,29 @@ const loadRecentMessages = async (visible = true) => {
 
   loadingRecentMessages.value = true
   try {
-    const logs = await svnLog(workspacePath, 10)
-    if (request !== recentMessagesRequest || workspaceStore.currentPath !== workspacePath) return
-    recentMessages.value = logs.map(entry => ({
-      id: String(entry.revision),
-      message: entry.message,
-    }))
+    const messageLimit = 20
+    const batchSize = 50
+    const messages: RecentCommitMessage[] = []
+    const seen = new Set<string>()
+    let startRev: number | undefined
+
+    while (messages.length < messageLimit) {
+      const logs = await svnLog(workspacePath, batchSize, startRev, startRev === undefined ? undefined : 1)
+      if (request !== recentMessagesRequest || workspaceStore.currentPath !== workspacePath) return
+
+      for (const entry of logs) {
+        const key = entry.message.trim()
+        if (!key || seen.has(key)) continue
+        seen.add(key)
+        messages.push({ id: String(entry.revision), message: entry.message })
+        if (messages.length === messageLimit) break
+      }
+
+      if (logs.length < batchSize) break
+      startRev = logs[logs.length - 1].revision - 1
+      if (startRev < 1) break
+    }
+    recentMessages.value = messages
   } catch (err) {
     if (request !== recentMessagesRequest || workspaceStore.currentPath !== workspacePath) return
     recentMessages.value = []

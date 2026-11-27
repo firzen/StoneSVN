@@ -26,6 +26,7 @@ function harness(entries, options = {}) {
     'vue-i18n': { useI18n: () => ({ t: key => key }) },
     '@/stores/workspace': { useWorkspaceStore: () => store },
     '@/api/svn': {
+      svnLog: options.svnLog,
       openWorkspaceFile: async (...args) => { opened.push(args); if (options.openError) throw options.openError },
       svnDelete: async (...args) => { deletions.push(['svn', ...args]); return { success: !options.deleteError, error: 'delete failed', output: '' } },
       deleteUnversioned: async (...args) => { deletions.push(['disk', ...args]); return { success: true, output: '' } },
@@ -40,7 +41,7 @@ function harness(entries, options = {}) {
   }
   const script = fs.readFileSync('src/views/CommitView.vue', 'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   const context = { exports: {}, Element: class {}, sessionStorage: { setItem() {} }, setTimeout() {}, require: name => { assert.ok(name in mocks, name); return mocks[name] } }
-  vm.runInNewContext(ts.transpileModule(script + '\nexports.actions = { deleteSelectedFiles, deleteTargets, fullTree, selectedFiles, isChecked, isPartial, toggleSubtree, toggleNode, toggleSelection, collapsedPaths, flatRows, searchQuery, commitMessage, doCommit, revertFile, viewBlame, handleRowDoubleClick, loading, output };', {
+  vm.runInNewContext(ts.transpileModule(script + '\nexports.actions = { deleteSelectedFiles, deleteTargets, fullTree, selectedFiles, isChecked, isPartial, toggleSubtree, toggleNode, toggleSelection, collapsedPaths, flatRows, searchQuery, commitMessage, doCommit, revertFile, viewBlame, handleRowDoubleClick, loading, output, loadRecentMessages, recentMessages, useRecentMessage };', {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
   }).outputText, context)
   return { ...context.exports.actions, store, deletions, commits, opened, routes, reverts, previews, confirmations, refreshes: () => refreshes }
@@ -237,4 +238,30 @@ test('batch deletion collapses selected descendants under a selected directory',
   const h = harness([{ ...entry('dir', 'unversioned'), directory: true }, entry('dir/a.txt', 'unversioned')])
   h.selectedFiles.value = ['dir', 'dir/a.txt']
   assert.deepEqual(Array.from(h.deleteTargets.value, file => file.path), ['dir'])
+})
+
+
+test('recent commit messages skip blanks and duplicates across SVN log batches', async () => {
+  const logs = [
+    { revision: 100, message: 'latest\nmessage' },
+    { revision: 99, message: ' ' },
+    ...Array.from({ length: 48 }, (_, i) => ({ revision: 98 - i, message: ' latest\nmessage  ' })),
+    ...Array.from({ length: 25 }, (_, i) => ({ revision: 50 - i, message: `older ${i}` })),
+  ]
+  const calls = []
+  const h = harness([], {
+    svnLog: async (path, limit, startRev, endRev) => {
+      calls.push([path, startRev, endRev])
+      return logs.filter(entry => startRev === undefined || entry.revision <= startRev).slice(0, limit)
+    },
+  })
+  await h.loadRecentMessages()
+  assert.deepEqual(calls, [['/wc', undefined, undefined], ['/wc', 50, 1]])
+  assert.deepEqual(Array.from(h.recentMessages.value, entry => entry.message), [
+    'latest\nmessage',
+    ...Array.from({ length: 19 }, (_, i) => `older ${i}`),
+  ])
+  assert.equal(h.recentMessages.value[0].id, '100')
+  h.useRecentMessage(h.recentMessages.value[0].message)
+  assert.equal(h.commitMessage.value, 'latest\nmessage')
 })
