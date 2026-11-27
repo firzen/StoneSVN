@@ -444,6 +444,7 @@ export default {
     noIncoming: '作業コピーは最新です',
   },
   checkout: {
+    wholeProject: 'プロジェクト全体',
     title: 'コードをチェックアウト',
     output: 'チェックアウト出力',
     repositoryUrl: 'リポジトリ URL',

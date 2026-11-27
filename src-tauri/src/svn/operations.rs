@@ -1640,3 +1640,35 @@ mod tests {
         assert_eq!(matches[0].revision, 8);
     }
 }
+
+#[derive(Debug, Serialize)]
+pub struct RepositoryEntry {
+    pub url: String,
+    pub name: String,
+    pub is_directory: bool,
+}
+
+pub async fn browse_entries(
+    url: &str,
+    revision: Option<u64>,
+) -> Result<Vec<RepositoryEntry>, SvnError> {
+    let mut args = vec!["list".to_string()];
+    if let Some(rev) = revision {
+        args.extend(["-r".to_string(), rev.to_string()]);
+    }
+    args.extend(["--".to_string(), format!("{}@", url)]);
+    let refs: Vec<&str> = args.iter().map(String::as_str).collect();
+    let output = execute_svn(&refs, None).await?;
+    output
+        .lines()
+        .map(|line| {
+            let is_directory = line.ends_with('/');
+            let name = line.strip_suffix('/').unwrap_or(line);
+            Ok(RepositoryEntry {
+                url: url_for_path(url, name)?,
+                name: name.to_string(),
+                is_directory,
+            })
+        })
+        .collect()
+}

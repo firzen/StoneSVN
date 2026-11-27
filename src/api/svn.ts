@@ -251,3 +251,9 @@ export async function svnConflictDetails(workspacePath: string, file: string) {
 export async function svnApplyConflict(workspacePath: string, file: string, resolution: import('@/types').ConflictResolution) {
   return invoke<string>('svn_apply_conflict', { workspacePath, file, resolution })
 }
+
+export interface RepositoryEntry { url: string; name: string; is_directory: boolean }
+
+export async function svnBrowseEntries(url: string, revision?: number): Promise<RepositoryEntry[]> {
+  return invokeWithConnectionPrompt<RepositoryEntry[]>('svn_browse_entries', { url, revision })
+}

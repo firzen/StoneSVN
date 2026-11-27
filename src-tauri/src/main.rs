@@ -596,6 +596,16 @@ pub struct DiffResult {
 }
 
 #[tauri::command]
+async fn svn_browse_entries(
+    url: String,
+    revision: Option<u64>,
+) -> Result<Vec<svn::RepositoryEntry>, String> {
+    svn::browse_entries(&url, revision)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 async fn svn_checkout(
     url: String,
     path: String,
@@ -1371,6 +1381,7 @@ fn main() {
             svn_connection_info,
             launch_workspace_path,
             svn_checkout,
+            svn_browse_entries,
             svn_update,
             svn_commit,
             svn_status,

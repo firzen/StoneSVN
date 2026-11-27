@@ -444,6 +444,7 @@ export default {
     noIncoming: '작업 사본이 최신 상태입니다',
   },
   checkout: {
+    wholeProject: '전체 프로젝트',
     title: '코드 체크아웃',
     output: '체크아웃 출력',
     repositoryUrl: '저장소 URL',

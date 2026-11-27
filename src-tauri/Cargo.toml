@@ -1,6 +1,6 @@
 [package]
 name = "StoneSVN"
-version = "1.4.0"
+version = "1.5.0"
 description = "StoneSVN 客户端"
 authors = [""]
 license = "MIT"

@@ -444,6 +444,7 @@ export default {
     noIncoming: '目前工作副本已是最新',
   },
   checkout: {
+    wholeProject: '整個專案',
     title: '檢出程式碼',
     output: '檢出輸出',
     repositoryUrl: '倉庫 URL',

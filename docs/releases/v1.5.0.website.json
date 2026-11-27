@@ -1,0 +1,42 @@
+{
+  "en": {
+    "title": "Browse remote files before checkout",
+    "items": [
+      "Browse directories and files in a dialog with familiar Properties icons and typography.",
+      "Choose a directory to update the checkout URL; double-click to expand or collapse. The entire entered project is selected by default.",
+      "Recent commit messages are deduplicated across log batches."
+    ]
+  },
+  "zh-CN": {
+    "title": "检出前浏览远程文件树",
+    "items": [
+      "弹窗浏览远程目录和文件，沿用属性文件树的图标与字体。",
+      "确认目录后直接更新检出 URL；双击目录展开或收起，默认选择整个项目。",
+      "跨日志批次收集不重复的最近提交消息。"
+    ]
+  },
+  "zh-TW": {
+    "title": "簽出前瀏覽遠端檔案樹",
+    "items": [
+      "在對話方塊瀏覽遠端目錄與檔案，沿用屬性檔案樹的圖示與字型。",
+      "確認目錄後直接更新簽出 URL；雙擊目錄展開或收合，預設選取整個專案。",
+      "跨記錄批次收集不重複的最近提交訊息。"
+    ]
+  },
+  "ja": {
+    "title": "チェックアウト前にリモートファイルを参照",
+    "items": [
+      "プロパティと同じアイコンと書体で、ダイアログ内のディレクトリとファイルを参照できます。",
+      "ディレクトリを確定すると URL を更新します。ダブルクリックで展開・折りたたみでき、既定ではプロジェクト全体を選択します。",
+      "ログの複数バッチから重複しない最近のコミットメッセージを収集します。"
+    ]
+  },
+  "ko": {
+    "title": "체크아웃 전에 원격 파일 탐색",
+    "items": [
+      "속성과 동일한 아이콘과 글꼴로 대화상자에서 원격 디렉터리와 파일을 탐색합니다.",
+      "디렉터리를 확인하면 URL이 갱신됩니다. 두 번 클릭하여 펼치거나 접으며 기본 선택은 전체 프로젝트입니다.",
+      "여러 로그 배치에서 중복 없는 최근 커밋 메시지를 수집합니다."
+    ]
+  }
+}

@@ -40,7 +40,7 @@ The official StoneSVN installer includes SVN. In Settings, leave SVN Executable 
 
 ### Check out a project for the first time
 
-Select Add Remote Copy to open Checkout. Fill in the fields and start checkout. This creates a local working copy that you can subsequently select from the project sidebar.
+Select Add Remote Copy to open Checkout. Fill in the fields and start checkout. This creates a local working copy that you can subsequently select from the project sidebar. Use Browse beside the URL to inspect the remote file tree, select a directory, and confirm its URL before checkout. Double-click directories to expand or collapse them.
 
 | Field | Example and checks |
 | --- | --- |

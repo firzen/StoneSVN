@@ -20,6 +20,7 @@
         <el-form-item :label="$t('checkout.repositoryUrl')" required class="form-item">
           <el-input
             v-model="form.url"
+            @keyup.enter="browse"
             :placeholder="$t('checkout.repositoryUrlPlaceholder')"
             class="checkout-control"
             clearable
@@ -27,9 +28,34 @@
             <template #prefix>
               <el-icon><Link /></el-icon>
             </template>
+            <template #append>
+              <el-button @click="browse" :loading="browsing" :disabled="!form.url.trim() || loading">{{ $t('common.browse') }}</el-button>
+            </template>
           </el-input>
         </el-form-item>
 
+        <el-dialog v-model="browserVisible" :title="$t('checkout.selectDirectory')" width="640px" append-to-body>
+          <div class="repository-browser" v-loading="browsing">
+            <el-tree v-if="roots.length" :key="generation" :data="roots" node-key="url"
+              lazy :props="{ isLeaf: 'isLeaf' }" :load="loadDirectories" :default-expanded-keys="roots.map(node => node.url)"
+              highlight-current :current-node-key="pendingUrl"
+              :expand-on-click-node="false" @node-click="selectNode">
+              <template #default="{ data, node }">
+                <span class="repository-entry" :class="{ 'repository-file': data.isLeaf }" @dblclick.stop="toggleDirectory(node)">
+                  <FileTypeIcon :path="data.label" :directory="!data.isLeaf" />
+                  <span class="repository-entry-name">{{ data.label }}</span>
+                </span>
+              </template>
+            </el-tree>
+            <div class="selected-url">{{ pendingUrl }}</div>
+            <div v-if="browseError" role="alert">{{ browseError }}</div>
+          </div>
+          <template #footer>
+            <el-button @click="browserVisible = false">{{ $t('common.cancel') }}</el-button>
+            <el-button v-if="browseError" @click="browse" :loading="browsing">{{ $t('common.browse') }}</el-button>
+            <el-button type="primary" :disabled="!pendingUrl || browsing" @click="confirmDirectory">{{ $t('common.confirm') }}</el-button>
+          </template>
+        </el-dialog>
         <el-form-item :label="$t('checkout.targetDirectory')" required class="form-item">
           <el-input
             v-model="form.path"
@@ -64,7 +90,7 @@
         </el-form-item>
 
         <el-form-item class="form-actions">
-          <el-button type="primary" @click="doCheckout" :loading="loading" size="large">
+          <el-button type="primary" @click="doCheckout" :loading="loading" :disabled="!selectedUrl || !form.path || browsing" size="large">
             <el-icon><Download /></el-icon>
             {{ $t('checkout.startCheckout') }}
           </el-button>
@@ -98,10 +124,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, watch } from 'vue'
+import FileTypeIcon from '@/components/FileTypeIcon.vue'
+import { ElTree } from 'element-plus/es/components/tree/index'
+import type { LoadFunction } from 'element-plus/es/components/tree/src/tree.type'
 import { useRouter } from 'vue-router'
 import { useWorkspaceStore } from '@/stores/workspace'
-import { svnCheckout } from '@/api/svn'
+import { svnCheckout, svnBrowseEntries } from '@/api/svn'
 import { open } from '@tauri-apps/plugin-dialog'
 import { useI18n } from 'vue-i18n'
 
@@ -115,6 +144,70 @@ const form = reactive({
   revision: undefined as number | undefined
 })
 
+interface DirectoryNode { url: string; label: string; isLeaf: boolean }
+const roots = ref<DirectoryNode[]>([])
+let initialDirectories: DirectoryNode[] = []
+const selectedUrl = ref('')
+const pendingUrl = ref('')
+const browserVisible = ref(false)
+const confirmDirectory = () => {
+  const url = pendingUrl.value
+  if (!url) return
+  form.url = url
+  selectedUrl.value = url
+  browserVisible.value = false
+}
+const browsing = ref(false)
+const browseError = ref('')
+const generation = ref(0)
+watch(() => [form.url, form.revision], () => {
+  generation.value++
+  roots.value = []
+  selectedUrl.value = ''
+  pendingUrl.value = ''
+  browsing.value = false
+  browseError.value = ''
+}, { flush: 'sync' })
+
+const browse = async () => {
+  browserVisible.value = true
+  const request = ++generation.value
+  browsing.value = true
+  browseError.value = ''
+  pendingUrl.value = ''
+  roots.value = []
+  try {
+    const url = form.url.trim().replace(/\/+$/, '')
+    const urls = await svnBrowseEntries(url, form.revision || undefined)
+    if (request !== generation.value) return
+    initialDirectories = urls.map(entry => ({ url: entry.url, label: entry.name, isLeaf: !entry.is_directory }))
+    roots.value = [{ url, label: t('checkout.wholeProject'), isLeaf: false }]
+    pendingUrl.value = selectedUrl.value || url
+  } catch (error) {
+    if (request === generation.value) browseError.value = String(error)
+  } finally {
+    if (request === generation.value) browsing.value = false
+  }
+}
+const toggleDirectory = (node: Parameters<LoadFunction>[0]) => {
+  if (node.data.isLeaf) return
+  if (node.expanded) node.collapse()
+  else node.expand()
+}
+const selectNode = (node: DirectoryNode) => { if (!node.isLeaf) pendingUrl.value = node.url }
+const loadDirectories: LoadFunction = async (node, resolve, reject) => {
+  if (node.level === 0) { resolve(roots.value); return }
+  if (node.data.url === roots.value[0]?.url) { resolve(initialDirectories); return }
+  const request = generation.value
+  try {
+    const urls = await svnBrowseEntries(node.data.url, form.revision || undefined)
+    if (request !== generation.value) { resolve([]); return }
+    resolve(urls.map(entry => ({ url: entry.url, label: entry.name, isLeaf: !entry.is_directory })))
+  } catch (error) {
+    if (request === generation.value) browseError.value = String(error)
+    reject()
+  }
+}
 const loading = ref(false)
 const output = ref('')
 
@@ -131,7 +224,7 @@ const selectDirectory = async () => {
 }
 
 const doCheckout = async () => {
-  if (!form.url || !form.path) {
+  if (!selectedUrl.value || !form.path) {
     return
   }
 
@@ -139,7 +232,7 @@ const doCheckout = async () => {
   output.value = ''
 
   try {
-    const result = await svnCheckout(form.url, form.path, form.revision)
+    const result = await svnCheckout(selectedUrl.value, form.path, form.revision || undefined)
     output.value = result.output
 
     workspaceStore.setCurrentPath(form.path)
@@ -218,6 +311,50 @@ const resetForm = () => {
 .checkout-control {
   width: 520px;
   max-width: 100%;
+}
+
+.repository-browser {
+  min-height: 120px;
+}
+
+.repository-browser :deep(.el-tree) {
+  max-height: 360px;
+  overflow: auto;
+  margin-bottom: 12px;
+}
+
+.repository-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
+}
+
+.repository-entry-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repository-browser :deep(.el-tree-node__content) {
+  height: 30px;
+  font-size: 12px;
+}
+
+.repository-browser :deep(.el-tree-node__content:hover) {
+  background: var(--el-fill-color-light);
+}
+
+.repository-browser :deep(.el-tree-node.is-current > .el-tree-node__content) {
+  background: var(--el-color-primary-light-8);
+  color: var(--el-color-primary);
+  box-shadow: inset 3px 0 var(--el-color-primary);
+}
+
+.selected-url {
+  overflow-wrap: anywhere;
 }
 
 .revision-control {

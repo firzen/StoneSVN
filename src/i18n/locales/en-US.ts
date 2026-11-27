@@ -444,6 +444,7 @@ export default {
     noIncoming: 'The working copy is up to date',
   },
   checkout: {
+    wholeProject: 'Entire project',
     title: 'Checkout Code',
     output: 'Checkout Output',
     repositoryUrl: 'Repository URL',
